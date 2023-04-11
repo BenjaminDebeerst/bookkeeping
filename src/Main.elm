@@ -5,6 +5,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import List exposing (..)
+import Serialize
 
 main = Browser.sandbox { init = init, update = update, view = view }
 
@@ -16,6 +17,7 @@ type alias UI =
 type Model
   = Init String
   | Show Data UI
+  | ShowSave String
 
 init = Init ""
 
@@ -30,11 +32,19 @@ update : Msg -> Model -> Model
 update msg model =
   case (model, msg) of
     (Init _, SetFileName f) -> Init f
-    (Init f, Load) -> Show [[f,f,f]] (UI "")
+    (Init f, Load) -> Show (decode f) (UI "")
     (Show d ui, AddRow) -> Show (d ++ [ ui.row |> String.split "," |> List.map String.trim ]) ui
     (Show d ui, Row r) -> Show d { ui | row = r }
-    (Show d ui, Save) -> model
+    (Show d ui, Save) -> ShowSave (encode d)
     (_, _) -> model
+
+dataCodec = Serialize.list <| Serialize.list Serialize.string
+encode data = Serialize.encodeToString dataCodec data
+decode data = case (Serialize.decodeFromString dataCodec data) of
+  Ok value -> value
+  Err (Serialize.CustomError e) -> [["Custom"]]
+  Err Serialize.DataCorrupted -> [["corrupt"]]
+  Err Serialize.SerializerOutOfDate -> [["outofdate"]]
 
 view : Model -> Html Msg
 view model =
@@ -52,6 +62,7 @@ view model =
         , button [ onClick Save ] [ text "Save" ]
         ]
       ]
+    ShowSave d -> text d
 
 viewTable table = table |> List.map (
   \row -> tr [] ( row |> List.map ( \t -> td [] [ text t ]) )
