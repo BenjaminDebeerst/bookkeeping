@@ -40,7 +40,7 @@ update msg model =
 
 dataCodec = Serialize.list <| Serialize.list Serialize.string
 encode data = Serialize.encodeToString dataCodec data
-decode data = case (Serialize.decodeFromString dataCodec data) of
+decode data = case (Serialize.decodeFromString dataCodec (String.trim data)) of
   Ok value -> value
   Err (Serialize.CustomError e) -> [["Custom"]]
   Err Serialize.DataCorrupted -> [["corrupt"]]
