@@ -19,7 +19,7 @@ Flow
   * categorize
 
 Arch
-  * Try a client side only implementation without server
-    * split elm state into UI state and data
-    * action to serialize, action to deserialize.
-    * using elm-serialize
+  x Try a client side only implementation without server
+    x split elm state into UI state and data
+    x action to serialize, action to deserialize.
+    x using elm-serialize

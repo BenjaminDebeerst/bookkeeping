@@ -22,8 +22,9 @@ type Model
 init = Init ""
 
 type Msg
-  = SetFileName String
+  = SetEncodedData String
   | Load
+  | FromScratch
   | Row String
   | AddRow
   | Save
@@ -31,32 +32,31 @@ type Msg
 update : Msg -> Model -> Model
 update msg model =
   case (model, msg) of
-    (Init _, SetFileName f) -> Init f
+    (Init _, SetEncodedData f) -> Init f
     (Init f, Load) -> Show (decode f) (UI "")
+    (Init _, FromScratch) -> Show [] (UI "")
     (Show d ui, AddRow) -> Show (d ++ [ ui.row |> String.split "," |> List.map String.trim ]) ui
     (Show d ui, Row r) -> Show d { ui | row = r }
-    (Show d ui, Save) -> ShowSave (encode d)
+    (Show d _, Save) -> ShowSave (encode d)
     (_, _) -> model
 
 dataCodec = Serialize.list <| Serialize.list Serialize.string
 encode data = Serialize.encodeToString dataCodec data
 decode data = case (Serialize.decodeFromString dataCodec (String.trim data)) of
   Ok value -> value
-  Err (Serialize.CustomError e) -> [["Custom"]]
-  Err Serialize.DataCorrupted -> [["corrupt"]]
-  Err Serialize.SerializerOutOfDate -> [["outofdate"]]
+  Err (_) -> [["I'm sorry, something went wrong"]]
 
 view : Model -> Html Msg
 view model =
   case model of
-    Init s -> showInit
-    Show data ui ->
+    Init _ -> showInit
+    Show data _ ->
       div [] [
         div [ id "menu" ] [ text "Titel" ]
       , div [ id "data" ] [
           div [ id "edit" ] [
-            input [ placeholder "Text to add", onInput Row] []
-          , button [ onClick AddRow ] [ text "Add" ]
+            div [] [ textarea [ placeholder "Import CSV data", onInput Row] [] ]
+          , div [] [ button [ onClick AddRow ] [ text "Add" ] ]
           ]
         , div [ id "ledger" ] ( viewTable data )
         , button [ onClick Save ] [ text "Save" ]
@@ -69,6 +69,7 @@ viewTable table = table |> List.map (
   )
 
 showInit = div [] [
-             input [ placeholder "File", onInput SetFileName] []
-           , button [ onClick Load ] [ text "Load" ]
+             div [] [ textarea [ placeholder "Data to be loaded", onInput SetEncodedData] [] ]
+           , div [] [ button [ onClick Load ] [ text "Load" ] ]
+           , div [] [ button [ onClick FromScratch ] [ text "Start from Scratch" ] ]
            ]
