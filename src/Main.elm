@@ -11,7 +11,7 @@ main = Browser.sandbox { init = init, update = update, view = view }
 
 type alias Data = List (List String)
 type alias UI =
-  { row: String
+  { textinput: String
   }
 
 type Model
@@ -22,11 +22,13 @@ type Model
 init = Init ""
 
 type Msg
+  -- Initialization
   = SetEncodedData String
   | Load
   | FromScratch
-  | Row String
-  | AddRow
+  -- CSV Import
+  | DataInputModified String
+  | StoreData
   | Save
 
 update : Msg -> Model -> Model
@@ -35,10 +37,13 @@ update msg model =
     (Init _, SetEncodedData f) -> Init f
     (Init f, Load) -> Show (decode f) (UI "")
     (Init _, FromScratch) -> Show [] (UI "")
-    (Show d ui, AddRow) -> Show (d ++ [ ui.row |> String.split "," |> List.map String.trim ]) ui
-    (Show d ui, Row r) -> Show d { ui | row = r }
+    (Show d ui, StoreData) -> Show (d ++  (textInputToTable ui.textinput) ) ui
+    (Show d ui, DataInputModified r) -> Show d { ui | textinput = r }
     (Show d _, Save) -> ShowSave (encode d)
     (_, _) -> model
+
+textInputToTable data = data |> String.split "\n" |> List.map splitAtComma
+splitAtComma s = s |> String.split "," |> List.map String.trim
 
 dataCodec = Serialize.list <| Serialize.list Serialize.string
 encode data = Serialize.encodeToString dataCodec data
@@ -55,8 +60,8 @@ view model =
         div [ id "menu" ] [ text "Titel" ]
       , div [ id "data" ] [
           div [ id "edit" ] [
-            div [] [ textarea [ placeholder "Import CSV data", onInput Row] [] ]
-          , div [] [ button [ onClick AddRow ] [ text "Add" ] ]
+            div [] [ textarea [ placeholder "Import CSV data", onInput DataInputModified] [] ]
+          , div [] [ button [ onClick StoreData ] [ text "Add" ] ]
           ]
         , div [ id "ledger" ] ( viewTable data )
         , button [ onClick Save ] [ text "Save" ]
