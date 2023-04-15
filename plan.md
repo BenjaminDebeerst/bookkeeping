@@ -23,3 +23,5 @@ Arch
     x split elm state into UI state and data
     x action to serialize, action to deserialize.
     x using elm-serialize
+  * Don't store computed values
+    * Only store the raw csv string + hash identifier, for each hash: parsing mappings and compute instructions
