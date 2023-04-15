@@ -2,14 +2,24 @@ module Main exposing (..)
 
 import Array
 import Browser
+import Browser.Navigation as Nav exposing (pushUrl)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import List exposing (..)
 import Serialize as S
 import SHA1
+import Url exposing (Url)
+import Url.Builder
 
-main = Browser.sandbox { init = init, update = update, view = view }
+main = Browser.application
+    { init = init
+    , onUrlChange = \_ -> Noop
+    , onUrlRequest = \_ -> Noop
+    , subscriptions = \_ -> Sub.none
+    , update = update
+    , view = \m -> {title = "App", body = [view m] }
+    }
 
 type alias CsvLine = (String, String)
 
@@ -21,11 +31,20 @@ type alias UI =
   }
 
 type Model
-  = Init String
-  | Show Data UI
+  = Init String Nav.Key
+  | Show Data UI Nav.Key
   | ShowSave String
 
-init = Init ""
+--init : flags -> Url -> Key -> (Cmd msg)
+init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init f url key = case url.query of
+    Nothing -> (Init "" key, Cmd.none)
+    -- gonna be lazy here, assuming the query is either data=foobar or absent
+    Just data ->
+        if String.startsWith "data=" data then
+            (Show (decode <| String.dropLeft 5 data) (UI "") key, Cmd.none)
+        else
+            (Init "" key, Cmd.none)
 
 type Msg
   -- Initialization
@@ -36,17 +55,22 @@ type Msg
   | DataInputModified String
   | StoreData
   | Save
+  -- Just for the application constructor
+  | Noop
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> (Model, Cmd msg)
 update msg model =
   case (model, msg) of
-    (Init _, SetEncodedData f) -> Init f
-    (Init f, Load) -> Show (decode f) (UI "")
-    (Init _, FromScratch) -> Show emptyData (UI "")
-    (Show d ui, StoreData) -> Show (addCsvRows d ui.textinput ) { ui | textinput = "" }
-    (Show d ui, DataInputModified r) -> Show d { ui | textinput = r }
-    (Show d _, Save) -> ShowSave (encode d)
-    (_, _) -> model
+    (Init _ k, SetEncodedData f) -> (Init f k, Cmd.none)
+    (Init f k, Load) -> (Show (decode f) (UI "") k, Cmd.none)
+    (Init _ k, FromScratch) -> (Show emptyData (UI "") k, Cmd.none)
+    (Show d ui k, StoreData) -> (Show (addCsvRows d ui.textinput ) { ui | textinput = "" } k, Cmd.none)
+    (Show d ui k, DataInputModified r) -> (Show d { ui | textinput = r } k, Cmd.none)
+    (Show d _ k, Save) -> (model, pushUrl k <| toUrl d)
+    (_, _) -> (model, Cmd.none)
+
+toUrl : Data -> String
+toUrl data = Url.Builder.relative [] [ Url.Builder.string "data" (encode data) ]
 
 addCsvRows : Data -> String -> Data
 addCsvRows data newRows =
@@ -71,15 +95,15 @@ emptyData = { rawData = [] }
 view : Model -> Html Msg
 view model =
   case model of
-    Init _ -> showInit
-    Show data _ -> showData data
+    Init i _ -> showInit i
+    Show data _ _ -> showData data
     ShowSave d -> text d
 
 sha1 : String -> String
 sha1 s = SHA1.fromString s |> SHA1.toHex |> String.slice 0 8
 
-showInit = div [] [
-             div [] [ textarea [ placeholder "Data to be loaded", onInput SetEncodedData] [] ]
+showInit i = div [] [
+             div [] [ textarea [ placeholder "Serialized data to load", onInput SetEncodedData] [] ]
            , div [] [ button [ onClick Load ] [ text "Load" ] ]
            , div [] [ button [ onClick FromScratch ] [ text "Start from Scratch" ] ]
            ]
