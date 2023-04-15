@@ -31,20 +31,26 @@ type alias UI =
   }
 
 type Model
-  = Init String Nav.Key
-  | Show Data UI Nav.Key
-  | ShowSave String
+  = Init {
+    data : String
+  , key : Nav.Key
+  }
+  | Show {
+    key : Nav.Key
+  , textinput : String
+  , data : Data
+  }
 
---init : flags -> Url -> Key -> (Cmd msg)
+
 init : () -> Url -> Nav.Key -> ( Model, Cmd Msg )
 init f url key = case url.query of
-    Nothing -> (Init "" key, Cmd.none)
+    Nothing -> (Init { data = "", key = key}, Cmd.none)
     -- gonna be lazy here, assuming the query is either data=foobar or absent
     Just data ->
         if String.startsWith "data=" data then
-            (Show (decode <| String.dropLeft 5 data) (UI "") key, Cmd.none)
+            (Show { data = (decode <| String.dropLeft 5 data), textinput = "", key = key }, Cmd.none)
         else
-            (Init "" key, Cmd.none)
+            (Init { data = "", key = key}, Cmd.none)
 
 type Msg
   -- Initialization
@@ -61,12 +67,12 @@ type Msg
 update : Msg -> Model -> (Model, Cmd msg)
 update msg model =
   case (model, msg) of
-    (Init _ k, SetEncodedData f) -> (Init f k, Cmd.none)
-    (Init f k, Load) -> (Show (decode f) (UI "") k, Cmd.none)
-    (Init _ k, FromScratch) -> (Show emptyData (UI "") k, Cmd.none)
-    (Show d ui k, StoreData) -> (Show (addCsvRows d ui.textinput ) { ui | textinput = "" } k, Cmd.none)
-    (Show d ui k, DataInputModified r) -> (Show d { ui | textinput = r } k, Cmd.none)
-    (Show d _ k, Save) -> (model, pushUrl k <| toUrl d)
+    (Init i, SetEncodedData newData) -> (Init {i | data = newData}, Cmd.none)
+    (Init i, Load) -> (Show { data = decode i.data, textinput = "", key = i.key }, Cmd.none)
+    (Init i, FromScratch) -> (Show { data = emptyData , textinput = "", key = i.key }, Cmd.none)
+    (Show s, StoreData) -> (Show { s | data = (addCsvRows s.data s.textinput), textinput = ""}, Cmd.none)
+    (Show s, DataInputModified r) -> (Show {s | textinput = r } , Cmd.none)
+    (Show s, Save) -> (model, pushUrl s.key <| toUrl s.data)
     (_, _) -> (model, Cmd.none)
 
 toUrl : Data -> String
@@ -95,14 +101,13 @@ emptyData = { rawData = [] }
 view : Model -> Html Msg
 view model =
   case model of
-    Init i _ -> showInit i
-    Show data _ _ -> showData data
-    ShowSave d -> text d
+    Init _ -> showInit
+    Show s -> showData s.data
 
 sha1 : String -> String
 sha1 s = SHA1.fromString s |> SHA1.toHex |> String.slice 0 8
 
-showInit i = div [] [
+showInit = div [] [
              div [] [ textarea [ placeholder "Serialized data to load", onInput SetEncodedData] [] ]
            , div [] [ button [ onClick Load ] [ text "Load" ] ]
            , div [] [ button [ onClick FromScratch ] [ text "Start from Scratch" ] ]
