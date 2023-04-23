@@ -7,6 +7,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick, onInput)
 import List exposing (..)
+import Maybe.Extra
 import SHA1
 import Serialize as S
 import Url exposing (Url)
@@ -182,7 +183,10 @@ showData data =
 
 tableFromCsvData : List CsvLine -> List (List String)
 tableFromCsvData l =
-    l |> List.map (\tuple -> [ Tuple.first tuple ] ++ parseCsvRow (Tuple.second tuple))
+    l
+        |> List.map parseCsvLine
+        |> Maybe.Extra.values
+        |> List.map (\e -> [ e.id, e.date, String.fromInt e.amount, e.description ])
 
 
 
@@ -193,10 +197,19 @@ tableFromCsvData l =
 -- The amount column
 
 
-parseCsvRow s =
+type alias Entry =
+    { id : String
+    , date : String
+    , description : String
+    , amount : Int
+    }
+
+
+parseCsvLine : CsvLine -> Maybe Entry
+parseCsvLine line =
     let
         cells =
-            s |> String.split ";" |> List.map String.trim |> Array.fromList
+            Tuple.second line |> String.split ";" |> List.map String.trim |> Array.fromList
 
         date =
             get cells 4
@@ -204,10 +217,17 @@ parseCsvRow s =
         descr =
             [ get cells 6, get cells 9, get cells 10 ] |> List.intersperse " " |> String.concat
 
+        r =
+            String.replace
+
         amount =
-            get cells 11
+            String.toInt <| r "," "" <| r "." "" <| r " " "" <| get cells 11
     in
-    [ date, descr, amount ]
+    Maybe.map (\a -> { id = Tuple.first line, date = date, description = descr, amount = a }) amount
+
+
+
+--[ date, descr, String.fromInt <| Maybe.withDefault 0 amount ]
 
 
 get a i =
