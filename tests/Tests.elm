@@ -1,15 +1,16 @@
 module Tests exposing (..)
 
 import Expect exposing (Expectation)
-import Fuzz exposing (Fuzzer, list, string)
+import Fuzz exposing (Fuzzer, list, pair, string)
+import Storage exposing (decode, encode)
 import Test exposing (..)
-import Main exposing (encode, decode)
+
 
 suite : Test
 suite =
-  describe "Data serialization"
-    [ fuzz (list (list string)) "encode and decode are inverse" <|
-        \data -> data |> encode |> decode |> Expect.equal data
-    , fuzz (list (list string)) "spaces are trimmed before decoding" <|
-        \data -> data |> encode |> (\s -> " " ++ s ++ " ") |> decode |> Expect.equal data
-    ]
+    describe "Data serialization"
+        [ fuzz (list (pair string string)) "encode and decode are inverse" <|
+            \data -> { rawData = data } |> encode |> decode |> Expect.equal { rawData = data }
+        , fuzz (list (pair string string)) "spaces are trimmed before decoding" <|
+            \data -> { rawData = data } |> encode |> (\s -> " " ++ s ++ " ") |> decode |> Expect.equal { rawData = data }
+        ]

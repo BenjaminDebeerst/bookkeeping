@@ -1,0 +1,10 @@
+{
+  "devDependencies": {
+    "elm-test": "^0.19.1-revision12"
+  },
+  "dependencies": {
+    "elm-format": "^0.8.7",
+    "elm-spa": "^6.0.4",
+    "npm": "^9.6.5"
+  }
+}
