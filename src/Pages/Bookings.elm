@@ -1,9 +1,12 @@
 module Pages.Bookings exposing (Model, Msg, page)
 
 import CsvParser exposing (Entry)
-import Element exposing (Column, Element, alignRight, el, fill, shrink, spacing, table, text, width)
+import Dict
+import Element exposing (Column, Element, alignRight, column, el, fill, none, shrink, spacing, table, text, width)
 import Element.Font as Font
+import Element.Input exposing (button)
 import Layout exposing (size)
+import Maybe.Extra as Maybe
 import Page
 import Request exposing (Request)
 import Shared
@@ -22,12 +25,12 @@ page shared _ =
 
 
 type alias Model =
-    {}
+    { deletedItems : List ( String, String ) }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( {}, Cmd.none )
+    ( { deletedItems = [] }, Cmd.none )
 
 
 
@@ -35,14 +38,32 @@ init =
 
 
 type Msg
-    = Noop
+    = Delete String
+    | Undo
 
 
 update : Storage -> Msg -> Model -> ( Model, Cmd Msg )
-update _ _ model =
-    ( model
-    , Cmd.none
-    )
+update s m model =
+    case m of
+        Delete id ->
+            let
+                deleted =
+                    Dict.get id s.rawData
+
+                pair =
+                    Maybe.map (\v -> ( id, v )) deleted
+
+                toAdd =
+                    Maybe.toList pair
+            in
+            ( { model | deletedItems = toAdd ++ model.deletedItems }
+            , Cmd.none
+            )
+
+        Undo ->
+            ( model
+            , Cmd.none
+            )
 
 
 
@@ -50,14 +71,26 @@ update _ _ model =
 
 
 view : Storage -> Model -> View Msg
-view storage _ =
+view storage model =
     let
         data =
             CsvParser.toEntries storage.rawData
     in
     { title = "Book"
-    , body = [ Layout.layout "Book" <| showData data ]
+    , body = [ Layout.layout "Book" (content model data) ]
     }
+
+
+content model data =
+    let
+        undobox =
+            if List.isEmpty model.deletedItems then
+                []
+
+            else
+                [ el [] (text <| "Undo " ++ (String.fromInt <| List.length model.deletedItems)) ]
+    in
+    column [] (undobox ++ [ showData data ])
 
 
 showData : List Entry -> Element Msg
@@ -65,7 +98,11 @@ showData data =
     table [ spacing size.s ]
         { data = data
         , columns =
-            [ { header = text "ID"
+            [ { header = none
+              , width = fill
+              , view = \e -> button Layout.style.button { onPress = Just (Delete e.id), label = text "X" }
+              }
+            , { header = text "ID"
               , width = shrink
               , view = \e -> el [ Font.size Layout.size.s ] <| text e.id
               }
