@@ -1,10 +1,9 @@
 module Pages.Bookings exposing (Model, Msg, page)
 
 import Array
-import Html exposing (Html, div, td, text, tr)
-import Html.Attributes exposing (id)
+import Element exposing (Column, Element, fill, table, text)
+import Layout
 import Maybe.Extra
-import Navigation
 import Page
 import Request exposing (Request)
 import Shared
@@ -53,31 +52,40 @@ update _ _ model =
 view : Storage -> Model -> View Msg
 view storage _ =
     { title = "Book"
-    , body = [ showData storage ]
+    , body = [ Layout.layout "Book" <| showData storage ]
     }
 
 
-showData : Storage -> Html Msg
+showData : Storage -> Element Msg
 showData storage =
-    div []
-        [ Navigation.view
-        , div [ id "data" ]
-            [ div [ id "ledger" ] (viewTable <| tableFromCsvData storage.rawData)
+    table []
+        { data = tableFromCsvData storage.rawData
+        , columns =
+            [ { header = text "ID"
+              , width = fill
+              , view = \e -> text e.id
+              }
+            , { header = text "Date"
+              , width = fill
+              , view = \e -> text e.date
+              }
+            , { header = text "Amount"
+              , width = fill
+              , view = \e -> text <| String.fromInt e.amount
+              }
+            , { header = text "Description"
+              , width = fill
+              , view = \e -> text e.description
+              }
             ]
-        ]
+        }
 
 
-simpleCsvData : List CsvLine -> List (List String)
-simpleCsvData l =
-    l |> List.map (\t -> [ Tuple.first t, Tuple.second t ])
-
-
-tableFromCsvData : List CsvLine -> List (List String)
+tableFromCsvData : List CsvLine -> List Entry
 tableFromCsvData l =
     l
         |> List.map parseCsvLine
         |> Maybe.Extra.values
-        |> List.map (\e -> [ e.id, e.date, String.fromInt e.amount, e.description ])
 
 
 
@@ -119,8 +127,3 @@ parseCsvLine line =
 
 get a i =
     Maybe.withDefault "X" <| Array.get i a
-
-
-viewTable : List (List String) -> List (Html Msg)
-viewTable t =
-    t |> List.map (\r -> tr [] (r |> List.map (\c -> td [] [ text c ])))

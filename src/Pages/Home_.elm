@@ -1,9 +1,10 @@
 module Pages.Home_ exposing (Model, Msg, page)
 
-import Html exposing (Html, button, div, text, textarea)
-import Html.Attributes exposing (id, placeholder, style)
-import Html.Events exposing (onClick, onInput)
-import Navigation
+import Element exposing (Element, centerX, centerY, column, el, fill, htmlAttribute, layout, maximum, padding, spacing, text, width)
+import Element.Font as Font
+import Element.Input as Input exposing (labelAbove, placeholder)
+import Html.Attributes
+import Layout
 import Page
 import Request exposing (Request)
 import Shared
@@ -74,36 +75,45 @@ update storage msg model =
 view : Storage -> Model -> View Msg
 view storage model =
     { title = "Home"
-    , body = [ showData storage model ]
+    , body = [ Layout.layout "Home" (showData storage model) ]
     }
 
 
-showData : Storage -> Model -> Html Msg
+showData : Storage -> Model -> Element Msg
 showData storage model =
-    div []
-        [ Navigation.view
-        , div [] [ text ("Currently, the DB has " ++ (String.fromInt <| List.length <| storage.rawData) ++ " entries. You can start over or load a database.") ]
-        , div [ id "edit" ]
-            [ div []
-                [ textarea [ placeholder "Database string", onInput TextInput ] []
-                , div [] [ button [ onClick LoadData ] [ text "Load" ] ]
-                ]
-            ]
-        , div [] [ button [ onClick StartFromScratch ] [ text "Start with a clean slate (delete the current DB)" ] ]
-        , showSave model
-        ]
-
-
-showSave model =
-    div []
-        ([ button [ onClick SaveData ] [ text "Save DB" ] ]
-            ++ (case model.dbString of
-                    Nothing ->
-                        []
-
-                    Just s ->
-                        [ div [] [ text "Save the follwing string in a file to store the DB:" ]
-                        , div [ style "word-wrap" "break-word", style "font-size" "8pt" ] [ text s ]
-                        ]
-               )
+    column [ spacing 20 ]
+        ([ el [] <| text ("Currently, the DB has " ++ (String.fromInt <| List.length <| storage.rawData) ++ " entries. You can start over or load a database.")
+         , Input.multiline [ width <| maximum 450 fill ]
+            { onChange = TextInput
+            , text = model.textinput
+            , placeholder = Just (placeholder [] (text "Database string"))
+            , label = labelAbove [] (text "Label")
+            , spellcheck = False
+            }
+         , Input.button []
+            { onPress = Just LoadData
+            , label = text "Load"
+            }
+         , Input.button []
+            { onPress = Just StartFromScratch
+            , label = text "Start with a clean slate (delete the current DB)"
+            }
+         , Input.button []
+            { onPress = Just SaveData
+            , label = text "Save DB"
+            }
+         ]
+            ++ showSave model
         )
+
+
+showSave : Model -> List (Element msg)
+showSave model =
+    case model.dbString of
+        Nothing ->
+            []
+
+        Just s ->
+            [ el [] (text "Save the follwing string in a file to store the DB:")
+            , el [ Html.Attributes.style "word-wrap" "break-word" |> htmlAttribute ] (text s)
+            ]

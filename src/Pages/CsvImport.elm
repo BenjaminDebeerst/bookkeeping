@@ -1,9 +1,8 @@
 module Pages.CsvImport exposing (Model, Msg, page)
 
-import Html exposing (Html, button, div, text, textarea)
-import Html.Attributes exposing (id, placeholder)
-import Html.Events exposing (onClick, onInput)
-import Navigation
+import Element exposing (Element, column, el, fill, maximum, spacing, text, width)
+import Element.Input as Input exposing (labelAbove, placeholder)
+import Layout
 import Page
 import Request exposing (Request)
 import SHA1
@@ -70,24 +69,29 @@ sha1 s =
 
 
 view : Storage -> Model -> View Msg
-view storage _ =
+view storage model =
     { title = "Import"
-    , body = [ showData storage ]
+    , body = [ Layout.layout "Import" <| showData storage model ]
     }
 
 
-showData : Storage -> Html Msg
-showData storage =
-    div []
-        [ Navigation.view
-        , div [ id "edit" ]
-            [ div []
-                [ textarea [ placeholder "Import CSV data", onInput Textinput ] []
-                , div [] [ button [ onClick StoreData ] [ text "Add" ] ]
-                ]
-            ]
-        , div [ id "data" ]
-            [ text <| (List.length storage.rawData |> String.fromInt) ++ " rows in the DB"
-            ]
-        , div [] [ button [ onClick DeleteAllData ] [ text "Delete everything" ] ]
+showData : Storage -> Model -> Element Msg
+showData storage model =
+    column [ spacing 20 ]
+        [ Input.multiline [ width <| maximum 450 fill ]
+            { onChange = Textinput
+            , text = model.textinput
+            , placeholder = Just (placeholder [] (text "CSV Data"))
+            , label = labelAbove [] (text "Insert CSV")
+            , spellcheck = False
+            }
+        , Input.button []
+            { onPress = Just StoreData
+            , label = text "Add"
+            }
+        , el [] <| text <| (List.length storage.rawData |> String.fromInt) ++ " rows in the DB"
+        , Input.button []
+            { onPress = Just DeleteAllData
+            , label = text "Delete everything"
+            }
         ]
