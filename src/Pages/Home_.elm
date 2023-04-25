@@ -1,6 +1,6 @@
 module Pages.Home_ exposing (Model, Msg, page)
 
-import Element exposing (Element, centerX, centerY, column, el, fill, htmlAttribute, layout, maximum, padding, spacing, text, width)
+import Element exposing (Element, column, el, fill, height, htmlAttribute, maximum, px, spacing, text, width)
 import Element.Font as Font
 import Element.Input as Input exposing (labelAbove, placeholder)
 import Html.Attributes
@@ -83,22 +83,22 @@ showData : Storage -> Model -> Element Msg
 showData storage model =
     column [ spacing 20 ]
         ([ el [] <| text ("Currently, the DB has " ++ (String.fromInt <| List.length <| storage.rawData) ++ " entries. You can start over or load a database.")
-         , Input.multiline [ width <| maximum 450 fill ]
+         , Input.multiline [ width <| maximum 600 fill, height <| maximum 400 <| px 200 ]
             { onChange = TextInput
             , text = model.textinput
             , placeholder = Just (placeholder [] (text "Database string"))
-            , label = labelAbove [] (text "Label")
+            , label = labelAbove [] (text "Database to load")
             , spellcheck = False
             }
-         , Input.button []
+         , Input.button Layout.style.button
             { onPress = Just LoadData
             , label = text "Load"
             }
-         , Input.button []
+         , Input.button Layout.style.button
             { onPress = Just StartFromScratch
             , label = text "Start with a clean slate (delete the current DB)"
             }
-         , Input.button []
+         , Input.button Layout.style.button
             { onPress = Just SaveData
             , label = text "Save DB"
             }
@@ -115,5 +115,5 @@ showSave model =
 
         Just s ->
             [ el [] (text "Save the follwing string in a file to store the DB:")
-            , el [ Html.Attributes.style "word-wrap" "break-word" |> htmlAttribute ] (text s)
+            , el [ Font.size Layout.size.s ] (text s)
             ]

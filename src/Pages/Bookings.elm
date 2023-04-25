@@ -1,8 +1,10 @@
 module Pages.Bookings exposing (Model, Msg, page)
 
 import Array
-import Element exposing (Column, Element, fill, table, text)
-import Layout
+import Element exposing (Column, Element, el, fill, shrink, spacing, table, text)
+import Element.Font as Font
+import Html exposing (pre)
+import Layout exposing (size)
 import Maybe.Extra
 import Page
 import Request exposing (Request)
@@ -58,23 +60,23 @@ view storage _ =
 
 showData : Storage -> Element Msg
 showData storage =
-    table []
+    table [ spacing size.s ]
         { data = tableFromCsvData storage.rawData
         , columns =
             [ { header = text "ID"
-              , width = fill
-              , view = \e -> text e.id
+              , width = shrink
+              , view = \e -> el [ Font.size Layout.size.s ] <| text e.id
               }
             , { header = text "Date"
-              , width = fill
+              , width = shrink
               , view = \e -> text e.date
               }
             , { header = text "Amount"
-              , width = fill
+              , width = shrink
               , view = \e -> text <| String.fromInt e.amount
               }
             , { header = text "Description"
-              , width = fill
+              , width = shrink
               , view = \e -> text e.description
               }
             ]

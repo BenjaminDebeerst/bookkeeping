@@ -1,6 +1,6 @@
 module Pages.CsvImport exposing (Model, Msg, page)
 
-import Element exposing (Element, column, el, fill, maximum, spacing, text, width)
+import Element exposing (Element, column, el, fill, height, maximum, minimum, px, spacing, text, width)
 import Element.Input as Input exposing (labelAbove, placeholder)
 import Layout
 import Page
@@ -78,19 +78,19 @@ view storage model =
 showData : Storage -> Model -> Element Msg
 showData storage model =
     column [ spacing 20 ]
-        [ Input.multiline [ width <| maximum 450 fill ]
+        [ Input.multiline [ width (fill |> maximum 600 |> minimum 450), height (px 200 |> maximum 400) ]
             { onChange = Textinput
             , text = model.textinput
             , placeholder = Just (placeholder [] (text "CSV Data"))
             , label = labelAbove [] (text "Insert CSV")
             , spellcheck = False
             }
-        , Input.button []
+        , Input.button Layout.style.button
             { onPress = Just StoreData
             , label = text "Add"
             }
         , el [] <| text <| (List.length storage.rawData |> String.fromInt) ++ " rows in the DB"
-        , Input.button []
+        , Input.button Layout.style.button
             { onPress = Just DeleteAllData
             , label = text "Delete everything"
             }
