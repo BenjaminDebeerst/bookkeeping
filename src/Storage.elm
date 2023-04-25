@@ -1,6 +1,5 @@
 port module Storage exposing
-    ( CsvLine
-    , Storage
+    ( Storage
     , addRows
     , decode
     , encode
@@ -9,6 +8,8 @@ port module Storage exposing
     , truncate
     )
 
+import Dict exposing (Dict)
+import SHA1
 import Serialize as S
 
 
@@ -18,20 +19,25 @@ port save : String -> Cmd msg
 port load : (String -> msg) -> Sub msg
 
 
-type alias CsvLine =
-    ( String, String )
-
-
 type alias Storage =
-    { rawData : List CsvLine
+    { rawData : Dict String String
     }
 
 
-addRows : Storage -> List CsvLine -> Cmd msg
+addRows : Storage -> List String -> Cmd msg
 addRows storage lines =
-    { storage | rawData = storage.rawData ++ lines }
+    let
+        newElems =
+            lines |> List.map (\l -> ( sha1 l, l )) |> Dict.fromList
+    in
+    { storage | rawData = Dict.union storage.rawData newElems }
         |> encode
         |> save
+
+
+sha1 : String -> String
+sha1 s =
+    SHA1.fromString s |> SHA1.toHex |> String.slice 0 8
 
 
 loadDatabase : String -> Cmd msg
@@ -46,7 +52,7 @@ truncate =
 
 dataCodec =
     S.record Storage
-        |> S.field .rawData (S.list <| S.tuple S.string S.string)
+        |> S.field .rawData (S.dict S.string S.string)
         |> S.finishRecord
 
 
@@ -67,7 +73,7 @@ decode value =
 
 empty : Storage
 empty =
-    { rawData = [] }
+    { rawData = Dict.empty }
 
 
 onChange : (Storage -> msg) -> Sub msg

@@ -1,13 +1,13 @@
 module Pages.CsvImport exposing (Model, Msg, page)
 
+import Dict
 import Element exposing (Element, column, el, fill, height, maximum, minimum, px, spacing, text, width)
 import Element.Input as Input exposing (labelAbove, placeholder)
 import Layout
 import Page
 import Request exposing (Request)
-import SHA1
 import Shared
-import Storage exposing (CsvLine, Storage)
+import Storage exposing (Storage)
 import View exposing (View)
 
 
@@ -54,14 +54,9 @@ update storage msg model =
             ( model, Storage.truncate )
 
 
-textInputToTable : String -> List CsvLine
+textInputToTable : String -> List String
 textInputToTable data =
-    data |> String.split "\n" |> List.map (\l -> ( sha1 l, l ))
-
-
-sha1 : String -> String
-sha1 s =
-    SHA1.fromString s |> SHA1.toHex |> String.slice 0 8
+    data |> String.split "\n"
 
 
 
@@ -89,7 +84,7 @@ showData storage model =
             { onPress = Just StoreData
             , label = text "Add"
             }
-        , el [] <| text <| (List.length storage.rawData |> String.fromInt) ++ " rows in the DB"
+        , el [] <| text <| (Dict.size storage.rawData |> String.fromInt) ++ " rows in the DB"
         , Input.button Layout.style.button
             { onPress = Just DeleteAllData
             , label = text "Delete everything"

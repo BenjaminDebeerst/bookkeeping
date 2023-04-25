@@ -1,14 +1,14 @@
 module Pages.Home_ exposing (Model, Msg, page)
 
-import Element exposing (Element, column, el, fill, height, htmlAttribute, maximum, px, spacing, text, width)
+import Dict
+import Element exposing (Element, column, el, fill, height, maximum, px, spacing, text, width)
 import Element.Font as Font
 import Element.Input as Input exposing (labelAbove, placeholder)
-import Html.Attributes
 import Layout
 import Page
 import Request exposing (Request)
 import Shared
-import Storage exposing (CsvLine, Storage)
+import Storage exposing (Storage)
 import View exposing (View)
 
 
@@ -82,7 +82,7 @@ view storage model =
 showData : Storage -> Model -> Element Msg
 showData storage model =
     column [ spacing 20 ]
-        ([ el [] <| text ("Currently, the DB has " ++ (String.fromInt <| List.length <| storage.rawData) ++ " entries. You can start over or load a database.")
+        ([ el [] <| text ("Currently, the DB has " ++ (String.fromInt <| Dict.size <| storage.rawData) ++ " entries. You can start over or load a database.")
          , Input.multiline [ width <| maximum 600 fill, height <| maximum 400 <| px 200 ]
             { onChange = TextInput
             , text = model.textinput

@@ -1,15 +1,13 @@
 module Pages.Bookings exposing (Model, Msg, page)
 
-import Array
-import Element exposing (Column, Element, el, fill, shrink, spacing, table, text)
+import CsvParser exposing (Entry)
+import Element exposing (Column, Element, alignRight, el, fill, shrink, spacing, table, text, width)
 import Element.Font as Font
-import Html exposing (pre)
 import Layout exposing (size)
-import Maybe.Extra
 import Page
 import Request exposing (Request)
 import Shared
-import Storage exposing (CsvLine, Storage)
+import Storage exposing (Storage)
 import View exposing (View)
 
 
@@ -53,15 +51,19 @@ update _ _ model =
 
 view : Storage -> Model -> View Msg
 view storage _ =
+    let
+        data =
+            CsvParser.toEntries storage.rawData
+    in
     { title = "Book"
-    , body = [ Layout.layout "Book" <| showData storage ]
+    , body = [ Layout.layout "Book" <| showData data ]
     }
 
 
-showData : Storage -> Element Msg
-showData storage =
+showData : List Entry -> Element Msg
+showData data =
     table [ spacing size.s ]
-        { data = tableFromCsvData storage.rawData
+        { data = data
         , columns =
             [ { header = text "ID"
               , width = shrink
@@ -73,7 +75,7 @@ showData storage =
               }
             , { header = text "Amount"
               , width = shrink
-              , view = \e -> text <| String.fromInt e.amount
+              , view = \e -> formatEuro e.amount
               }
             , { header = text "Description"
               , width = shrink
@@ -83,49 +85,29 @@ showData storage =
         }
 
 
-tableFromCsvData : List CsvLine -> List Entry
-tableFromCsvData l =
-    l
-        |> List.map parseCsvLine
-        |> Maybe.Extra.values
-
-
-
--- Arguments to generalize over later:
--- The split char ';'
--- The date column 4
--- The descr column(s)
--- The amount column
-
-
-type alias Entry =
-    { id : String
-    , date : String
-    , description : String
-    , amount : Int
-    }
-
-
-parseCsvLine : Storage.CsvLine -> Maybe Entry
-parseCsvLine line =
+formatEuro : Int -> Element Msg
+formatEuro cents =
     let
-        cells =
-            Tuple.second line |> String.split ";" |> List.map String.trim |> Array.fromList
+        str =
+            String.fromInt cents
 
-        date =
-            get cells 4
+        ct =
+            String.right 2 str
 
-        descr =
-            [ get cells 6, get cells 9, get cells 10 ] |> List.intersperse " " |> String.concat
+        eur =
+            String.slice 0 -2 str
 
-        r =
-            String.replace
+        negative =
+            String.left 1 str == "-"
 
-        amount =
-            String.toInt <| r "," "" <| r "." "" <| r " " "" <| get cells 11
+        color =
+            if negative then
+                [ Font.color Layout.color.red ]
+
+            else
+                []
+
+        formatted =
+            eur ++ "." ++ ct ++ " €"
     in
-    Maybe.map (\a -> { id = Tuple.first line, date = date, description = descr, amount = a }) amount
-
-
-get a i =
-    Maybe.withDefault "X" <| Array.get i a
+    el [ width fill ] <| el ([ alignRight ] ++ color) (text formatted)
