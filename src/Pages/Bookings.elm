@@ -57,12 +57,19 @@ update s m model =
                     Maybe.toList pair
             in
             ( { model | deletedItems = toAdd ++ model.deletedItems }
-            , Cmd.none
+            , Storage.remove s id
             )
 
         Undo ->
-            ( model
-            , Cmd.none
+            let
+                item =
+                    List.map Tuple.second <| List.take 1 model.deletedItems
+
+                cmd =
+                    Storage.addRows s item
+            in
+            ( { model | deletedItems = List.drop 1 model.deletedItems }
+            , cmd
             )
 
 
@@ -88,7 +95,11 @@ content model data =
                 []
 
             else
-                [ el [] (text <| "Undo " ++ (String.fromInt <| List.length model.deletedItems)) ]
+                [ button Layout.style.button
+                    { onPress = Just Undo
+                    , label = text <| "Undo (" ++ (String.fromInt <| List.length model.deletedItems) ++ ")"
+                    }
+                ]
     in
     column [] (undobox ++ [ showData data ])
 

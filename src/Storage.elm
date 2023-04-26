@@ -5,6 +5,7 @@ port module Storage exposing
     , encode
     , loadDatabase
     , onChange
+    , remove
     , truncate
     )
 
@@ -33,6 +34,11 @@ addRows storage lines =
     { storage | rawData = Dict.union storage.rawData newElems }
         |> encode
         |> save
+
+
+remove : Storage -> String -> Cmd msg
+remove storage id =
+    { storage | rawData = Dict.remove id storage.rawData } |> encode |> save
 
 
 sha1 : String -> String
