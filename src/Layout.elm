@@ -8,12 +8,12 @@ import Html exposing (Html)
 
 
 layout : String -> Element msg -> Html msg
-layout title contentEl =
+layout title pageContent =
     Element.layout [ width fill, height fill ] <|
         row
             [ width <| minimum 600 fill, height fill, Font.size size.m ]
             [ sidebar
-            , content title contentEl
+            , content title pageContent
             ]
 
 
@@ -30,14 +30,15 @@ sidebar =
         ]
         [ link [] { url = "/", label = text "Home" }
         , link [] { url = "/csv-import", label = text "Import" }
+        , link [] { url = "/import-file", label = text "Import File" }
         , link [] { url = "/bookings", label = text "Book" }
         ]
 
 
-content title element =
+content title pageContent =
     column [ height fill, width <| fillPortion 7, scrollbarX, padding size.l ]
         [ el [ Font.bold, Font.size size.l, paddingBottom size.l, width fill ] <| text title
-        , element
+        , pageContent
         ]
 
 
@@ -73,4 +74,5 @@ style =
         , Border.color color.darkAccent
         , Background.color color.lightAccent
         ]
+    , contentSpacing = spacing size.m
     }

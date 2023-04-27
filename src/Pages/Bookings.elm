@@ -1,4 +1,4 @@
-module Pages.Bookings exposing (Model, Msg, page)
+module Pages.Bookings exposing (Model, Msg, page, showData)
 
 import CsvParser exposing (Entry)
 import Dict
@@ -101,17 +101,17 @@ content model data =
                     }
                 ]
     in
-    column [] (undobox ++ [ showData data ])
+    column [] (undobox ++ [ showData (Just Delete) data ])
 
 
-showData : List Entry -> Element Msg
-showData data =
+showData : Maybe (String -> msg) -> List Entry -> Element msg
+showData delete data =
     table [ spacing size.s ]
         { data = data
         , columns =
             [ { header = none
               , width = fill
-              , view = \e -> button Layout.style.button { onPress = Just (Delete e.id), label = text "X" }
+              , view = \e -> button Layout.style.button { onPress = Maybe.map (\f -> f e.id) delete, label = text "X" }
               }
             , { header = text "ID"
               , width = shrink
@@ -133,7 +133,7 @@ showData data =
         }
 
 
-formatEuro : Int -> Element Msg
+formatEuro : Int -> Element msg
 formatEuro cents =
     let
         str =

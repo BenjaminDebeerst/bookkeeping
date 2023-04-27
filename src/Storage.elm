@@ -3,6 +3,7 @@ port module Storage exposing
     , addRows
     , decode
     , encode
+    , hashData
     , loadDatabase
     , onChange
     , remove
@@ -27,11 +28,7 @@ type alias Storage =
 
 addRows : Storage -> List String -> Cmd msg
 addRows storage lines =
-    let
-        newElems =
-            lines |> List.map (\l -> ( sha1 l, l )) |> Dict.fromList
-    in
-    { storage | rawData = Dict.union storage.rawData newElems }
+    { storage | rawData = Dict.union storage.rawData <| hashData lines }
         |> encode
         |> save
 
@@ -39,6 +36,11 @@ addRows storage lines =
 remove : Storage -> String -> Cmd msg
 remove storage id =
     { storage | rawData = Dict.remove id storage.rawData } |> encode |> save
+
+
+hashData : List String -> Dict String String
+hashData lines =
+    lines |> List.map String.trim |> List.map (\l -> ( sha1 l, l )) |> Dict.fromList
 
 
 sha1 : String -> String
