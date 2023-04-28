@@ -23,8 +23,8 @@ sidebar =
         , width <| fillPortion 1
         , padding size.l
         , scrollbarY
-        , Background.color color.dark
-        , Font.color color.light
+        , Background.color color.black
+        , Font.color color.white
         , Font.size size.l
         , spacing size.m
         ]
@@ -36,7 +36,7 @@ sidebar =
 
 
 content title pageContent =
-    column [ height fill, width <| fillPortion 7, scrollbarX, padding size.l ]
+    column [ height fill, width <| fillPortion 7, scrollbarX, padding size.l, Background.color color.white ]
         [ el [ Font.bold, Font.size size.l, paddingBottom size.l, width fill ] <| text title
         , pageContent
         ]
@@ -47,12 +47,13 @@ paddingBottom i =
 
 
 color =
-    -- TODO make this a proper color palette
-    { dark = rgb255 0x2E 0x34 0x36
-    , light = rgb255 0xEE 0xEE 0xEE
-    , darkAccent = rgb255 0x15 0x4C 0x79
-    , lightAccent = rgb255 0x76 0xB5 0xC5
-    , red = rgb255 0xCC 0x00 0x00
+    { black = rgb255 0x2E 0x34 0x36 -- charcoal
+    , white = rgb255 0xF6 0xF2 0xEB -- light beige
+    , extraDarkAccent = rgb255 0x50 0x3D 0x2E -- brown
+    , darkAccent = rgb255 0x05 0x87 0x89 -- blue
+    , brightAccent = rgb255 0xE3 0xA7 0x2F -- yellow
+    , extraBrightAccent = rgb255 0xF0 0xEC 0xC9 -- beige
+    , red = rgb255 0xD5 0x4B 0x1A -- quite orange
     }
 
 
@@ -72,7 +73,7 @@ style =
         [ paddingEach { top = size.xs, right = size.xs, bottom = size.xxs, left = size.xs }
         , Border.rounded 4
         , Border.color color.darkAccent
-        , Background.color color.lightAccent
+        , Background.color color.brightAccent
         ]
     , contentSpacing = spacing size.m
     }

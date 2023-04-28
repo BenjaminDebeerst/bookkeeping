@@ -129,7 +129,7 @@ viewFilePicker model =
             , Border.dashed
             , Border.color <|
                 if model.hover then
-                    Layout.color.lightAccent
+                    Layout.color.brightAccent
 
                 else
                     Layout.color.darkAccent
