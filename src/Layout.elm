@@ -29,7 +29,6 @@ sidebar =
         , spacing size.m
         ]
         [ link [] { url = "/", label = text "Home" }
-        , link [] { url = "/csv-import", label = text "Import" }
         , link [] { url = "/import-file", label = text "Import File" }
         , link [] { url = "/bookings", label = text "Book" }
         ]
