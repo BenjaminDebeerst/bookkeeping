@@ -1,6 +1,6 @@
-module Layout exposing (color, layout, size, style)
+module Layout exposing (color, formatEuro, layout, size, style)
 
-import Element exposing (Element, alignTop, column, el, fill, fillPortion, height, link, maximum, minimum, padding, paddingEach, paddingXY, rgb, rgb255, row, scrollbarX, scrollbarY, spacing, text, width)
+import Element exposing (Attribute, Element, alignRight, column, el, fill, fillPortion, height, link, minimum, padding, paddingEach, rgb255, row, scrollbarX, scrollbarY, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
@@ -76,3 +76,31 @@ style =
         ]
     , contentSpacing = spacing size.m
     }
+
+
+formatEuro : List (Attribute msg) -> Int -> Element msg
+formatEuro attrs cents =
+    let
+        str =
+            String.fromInt cents
+
+        ct =
+            String.right 2 str
+
+        eur =
+            String.slice 0 -2 str
+
+        negative =
+            String.left 1 str == "-"
+
+        fontColor =
+            if negative then
+                [ Font.color color.red ]
+
+            else
+                []
+
+        formatted =
+            eur ++ "." ++ ct ++ " €"
+    in
+    el ([ width fill ] ++ attrs) <| el ([ alignRight ] ++ fontColor) (text formatted)

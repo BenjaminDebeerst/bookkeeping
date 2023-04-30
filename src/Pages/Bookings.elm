@@ -1,11 +1,11 @@
-module Pages.Bookings exposing (Model, Msg, page, showData)
+module Pages.Bookings exposing (Model, Msg, page)
 
-import CsvParser exposing (Entry)
+import Csv exposing (Entry)
 import Dict
-import Element exposing (Column, Element, alignRight, column, el, fill, none, shrink, spacing, table, text, width)
+import Element exposing (Column, Element, column, el, fill, none, shrink, spacing, table, text)
 import Element.Font as Font
 import Element.Input exposing (button)
-import Layout exposing (size)
+import Layout exposing (formatEuro, size)
 import Maybe.Extra as Maybe
 import Page
 import Request exposing (Request)
@@ -81,7 +81,7 @@ view : Storage -> Model -> View Msg
 view storage model =
     let
         data =
-            CsvParser.toEntries storage.rawData
+            Csv.validEntries storage.rawData
     in
     { title = "Book"
     , body = [ Layout.layout "Book" (content model data) ]
@@ -101,17 +101,17 @@ content model data =
                     }
                 ]
     in
-    column [] (undobox ++ [ showData (Just Delete) data ])
+    column [] (undobox ++ [ showData data ])
 
 
-showData : Maybe (String -> msg) -> List Entry -> Element msg
-showData delete data =
+showData : List Entry -> Element Msg
+showData data =
     table [ spacing size.s ]
         { data = data
         , columns =
             [ { header = none
               , width = fill
-              , view = \e -> button Layout.style.button { onPress = Maybe.map (\f -> f e.id) delete, label = text "X" }
+              , view = \e -> button Layout.style.button { onPress = Just (Delete e.id), label = text "X" }
               }
             , { header = text "ID"
               , width = shrink
@@ -123,7 +123,7 @@ showData delete data =
               }
             , { header = text "Amount"
               , width = shrink
-              , view = \e -> formatEuro e.amount
+              , view = \e -> formatEuro [] e.amount
               }
             , { header = text "Description"
               , width = shrink
@@ -131,31 +131,3 @@ showData delete data =
               }
             ]
         }
-
-
-formatEuro : Int -> Element msg
-formatEuro cents =
-    let
-        str =
-            String.fromInt cents
-
-        ct =
-            String.right 2 str
-
-        eur =
-            String.slice 0 -2 str
-
-        negative =
-            String.left 1 str == "-"
-
-        color =
-            if negative then
-                [ Font.color Layout.color.red ]
-
-            else
-                []
-
-        formatted =
-            eur ++ "." ++ ct ++ " €"
-    in
-    el [ width fill ] <| el ([ alignRight ] ++ color) (text formatted)

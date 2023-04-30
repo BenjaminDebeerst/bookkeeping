@@ -28,7 +28,7 @@ type alias Storage =
 
 addRows : Storage -> List String -> Cmd msg
 addRows storage lines =
-    { storage | rawData = Dict.union storage.rawData <| hashData lines }
+    { storage | rawData = Dict.union storage.rawData <| Dict.fromList <| hashData lines }
         |> encode
         |> save
 
@@ -38,9 +38,9 @@ remove storage id =
     { storage | rawData = Dict.remove id storage.rawData } |> encode |> save
 
 
-hashData : List String -> Dict String String
+hashData : List String -> List ( String, String )
 hashData lines =
-    lines |> List.map String.trim |> List.map (\l -> ( sha1 l, l )) |> Dict.fromList
+    lines |> List.map String.trim |> List.map (\l -> ( sha1 l, l ))
 
 
 sha1 : String -> String
