@@ -58,20 +58,44 @@ truncate =
     empty |> encode |> save
 
 
-dataCodec =
+storageCodec : S.Codec e Storage
+storageCodec =
+    S.customType
+        (\v0Encoder value ->
+            case value of
+                V0 record ->
+                    v0Encoder record
+        )
+        |> S.variant1 V0 v0Codec
+        |> S.finishCustomType
+        |> S.map
+            (\value ->
+                case value of
+                    V0 storage ->
+                        storage
+            )
+            V0
+
+
+v0Codec : S.Codec e Storage
+v0Codec =
     S.record Storage
         |> S.field .rawData (S.dict S.string S.string)
         |> S.finishRecord
 
 
+type StorageVersions
+    = V0 Storage
+
+
 encode : Storage -> String
 encode storage =
-    S.encodeToString dataCodec storage
+    S.encodeToString storageCodec storage
 
 
 decode : String -> Storage
 decode value =
-    case S.decodeFromString dataCodec (String.trim value) of
+    case S.decodeFromString storageCodec (String.trim value) of
         Ok data ->
             data
 
