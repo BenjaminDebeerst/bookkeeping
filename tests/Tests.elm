@@ -10,7 +10,7 @@ suite : Test
 suite =
     describe "Data serialization"
         [ fuzz (list (pair string string)) "encode and decode are inverse" <|
-            \data -> { rawData = data } |> encode |> decode |> Expect.equal { rawData = data }
+            \data -> { bookEntries = data } |> encode |> decode |> Expect.equal { bookEntries = data }
         , fuzz (list (pair string string)) "spaces are trimmed before decoding" <|
-            \data -> { rawData = data } |> encode |> (\s -> " " ++ s ++ " ") |> decode |> Expect.equal { rawData = data }
+            \data -> { bookEntries = data } |> encode |> (\s -> " " ++ s ++ " ") |> decode |> Expect.equal { bookEntries = data }
         ]

@@ -25,7 +25,7 @@ page shared _ =
 
 
 type alias Model =
-    { deletedItems : List ( String, String ) }
+    { deletedItems : List ( String, Entry ) }
 
 
 init : ( Model, Cmd Msg )
@@ -48,7 +48,7 @@ update s m model =
         Delete id ->
             let
                 deleted =
-                    Dict.get id s.rawData
+                    Dict.get id s.bookEntries
 
                 pair =
                     Maybe.map (\v -> ( id, v )) deleted
@@ -57,7 +57,7 @@ update s m model =
                     Maybe.toList pair
             in
             ( { model | deletedItems = toAdd ++ model.deletedItems }
-            , Storage.remove s id
+            , Storage.removeEntry s id
             )
 
         Undo ->
@@ -66,7 +66,7 @@ update s m model =
                     List.map Tuple.second <| List.take 1 model.deletedItems
 
                 cmd =
-                    Storage.addRows s item
+                    Storage.addEntries s item
             in
             ( { model | deletedItems = List.drop 1 model.deletedItems }
             , cmd
@@ -81,7 +81,7 @@ view : Storage -> Model -> View Msg
 view storage model =
     let
         data =
-            Csv.validEntries storage.rawData
+            Dict.values storage.bookEntries
     in
     { title = "Book"
     , body = [ Layout.layout "Book" (content model data) ]

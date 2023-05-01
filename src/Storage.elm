@@ -1,15 +1,17 @@
 port module Storage exposing
     ( Storage
-    , addRows
+    , addEntries
     , decode
     , encode
     , hashData
     , loadDatabase
     , onChange
-    , remove
+    , removeEntry
+    , sha1
     , truncate
     )
 
+import Csv exposing (Entry)
 import Dict exposing (Dict)
 import SHA1
 import Serialize as S
@@ -22,20 +24,39 @@ port load : (String -> msg) -> Sub msg
 
 
 type alias Storage =
+    StorageV1
+
+
+type alias StorageV1 =
+    { bookEntries : Dict String Entry
+    }
+
+
+type alias StorageV0 =
     { rawData : Dict String String
     }
 
 
-addRows : Storage -> List String -> Cmd msg
-addRows storage lines =
-    { storage | rawData = Dict.union storage.rawData <| Dict.fromList <| hashData lines }
+migrateV0 : StorageV0 -> StorageV1
+migrateV0 v0 =
+    StorageV1 <| Dict.fromList <| List.map (\e -> ( e.id, e )) <| Csv.validEntries v0.rawData
+
+
+type StorageVersions
+    = V0 StorageV0
+    | V1 StorageV1
+
+
+addEntries : Storage -> List Entry -> Cmd msg
+addEntries storage lines =
+    { storage | bookEntries = Dict.union storage.bookEntries <| Dict.fromList <| List.map (\e -> ( e.id, e )) lines }
         |> encode
         |> save
 
 
-remove : Storage -> String -> Cmd msg
-remove storage id =
-    { storage | rawData = Dict.remove id storage.rawData } |> encode |> save
+removeEntry : Storage -> String -> Cmd msg
+removeEntry storage id =
+    { storage | bookEntries = Dict.remove id storage.bookEntries } |> encode |> save
 
 
 hashData : List String -> List ( String, String )
@@ -61,31 +82,50 @@ truncate =
 storageCodec : S.Codec e Storage
 storageCodec =
     S.customType
-        (\v0Encoder value ->
+        (\v0Encoder v1Encoder value ->
             case value of
                 V0 record ->
                     v0Encoder record
+
+                V1 record ->
+                    v1Encoder record
         )
         |> S.variant1 V0 v0Codec
+        |> S.variant1 V1 v1Codec
         |> S.finishCustomType
         |> S.map
             (\value ->
                 case value of
-                    V0 storage ->
+                    V1 storage ->
                         storage
+
+                    V0 storage ->
+                        migrateV0 storage
             )
-            V0
+            V1
 
 
-v0Codec : S.Codec e Storage
-v0Codec =
-    S.record Storage
-        |> S.field .rawData (S.dict S.string S.string)
+v1Codec : S.Codec e Storage
+v1Codec =
+    S.record StorageV1
+        |> S.field .bookEntries
+            (S.dict S.string
+                (S.record Entry
+                    |> S.field .id S.string
+                    |> S.field .date S.string
+                    |> S.field .description S.string
+                    |> S.field .amount S.int
+                    |> S.finishRecord
+                )
+            )
         |> S.finishRecord
 
 
-type StorageVersions
-    = V0 Storage
+v0Codec : S.Codec e StorageV0
+v0Codec =
+    S.record StorageV0
+        |> S.field .rawData (S.dict S.string S.string)
+        |> S.finishRecord
 
 
 encode : Storage -> String
@@ -105,7 +145,7 @@ decode value =
 
 empty : Storage
 empty =
-    { rawData = Dict.empty }
+    { bookEntries = Dict.empty }
 
 
 onChange : (Storage -> msg) -> Sub msg

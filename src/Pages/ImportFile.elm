@@ -1,6 +1,7 @@
 module Pages.ImportFile exposing (Model, Msg, page)
 
 import Csv exposing (Entry, Unparsed, allEntries)
+import Dict
 import Element exposing (Attribute, Element, centerX, centerY, column, el, fill, height, indexedTable, paddingXY, row, shrink, spacing, table, text, width)
 import Element.Border as Border
 import Element.Font as Font
@@ -16,7 +17,7 @@ import Page
 import Request
 import Result.Extra
 import Shared
-import Storage exposing (Storage, hashData)
+import Storage exposing (Storage, hashData, sha1)
 import Task exposing (Task)
 import View exposing (View)
 
@@ -90,7 +91,13 @@ update storage msg model =
             ( { model | state = Show, fileContents = readFileContents content, fileName = name }, Cmd.none )
 
         Store ->
-            ( { initModel | state = Stored (List.length model.fileContents - dropN model) }, Storage.addRows storage <| List.drop (dropN model) model.fileContents )
+            ( { initModel | state = Stored (List.length model.fileContents - dropN model) }
+            , List.drop (dropN model) model.fileContents
+                |> List.map (\l -> ( sha1 l, l ))
+                |> Dict.fromList
+                |> Csv.validEntries
+                |> Storage.addEntries storage
+            )
 
         SkipFirst b ->
             ( { model | skipFirst = b }, Cmd.none )

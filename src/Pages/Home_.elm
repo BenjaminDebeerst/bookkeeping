@@ -82,7 +82,7 @@ view storage model =
 showData : Storage -> Model -> Element Msg
 showData storage model =
     column [ spacing 20 ]
-        ([ el [] <| text ("Currently, the DB has " ++ (String.fromInt <| Dict.size <| storage.rawData) ++ " entries. You can start over or load a database.")
+        ([ el [] <| text ("Currently, the DB has " ++ (String.fromInt <| Dict.size <| storage.bookEntries) ++ " entries. You can start over or load a database.")
          , Input.multiline [ width <| maximum 600 fill, height <| maximum 400 <| px 200 ]
             { onChange = TextInput
             , text = model.textinput
