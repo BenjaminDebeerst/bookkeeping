@@ -6,9 +6,10 @@ import Element.Font as Font
 import Element.Input as Input exposing (labelAbove, placeholder)
 import Layout
 import Page
+import Persistence.Data exposing (Data, encode)
+import Persistence.Storage as Storage
 import Request exposing (Request)
 import Shared
-import Storage exposing (Storage)
 import View exposing (View)
 
 
@@ -16,8 +17,8 @@ page : Shared.Model -> Request -> Page.With Model Msg
 page shared _ =
     Page.element
         { init = init
-        , update = update shared.storage
-        , view = view shared.storage
+        , update = update shared.data
+        , view = view shared.data
         , subscriptions = \_ -> Sub.none
         }
 
@@ -48,8 +49,8 @@ type Msg
     | SaveData
 
 
-update : Storage -> Msg -> Model -> ( Model, Cmd Msg )
-update storage msg model =
+update : Data -> Msg -> Model -> ( Model, Cmd Msg )
+update data msg model =
     case msg of
         TextInput s ->
             ( { model | textinput = s }
@@ -65,24 +66,24 @@ update storage msg model =
             ( emptyModel, Storage.truncate )
 
         SaveData ->
-            ( { model | dbString = Just (Storage.encode storage) }, Cmd.none )
+            ( { model | dbString = Just (encode data) }, Cmd.none )
 
 
 
 -- VIEW
 
 
-view : Storage -> Model -> View Msg
-view storage model =
+view : Data -> Model -> View Msg
+view data model =
     { title = "Home"
-    , body = [ Layout.layout "Home" (showData storage model) ]
+    , body = [ Layout.layout "Home" (showData data model) ]
     }
 
 
-showData : Storage -> Model -> Element Msg
-showData storage model =
+showData : Data -> Model -> Element Msg
+showData data model =
     column [ spacing 20 ]
-        ([ el [] <| text ("Currently, the DB has " ++ (String.fromInt <| Dict.size <| storage.bookEntries) ++ " entries. You can start over or load a database.")
+        ([ el [] <| text ("Currently, the DB has " ++ (String.fromInt <| Dict.size <| data.bookEntries) ++ " entries. You can start over or load a database.")
          , Input.multiline [ width <| maximum 600 fill, height <| maximum 400 <| px 200 ]
             { onChange = TextInput
             , text = model.textinput

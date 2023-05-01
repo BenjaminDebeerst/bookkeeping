@@ -1,6 +1,5 @@
 module Pages.Bookings exposing (Model, Msg, page)
 
-import Csv exposing (Entry)
 import Dict
 import Element exposing (Column, Element, column, el, fill, none, shrink, spacing, table, text)
 import Element.Font as Font
@@ -8,9 +7,10 @@ import Element.Input exposing (button)
 import Layout exposing (formatEuro, size)
 import Maybe.Extra as Maybe
 import Page
+import Persistence.Data exposing (Data, Entry)
+import Persistence.Storage as LocalStorage
 import Request exposing (Request)
 import Shared
-import Storage exposing (Storage)
 import View exposing (View)
 
 
@@ -18,8 +18,8 @@ page : Shared.Model -> Request -> Page.With Model Msg
 page shared _ =
     Page.element
         { init = init
-        , update = update shared.storage
-        , view = view shared.storage
+        , update = update shared.data
+        , view = view shared.data
         , subscriptions = \_ -> Sub.none
         }
 
@@ -42,7 +42,7 @@ type Msg
     | Undo
 
 
-update : Storage -> Msg -> Model -> ( Model, Cmd Msg )
+update : Data -> Msg -> Model -> ( Model, Cmd Msg )
 update s m model =
     case m of
         Delete id ->
@@ -57,7 +57,7 @@ update s m model =
                     Maybe.toList pair
             in
             ( { model | deletedItems = toAdd ++ model.deletedItems }
-            , Storage.removeEntry s id
+            , LocalStorage.removeEntry s id
             )
 
         Undo ->
@@ -66,7 +66,7 @@ update s m model =
                     List.map Tuple.second <| List.take 1 model.deletedItems
 
                 cmd =
-                    Storage.addEntries s item
+                    LocalStorage.addEntries s item
             in
             ( { model | deletedItems = List.drop 1 model.deletedItems }
             , cmd
@@ -77,14 +77,14 @@ update s m model =
 -- VIEW
 
 
-view : Storage -> Model -> View Msg
-view storage model =
+view : Data -> Model -> View Msg
+view data model =
     let
-        data =
-            Dict.values storage.bookEntries
+        entries =
+            Dict.values data.bookEntries
     in
     { title = "Book"
-    , body = [ Layout.layout "Book" (content model data) ]
+    , body = [ Layout.layout "Book" (content model entries) ]
     }
 
 
@@ -115,7 +115,7 @@ showData data =
               }
             , { header = text "ID"
               , width = shrink
-              , view = \e -> el [ Font.size Layout.size.s ] <| text e.id
+              , view = \e -> el [ Font.size Layout.size.s ] <| text <| String.slice 0 8 e.id
               }
             , { header = text "Date"
               , width = shrink

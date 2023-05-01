@@ -2,7 +2,7 @@ module Tests exposing (..)
 
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer, list, pair, string)
-import Storage exposing (decode, encode)
+import Persistence.Data exposing (decode, encode)
 import Test exposing (..)
 
 

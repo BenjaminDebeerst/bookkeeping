@@ -1,6 +1,6 @@
 module Pages.ImportFile exposing (Model, Msg, page)
 
-import Csv exposing (Entry, Unparsed, allEntries)
+import Csv exposing (Unparsed, parseEntries)
 import Dict
 import Element exposing (Attribute, Element, centerX, centerY, column, el, fill, height, indexedTable, paddingXY, row, shrink, spacing, table, text, width)
 import Element.Border as Border
@@ -14,10 +14,11 @@ import Json.Decode as D
 import Layout exposing (formatEuro, size, style)
 import Maybe.Extra
 import Page
+import Persistence.Data exposing (Data, Entry)
+import Persistence.Storage as Storage
 import Request
 import Result.Extra
 import Shared
-import Storage exposing (Storage, hashData, sha1)
 import Task exposing (Task)
 import View exposing (View)
 
@@ -26,8 +27,8 @@ page : Shared.Model -> Request.With Params -> Page.With Model Msg
 page shared req =
     Page.element
         { init = ( initModel, Cmd.none )
-        , update = update shared.storage
-        , view = view shared.storage
+        , update = update shared.data
+        , view = view shared.data
         , subscriptions = \_ -> Sub.none
         }
 
@@ -70,8 +71,8 @@ type Msg
     | SkipFirst Bool
 
 
-update : Storage -> Msg -> Model -> ( Model, Cmd Msg )
-update storage msg model =
+update : Data -> Msg -> Model -> ( Model, Cmd Msg )
+update data msg model =
     case msg of
         DragEnter ->
             ( { model | state = PickHover }, Cmd.none )
@@ -93,10 +94,8 @@ update storage msg model =
         Store ->
             ( { initModel | state = Stored (List.length model.fileContents - dropN model) }
             , List.drop (dropN model) model.fileContents
-                |> List.map (\l -> ( sha1 l, l ))
-                |> Dict.fromList
-                |> Csv.validEntries
-                |> Storage.addEntries storage
+                |> Csv.parseValidEntries
+                |> Storage.addEntries data
             )
 
         SkipFirst b ->
@@ -117,7 +116,7 @@ readFileContents content =
 -- VIEW
 
 
-view : Storage -> Model -> View Msg
+view : Data -> Model -> View Msg
 view _ model =
     { title = "Import File"
     , body =
@@ -192,8 +191,7 @@ viewFileContents model =
         csv =
             model.fileContents
                 |> List.drop (dropN model)
-                |> hashData
-                |> allEntries
+                |> parseEntries
     in
     column [ style.contentSpacing ]
         ([ text ("Importing: " ++ model.fileName)
@@ -237,7 +235,7 @@ unreadableData l =
             , columns =
                 [ { header = text "ID"
                   , width = shrink
-                  , view = \e -> el [ Font.size Layout.size.s ] <| text e.id
+                  , view = \e -> el [ Font.size Layout.size.s ] <| text <| String.slice 0 8 e.id
                   }
                 , { header = text "Line"
                   , width = shrink

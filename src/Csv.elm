@@ -1,35 +1,31 @@
-module Csv exposing (Entry, Unparsed, allEntries, validEntries)
+module Csv exposing (Unparsed, parseEntries, parseValidEntries)
 
 import Array exposing (Array)
-import Dict exposing (Dict)
-import Maybe.Extra as MaybeE
+import Maybe.Extra
+import Persistence.Data exposing (Entry)
+import SHA1
 
 
-type alias Entry =
-    { id : String
-    , date : String
-    , description : String
-    , amount : Int
-    }
-
-
-validEntries : Dict String String -> List Entry
-validEntries l =
+parseValidEntries : List String -> List Entry
+parseValidEntries l =
     l
-        |> Dict.map Tuple.pair
-        |> Dict.values
         |> List.map parseCsvLine
         |> List.map Result.toMaybe
-        |> MaybeE.values
+        |> Maybe.Extra.values
 
 
 type alias Unparsed =
     { id : String, text : String }
 
 
-allEntries : List ( String, String ) -> List (Result Unparsed Entry)
-allEntries l =
+parseEntries : List String -> List (Result Unparsed Entry)
+parseEntries l =
     List.map parseCsvLine l
+
+
+sha1 : String -> String
+sha1 s =
+    SHA1.fromString s |> SHA1.toHex
 
 
 
@@ -40,22 +36,25 @@ allEntries l =
 -- The amount column
 
 
-parseCsvLine : ( String, String ) -> Result Unparsed Entry
-parseCsvLine ( key, line ) =
+parseCsvLine : String -> Result Unparsed Entry
+parseCsvLine line =
     let
+        id =
+            sha1 line
+
         cells =
             line |> String.split ";" |> List.map String.trim |> Array.fromList
 
         amount =
-            Array.get 11 cells |> Maybe.map (onlyNumberChars >> String.toInt) |> MaybeE.join
+            Array.get 11 cells |> Maybe.map (onlyNumberChars >> String.toInt) |> Maybe.Extra.join
     in
     Maybe.map4 Entry
-        (Just key)
+        (Just id)
         (Array.get 4 cells)
         (combineTexts [ Array.get 6 cells, Array.get 9 cells, Array.get 10 cells ])
         amount
         |> Maybe.map Ok
-        |> Maybe.withDefault (Unparsed key line |> Err)
+        |> Maybe.withDefault (Unparsed id line |> Err)
 
 
 {-| If all items are Justs, combine them with \\n and trim the result

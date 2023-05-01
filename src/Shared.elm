@@ -7,8 +7,9 @@ module Shared exposing
     , update
     )
 
+import Persistence.Data exposing (Data, decode)
+import Persistence.Storage as Storage
 import Request exposing (Request)
-import Storage exposing (Storage)
 
 
 type alias Flags =
@@ -16,16 +17,16 @@ type alias Flags =
 
 
 type alias Model =
-    { storage : Storage }
+    { data : Data }
 
 
 type Msg
-    = StorageUpdated Storage
+    = StorageUpdated Data
 
 
 init : Request -> Flags -> ( Model, Cmd Msg )
 init _ flags =
-    ( { storage = Storage.decode flags }
+    ( { data = decode flags }
     , Cmd.none
     )
 
@@ -38,7 +39,7 @@ subscriptions _ _ =
 update : Request -> Msg -> Model -> ( Model, Cmd Msg )
 update _ msg model =
     case msg of
-        StorageUpdated storage ->
-            ( { model | storage = storage }
+        StorageUpdated data ->
+            ( { model | data = data }
             , Cmd.none
             )
