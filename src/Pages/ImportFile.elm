@@ -11,7 +11,7 @@ import File.Select as Select
 import Gen.Params.ImportFile exposing (Params)
 import Html.Events exposing (preventDefaultOn)
 import Json.Decode as D
-import Layout exposing (formatEuro, size, style)
+import Layout exposing (formatDate, formatEuro, size, style)
 import Maybe.Extra
 import Page
 import Persistence.Data exposing (Data, Entry)
@@ -247,7 +247,7 @@ readableData l =
             , columns =
                 [ { header = text "Date"
                   , width = shrink
-                  , view = \i e -> textCell i <| e.date
+                  , view = \i e -> textCell i <| formatDate e.date
                   }
                 , { header = text "Amount"
                   , width = shrink

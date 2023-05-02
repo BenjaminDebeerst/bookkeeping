@@ -4,6 +4,7 @@ import Array exposing (Array)
 import Maybe.Extra
 import Persistence.Data exposing (Entry)
 import SHA1
+import Time.Date as Date exposing (Date)
 
 
 parseValidEntries : List String -> List Entry
@@ -50,7 +51,7 @@ parseCsvLine line =
     in
     Maybe.map4 Entry
         (Just id)
-        (Array.get 4 cells)
+        (Maybe.Extra.join <| Maybe.map toDate <| Array.get 4 cells)
         (combineTexts [ Array.get 6 cells, Array.get 9 cells, Array.get 10 cells ])
         amount
         |> Maybe.map Ok
@@ -76,3 +77,16 @@ deduplicateSpaces s =
 onlyNumberChars : String -> String
 onlyNumberChars s =
     String.filter (\c -> Char.isDigit c || c == '-') s
+
+
+toDate :
+    String
+    -> Maybe Date -- TODO error handling
+toDate s =
+    -- format 25.3.1970
+    case s |> String.split "." |> List.map String.toInt of
+        (Just a) :: (Just b) :: (Just c) :: [] ->
+            Just <| Date.date c b a
+
+        _ ->
+            Nothing

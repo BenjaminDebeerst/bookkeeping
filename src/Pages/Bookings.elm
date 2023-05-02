@@ -4,7 +4,7 @@ import Dict
 import Element exposing (Column, Element, column, el, fill, none, shrink, spacing, table, text)
 import Element.Font as Font
 import Element.Input exposing (button)
-import Layout exposing (formatEuro, size)
+import Layout exposing (formatDate, formatEuro, size)
 import Maybe.Extra as Maybe
 import Page
 import Persistence.Data exposing (Data, Entry)
@@ -119,7 +119,7 @@ showData data =
               }
             , { header = text "Date"
               , width = shrink
-              , view = \e -> text e.date
+              , view = \e -> text <| formatDate e.date
               }
             , { header = text "Amount"
               , width = shrink

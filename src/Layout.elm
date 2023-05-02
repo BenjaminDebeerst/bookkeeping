@@ -1,10 +1,11 @@
-module Layout exposing (color, formatEuro, layout, size, style)
+module Layout exposing (color, formatDate, formatEuro, layout, size, style)
 
 import Element exposing (Attribute, Element, alignRight, column, el, fill, fillPortion, height, link, minimum, padding, paddingEach, rgb255, row, scrollbarX, scrollbarY, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Html exposing (Html)
+import Time.Date as Date exposing (Date)
 
 
 layout : String -> Element msg -> Html msg
@@ -104,3 +105,8 @@ formatEuro attrs cents =
             eur ++ "." ++ ct ++ " €"
     in
     el ([ width fill ] ++ attrs) <| el ([ alignRight ] ++ fontColor) (text formatted)
+
+
+formatDate : Date -> String
+formatDate date =
+    String.join "-" <| List.map String.fromInt <| [ Date.year date, Date.month date, Date.day date ]

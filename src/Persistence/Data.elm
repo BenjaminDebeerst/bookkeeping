@@ -8,6 +8,7 @@ module Persistence.Data exposing
 
 import Dict exposing (Dict)
 import Serialize as S
+import Time.Date as Date exposing (Date)
 
 
 type alias Data =
@@ -21,7 +22,7 @@ type alias DataV0 =
 
 type alias Entry =
     { id : String
-    , date : String
+    , date : Date
     , description : String
     , amount : Int
     }
@@ -81,10 +82,18 @@ v0Codec =
             (S.dict S.string
                 (S.record Entry
                     |> S.field .id S.string
-                    |> S.field .date S.string
+                    |> S.field .date dateCodec
                     |> S.field .description S.string
                     |> S.field .amount S.int
                     |> S.finishRecord
                 )
             )
         |> S.finishRecord
+
+
+dateCodec : S.Codec e Date
+dateCodec =
+    S.customType
+        (\encoder d -> encoder (Date.year d) (Date.month d) (Date.day d))
+        |> S.variant3 Date.date S.int S.int S.int
+        |> S.finishCustomType
