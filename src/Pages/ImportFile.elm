@@ -48,13 +48,12 @@ type alias Model =
     { state : State
     , fileContents : List String
     , fileName : String
-    , skipFirst : Bool
     }
 
 
 initModel : Model
 initModel =
-    Model Pick [] "" False
+    Model Pick [] ""
 
 
 
@@ -68,7 +67,6 @@ type Msg
     | GotFileName File
     | GotFile String String
     | Store
-    | SkipFirst Bool
 
 
 update : Data -> Msg -> Model -> ( Model, Cmd Msg )
@@ -92,14 +90,11 @@ update data msg model =
             ( { model | state = Show, fileContents = readFileContents content, fileName = name }, Cmd.none )
 
         Store ->
-            ( { initModel | state = Stored (List.length model.fileContents - dropN model) }
-            , List.drop (dropN model) model.fileContents
+            ( { initModel | state = Stored (List.length model.fileContents) }
+            , model.fileContents
                 |> Csv.parseValidEntries
                 |> Storage.addEntries data
             )
-
-        SkipFirst b ->
-            ( { model | skipFirst = b }, Cmd.none )
 
 
 readFile : File -> Cmd Msg
@@ -189,29 +184,14 @@ viewFileContents : Model -> Element Msg
 viewFileContents model =
     let
         csv =
-            model.fileContents
-                |> List.drop (dropN model)
-                |> parseEntries
+            parseEntries model.fileContents
     in
     column [ style.contentSpacing ]
-        ([ text ("Importing: " ++ model.fileName)
-         , row []
-            [ text "Import options:"
-            , Input.checkbox [] { label = labelRight [] (text "Skip first row"), icon = Input.defaultCheckbox, checked = model.skipFirst, onChange = SkipFirst }
-            ]
-         , Input.button style.button { onPress = Just Store, label = text "Store Data" }
-         ]
+        ([ el [ Font.size size.m ] <| text ("Importing file: " ++ model.fileName) ]
             ++ unreadableData csv
             ++ readableData csv
+            ++ [ Input.button style.button { onPress = Just Store, label = text "Import Data" } ]
         )
-
-
-dropN model =
-    if model.skipFirst then
-        1
-
-    else
-        0
 
 
 unreadableData : List (Result Unparsed Entry) -> List (Element Msg)
@@ -261,15 +241,11 @@ readableData l =
         []
 
     else
-        [ text <| "Importing " ++ String.fromInt n ++ " rows:"
+        [ text <| "The following " ++ String.fromInt n ++ " rows were successfully parsed: "
         , indexedTable [ spacing size.xs ]
             { data = readable
             , columns =
-                [ { header = text "Row"
-                  , width = shrink
-                  , view = \i _ -> textCell i <| String.fromInt (i + 1)
-                  }
-                , { header = text "Date"
+                [ { header = text "Date"
                   , width = shrink
                   , view = \i e -> textCell i <| e.date
                   }
