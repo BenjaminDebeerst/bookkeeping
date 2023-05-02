@@ -57,13 +57,20 @@ parseCsvLine line =
         |> Maybe.withDefault (Unparsed id line |> Err)
 
 
-{-| If all items are Justs, combine them with \\n and trim the result
+{-| If all items are Justs, shorten inner whitespace, combine them with \\n and trim the result
 -}
 combineTexts : List (Maybe String) -> Maybe String
 combineTexts list =
-    List.foldr (Maybe.map2 (\s l -> s :: l)) (Just []) list
+    list
+        |> List.map (Maybe.map deduplicateSpaces)
+        |> List.foldr (Maybe.map2 (\s l -> s :: l)) (Just [])
         |> Maybe.map (List.intersperse "\n")
         |> Maybe.map (String.concat >> String.trim)
+
+
+deduplicateSpaces : String -> String
+deduplicateSpaces s =
+    s |> String.split " " |> List.filter (not << String.isEmpty) |> String.join " "
 
 
 onlyNumberChars : String -> String
