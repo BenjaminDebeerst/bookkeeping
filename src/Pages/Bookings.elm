@@ -18,8 +18,8 @@ page : Shared.Model -> Request -> Page.With Model Msg
 page shared _ =
     Page.element
         { init = init
-        , update = update shared.data
-        , view = view shared.data
+        , update = update shared
+        , view = view shared
         , subscriptions = \_ -> Sub.none
         }
 

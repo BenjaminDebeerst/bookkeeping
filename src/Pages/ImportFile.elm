@@ -27,8 +27,8 @@ page : Shared.Model -> Request.With Params -> Page.With Model Msg
 page shared req =
     Page.element
         { init = ( initModel, Cmd.none )
-        , update = update shared.data
-        , view = view shared.data
+        , update = update shared
+        , view = view shared
         , subscriptions = \_ -> Sub.none
         }
 

@@ -17,29 +17,25 @@ type alias Flags =
 
 
 type alias Model =
-    { data : Data }
+    Data
 
 
-type Msg
-    = StorageUpdated Data
+type alias Msg =
+    Data
 
 
 init : Request -> Flags -> ( Model, Cmd Msg )
 init _ flags =
-    ( { data = decode flags }
+    ( decode flags
     , Cmd.none
     )
 
 
 subscriptions : Request -> Model -> Sub Msg
 subscriptions _ _ =
-    Storage.onChange StorageUpdated
+    Storage.onChange identity
 
 
 update : Request -> Msg -> Model -> ( Model, Cmd Msg )
-update _ msg model =
-    case msg of
-        StorageUpdated data ->
-            ( { model | data = data }
-            , Cmd.none
-            )
+update _ data _ =
+    ( data, Cmd.none )
