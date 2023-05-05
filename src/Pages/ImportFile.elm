@@ -5,7 +5,7 @@ import Dict
 import Element exposing (Attribute, Element, centerX, centerY, column, el, fill, height, indexedTable, paddingXY, row, shrink, spacing, table, text, width)
 import Element.Border as Border
 import Element.Font as Font
-import Element.Input as Input exposing (labelRight)
+import Element.Input as Input exposing (labelHidden, labelRight)
 import File exposing (File)
 import File.Select as Select
 import Gen.Params.ImportFile exposing (Params)
@@ -14,7 +14,7 @@ import Json.Decode as D
 import Layout exposing (formatDate, formatEuro, size, style)
 import Maybe.Extra
 import Page
-import Persistence.Data exposing (Data, Entry)
+import Persistence.Data exposing (Account, Data, Entry)
 import Persistence.Storage as Storage
 import Request
 import Result.Extra
@@ -48,12 +48,13 @@ type alias Model =
     { state : State
     , fileContents : List String
     , fileName : String
+    , account : Maybe Account
     }
 
 
 initModel : Model
 initModel =
-    Model Pick [] ""
+    Model Pick [] "" Nothing
 
 
 
@@ -66,6 +67,7 @@ type Msg
     | DragLeave
     | GotFileName File
     | GotFile String String
+    | ChooseAccount Int
     | Store
 
 
@@ -88,6 +90,9 @@ update data msg model =
 
         GotFile name content ->
             ( { model | state = Show, fileContents = readFileContents content, fileName = name }, Cmd.none )
+
+        ChooseAccount id ->
+            ( { model | account = Dict.get id data.accounts }, Cmd.none )
 
         Store ->
             ( { initModel | state = Stored (List.length model.fileContents) }
@@ -112,7 +117,7 @@ readFileContents content =
 
 
 view : Data -> Model -> View Msg
-view _ model =
+view data model =
     { title = "Import File"
     , body =
         [ Layout.layout "Import File" <|
@@ -120,7 +125,7 @@ view _ model =
                 viewFilePicker model
 
             else
-                viewFileContents model
+                viewFileContents data model
         ]
     }
 
@@ -180,14 +185,22 @@ showStoreConfirmation s =
 -- CSV Importer
 
 
-viewFileContents : Model -> Element Msg
-viewFileContents model =
+viewFileContents : Data -> Model -> Element Msg
+viewFileContents data model =
     let
         csv =
             parseEntries model.fileContents
     in
     column [ style.contentSpacing ]
         ([ el [ Font.size size.m ] <| text ("Importing file: " ++ model.fileName) ]
+            ++ [ text "Choose the account to import this data for:"
+               , Input.radio []
+                    { onChange = \a -> ChooseAccount a.id
+                    , options = Dict.values data.accounts |> List.map (\a -> Input.option a (text a.name))
+                    , selected = model.account
+                    , label = labelHidden "Account"
+                    }
+               ]
             ++ unreadableData csv
             ++ readableData csv
             ++ [ Input.button style.button { onPress = Just Store, label = text "Import Data" } ]
