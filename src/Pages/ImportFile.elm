@@ -2,6 +2,7 @@ module Pages.ImportFile exposing (Model, Msg, page)
 
 import Csv exposing (Unparsed, parseEntries)
 import Dict
+import Dropdown
 import Element exposing (Attribute, Element, centerX, centerY, column, el, fill, height, indexedTable, paddingXY, row, shrink, spacing, table, text, width)
 import Element.Border as Border
 import Element.Font as Font
@@ -38,7 +39,8 @@ page shared req =
 
 
 type State
-    = Pick
+    = PickingAccount
+    | PickingFile
     | PickHover
     | Show
     | Stored Int
@@ -46,6 +48,8 @@ type State
 
 type alias Model =
     { state : State
+    , accountDropdownState : Dropdown.State String
+    , account : String
     , fileContents : List String
     , fileName : String
     }
@@ -53,7 +57,7 @@ type alias Model =
 
 initModel : Model
 initModel =
-    Model Pick [] ""
+    Model PickingAccount (Dropdown.init "") "" [] ""
 
 
 
@@ -61,7 +65,9 @@ initModel =
 
 
 type Msg
-    = PickFile
+    = AccountPicked (Maybe String)
+    | AccountDropdownMsg (Dropdown.Msg String)
+    | PickFile
     | DragEnter
     | DragLeave
     | GotFileName File
@@ -72,11 +78,21 @@ type Msg
 update : Data -> Msg -> Model -> ( Model, Cmd Msg )
 update data msg model =
     case msg of
+        AccountPicked option ->
+            ( { model | account = Maybe.withDefault "NONE" option, state = PickingFile }, Cmd.none )
+
+        AccountDropdownMsg subMsg ->
+            let
+                ( state, cmd ) =
+                    Dropdown.update (dropdownConfig data) subMsg model model.accountDropdownState
+            in
+            ( { model | accountDropdownState = state }, cmd )
+
         DragEnter ->
             ( { model | state = PickHover }, Cmd.none )
 
         DragLeave ->
-            ( { model | state = Pick }, Cmd.none )
+            ( { model | state = PickingFile }, Cmd.none )
 
         PickFile ->
             ( model
@@ -84,7 +100,7 @@ update data msg model =
             )
 
         GotFileName filename ->
-            ( { model | state = Pick }, readFile filename )
+            ( { model | state = PickingFile }, readFile filename )
 
         GotFile name content ->
             ( { model | state = Show, fileContents = readFileContents content, fileName = name }, Cmd.none )
@@ -112,12 +128,15 @@ readFileContents content =
 
 
 view : Data -> Model -> View Msg
-view _ model =
-    { title = "Import File"
+view data model =
+    { title = "Import File into Account: '" ++ model.account ++ "'"
     , body =
         [ Layout.layout "Import File" <|
-            if List.isEmpty model.fileContents then
-                viewFilePicker model
+            if model.state == PickingAccount then
+                viewAccountSelector data model
+
+            else if List.isEmpty model.fileContents then
+                viewPickFileer model
 
             else
                 viewFileContents model
@@ -126,14 +145,46 @@ view _ model =
 
 
 
+-- Account Selector
+
+
+viewAccountSelector : Data -> Model -> Element Msg
+viewAccountSelector data model =
+    Dropdown.view (dropdownConfig data) model model.accountDropdownState
+        |> el []
+
+
+dropdownConfig : Data -> Dropdown.Config String Msg Model
+dropdownConfig data =
+    let
+        itemToPrompt item =
+            text item
+
+        itemToElement selected highlighted item =
+            text item
+
+        accounts =
+            List.map .name (Dict.values data.accounts)
+    in
+    Dropdown.basic
+        { itemsFromModel = always accounts
+        , selectionFromModel = \m -> Just m.account
+        , dropdownMsg = AccountDropdownMsg
+        , onSelectMsg = AccountPicked
+        , itemToPrompt = itemToPrompt
+        , itemToElement = itemToElement
+        }
+
+
+
 -- FILE PICKER
 
 
-viewFilePicker : Model -> Element Msg
-viewFilePicker model =
+viewPickFileer : Model -> Element Msg
+viewPickFileer model =
     column [ width fill, height fill, spacing Layout.size.m ]
         (showStoreConfirmation model.state
-            ++ [ el [] (text "Import a CSV File")
+            ++ [ el [] (text ("Import a CSV File to account " ++ model.account))
                , el
                     [ width fill
                     , height fill
