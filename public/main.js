@@ -1,5 +1,5 @@
 const app = Elm.Main.init({
-  flags: localStorage.getItem('storage')
+  flags: localStorage.getItem('storage') || ""
 })
 
 app.ports.save.subscribe(storage => {
