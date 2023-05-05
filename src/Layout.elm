@@ -1,4 +1,4 @@
-module Layout exposing (color, formatDate, formatEuro, layout, size, style)
+module Layout exposing (color, formatDate, formatEuro, formatEuroStr, layout, size, style)
 
 import Element exposing (Attribute, Element, alignRight, column, el, fill, fillPortion, height, link, minimum, padding, paddingEach, rgb255, row, scrollbarX, scrollbarY, spacing, text, width)
 import Element.Background as Background
@@ -79,30 +79,36 @@ style =
     }
 
 
+formatEuroStr : Int -> String
+formatEuroStr cents =
+    let
+        sign =
+            if (cents < 0) then "-" else ""
+
+        str =
+            String.fromInt (abs cents)
+
+        ct =
+            String.padLeft 2 '0' (String.right 2 str)
+
+        eur =
+            String.padLeft 1 '0' (String.slice 0 -2 str)
+
+    in
+        sign ++ eur ++ "." ++ ct ++ " €"
+
 formatEuro : List (Attribute msg) -> Int -> Element msg
 formatEuro attrs cents =
     let
-        str =
-            String.fromInt cents
-
-        ct =
-            String.right 2 str
-
-        eur =
-            String.slice 0 -2 str
-
-        negative =
-            String.left 1 str == "-"
+        formatted =
+            formatEuroStr cents
 
         fontColor =
-            if negative then
+            if (cents < 0) then
                 [ Font.color color.red ]
 
             else
                 []
-
-        formatted =
-            eur ++ "." ++ ct ++ " €"
     in
     el ([ width fill ] ++ attrs) <| el ([ alignRight ] ++ fontColor) (text formatted)
 
