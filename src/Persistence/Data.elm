@@ -1,5 +1,7 @@
 module Persistence.Data exposing
-    ( Data
+    ( Account
+    , AccountStart
+    , Data
     , Entry
     , decode
     , empty
@@ -17,6 +19,8 @@ type alias Data =
 
 type alias DataV0 =
     { bookEntries : Dict String Entry
+    , accounts : Dict Int Account
+    , autoIncrement : Int
     }
 
 
@@ -28,9 +32,23 @@ type alias Entry =
     }
 
 
+type alias Account =
+    { id : Int
+    , name : String
+    , start : AccountStart
+    }
+
+
+type alias AccountStart =
+    { amount : Int, year : Int, month : Int }
+
+
 empty : Data
 empty =
-    { bookEntries = Dict.empty }
+    { bookEntries = Dict.empty
+    , accounts = Dict.empty
+    , autoIncrement = 0
+    }
 
 
 encode : Data -> String
@@ -88,6 +106,25 @@ v0Codec =
                     |> S.finishRecord
                 )
             )
+        |> S.field .accounts
+            (S.dict S.int
+                (S.record Account
+                    |> S.field .id S.int
+                    |> S.field .name S.string
+                    |> S.field .start accountStartCodec
+                    |> S.finishRecord
+                )
+            )
+        |> S.field .autoIncrement S.int
+        |> S.finishRecord
+
+
+accountStartCodec : S.Codec e AccountStart
+accountStartCodec =
+    S.record AccountStart
+        |> S.field .amount S.int
+        |> S.field .year S.int
+        |> S.field .month S.int
         |> S.finishRecord
 
 

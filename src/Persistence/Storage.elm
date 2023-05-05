@@ -1,5 +1,6 @@
 port module Persistence.Storage exposing
-    ( addEntries
+    ( addAccount
+    , addEntries
     , load
     , loadDatabase
     , onChange
@@ -9,7 +10,7 @@ port module Persistence.Storage exposing
     )
 
 import Dict exposing (Dict)
-import Persistence.Data as Storage exposing (Data, Entry, decode, encode)
+import Persistence.Data as Storage exposing (Account, Data, Entry, decode, encode)
 
 
 port save : String -> Cmd msg
@@ -21,6 +22,20 @@ port load : (String -> msg) -> Sub msg
 onChange : (Data -> msg) -> Sub msg
 onChange fromStorage =
     load (\s -> decode s |> fromStorage)
+
+
+addAccount : Data -> Account -> Cmd msg
+addAccount data account =
+    let
+        id =
+            data.autoIncrement
+    in
+    { data
+        | accounts = Dict.insert id { account | id = id } data.accounts
+        , autoIncrement = id + 1
+    }
+        |> encode
+        |> save
 
 
 addEntries : Data -> List Entry -> Cmd msg

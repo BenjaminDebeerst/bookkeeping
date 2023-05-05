@@ -32,6 +32,7 @@ sidebar =
         [ link [] { url = "/", label = text "Home" }
         , link [] { url = "/import-file", label = text "Import File" }
         , link [] { url = "/bookings", label = text "Book" }
+        , link [] { url = "/accounts", label = text "Accounts" }
         ]
 
 
