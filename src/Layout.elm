@@ -83,7 +83,11 @@ formatEuroStr : Int -> String
 formatEuroStr cents =
     let
         sign =
-            if (cents < 0) then "-" else ""
+            if cents < 0 then
+                "-"
+
+            else
+                ""
 
         str =
             String.fromInt (abs cents)
@@ -93,9 +97,9 @@ formatEuroStr cents =
 
         eur =
             String.padLeft 1 '0' (String.slice 0 -2 str)
-
     in
-        sign ++ eur ++ "." ++ ct ++ " €"
+    sign ++ eur ++ "." ++ ct ++ " €"
+
 
 formatEuro : List (Attribute msg) -> Int -> Element msg
 formatEuro attrs cents =
@@ -104,7 +108,7 @@ formatEuro attrs cents =
             formatEuroStr cents
 
         fontColor =
-            if (cents < 0) then
+            if cents < 0 then
                 [ Font.color color.red ]
 
             else
