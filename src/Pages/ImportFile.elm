@@ -151,8 +151,10 @@ view data model =
 
 viewAccountSelector : Data -> Model -> Element Msg
 viewAccountSelector data model =
-    Dropdown.view (dropdownConfig data) model model.accountDropdownState
-        |> el []
+    row [ spacing size.s ]
+        [ text "Choose Account to import for: "
+        , Dropdown.view (dropdownConfig data) model model.accountDropdownState
+        ]
 
 
 dropdownConfig : Data -> Dropdown.Config Account Msg Model
@@ -162,19 +164,40 @@ dropdownConfig data =
             text item.name
 
         itemToElement selected highlighted item =
-            text item.name
+            el
+                [ padding size.s
+                , Background.color
+                    (if highlighted then
+                        color.extraBrightAccent
+
+                     else
+                        color.white
+                    )
+                ]
+                (text item.name)
 
         accounts =
             Dict.values data.accounts
     in
-    Dropdown.basic
-        { itemsFromModel = always accounts
-        , selectionFromModel = \m -> m.account
-        , dropdownMsg = AccountDropdownMsg
-        , onSelectMsg = AccountPicked
-        , itemToPrompt = itemToPrompt
-        , itemToElement = itemToElement
-        }
+    Dropdown.withListAttributes
+        [ Background.color color.white
+        , Border.color color.darkAccent
+        , Border.shadow
+            { offset = ( 0, 1 )
+            , size = 0.01
+            , blur = 5
+            , color = color.black
+            }
+        ]
+    <|
+        Dropdown.basic
+            { itemsFromModel = always accounts
+            , selectionFromModel = \m -> m.account
+            , dropdownMsg = AccountDropdownMsg
+            , onSelectMsg = AccountPicked
+            , itemToPrompt = itemToPrompt
+            , itemToElement = itemToElement
+            }
 
 
 
