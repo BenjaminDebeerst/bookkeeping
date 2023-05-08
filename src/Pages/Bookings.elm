@@ -7,8 +7,10 @@ import Element.Input exposing (button)
 import Layout exposing (formatDate, formatEuro, size)
 import Maybe.Extra as Maybe
 import Page
-import Persistence.Data exposing (Data, Entry)
+import Persistence.Data exposing (Data, RawAccountEntry)
 import Persistence.Storage as LocalStorage
+import Processing.Csv as Csv
+import Processing.Model exposing (Entry)
 import Request exposing (Request)
 import Shared
 import View exposing (View)
@@ -25,7 +27,7 @@ page shared _ =
 
 
 type alias Model =
-    { deletedItems : List ( String, Entry ) }
+    { deletedItems : List ( String, RawAccountEntry ) }
 
 
 init : ( Model, Cmd Msg )
@@ -48,7 +50,7 @@ update s m model =
         Delete id ->
             let
                 deleted =
-                    Dict.get id s.bookEntries
+                    Dict.get id s.rawEntries
 
                 pair =
                     Maybe.map (\v -> ( id, v )) deleted
@@ -81,7 +83,7 @@ view : Data -> Model -> View Msg
 view data model =
     let
         entries =
-            Dict.values data.bookEntries
+            Csv.parseValidEntries <| Dict.values data.rawEntries
     in
     { title = "Book"
     , body = [ Layout.layout "Book" (content model entries) ]

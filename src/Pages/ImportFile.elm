@@ -1,6 +1,5 @@
 module Pages.ImportFile exposing (Model, Msg, page)
 
-import Csv exposing (Unparsed, parseEntries)
 import Dict
 import Dropdown
 import Element exposing (Attribute, Element, centerX, centerY, column, el, fill, height, indexedTable, padding, paddingXY, px, row, shrink, spacing, table, text, width)
@@ -16,8 +15,10 @@ import Json.Decode as D
 import Layout exposing (color, formatDate, formatEuro, size, style)
 import Maybe.Extra
 import Page
-import Persistence.Data exposing (Account, Data, Entry)
+import Persistence.Data as Data exposing (Account, Data, RawAccountEntry, RawEntry)
 import Persistence.Storage as Storage
+import Processing.Csv as Csv
+import Processing.Model exposing (Entry)
 import Request
 import Result.Extra
 import Shared
@@ -110,11 +111,16 @@ update data msg model =
             ( { model | account = Dict.get id data.accounts }, Cmd.none )
 
         Store ->
-            ( { initModel | state = Stored (List.length model.fileContents) }
-            , model.fileContents
-                |> Csv.parseValidEntries
-                |> Storage.addEntries data
-            )
+            case model.account of
+                Just account ->
+                    ( { initModel | state = Stored (List.length model.fileContents) }
+                    , model.fileContents
+                        |> List.map (Data.rawAccountEntry account)
+                        |> Storage.addEntries data
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
 
 
 readFile : File -> Cmd Msg
@@ -140,7 +146,12 @@ view data model =
                 viewFilePicker data model
 
             else
-                viewFileContents data model
+                case model.account of
+                    Just account ->
+                        viewFileContentsWithAccount data model account
+
+                    Nothing ->
+                        viewFileContentsWithoutAccount data model
         ]
     }
 
@@ -256,31 +267,49 @@ showStoreConfirmation s =
 -- CSV Importer
 
 
-viewFileContents : Data -> Model -> Element Msg
-viewFileContents data model =
+viewFileContentsWithAccount : Data -> Model -> Account -> Element Msg
+viewFileContentsWithAccount data model account =
     let
         csv =
-            parseEntries model.fileContents
+            Csv.parseEntries <| List.map (Data.rawAccountEntry account) model.fileContents
+    in
+    column [ style.contentSpacing ]
+        ([ el [ Font.size size.m ] <| text ("Importing file: " ++ model.fileName) ]
+            ++ [ viewAccountSelector data model ]
+            ++ unreadableData (rawEntries csv)
+            ++ readableData (parsedEntries csv)
+            ++ [ Input.button style.button { onPress = Just Store, label = text "Import Data" } ]
+        )
+
+
+viewFileContentsWithoutAccount : Data -> Model -> Element Msg
+viewFileContentsWithoutAccount data model =
+    let
+        csv =
+            List.map Data.rawEntry model.fileContents
     in
     column [ style.contentSpacing ]
         ([ el [ Font.size size.m ] <| text ("Importing file: " ++ model.fileName) ]
             ++ [ viewAccountSelector data model ]
             ++ unreadableData csv
-            ++ readableData csv
             ++ [ Input.button style.button { onPress = Just Store, label = text "Import Data" } ]
         )
 
 
-unreadableData : List (Result Unparsed Entry) -> List (Element Msg)
-unreadableData l =
-    let
-        unreadable =
-            l
-                |> List.map Result.Extra.error
-                |> Maybe.Extra.values
+rawEntries : List (Result RawAccountEntry Entry) -> List RawEntry
+rawEntries =
+    List.map Result.Extra.error >> Maybe.Extra.values >> List.map .entry
 
+
+parsedEntries =
+    List.map Result.toMaybe >> Maybe.Extra.values
+
+
+unreadableData : List RawEntry -> List (Element Msg)
+unreadableData list =
+    let
         n =
-            List.length unreadable
+            List.length list
     in
     if n == 0 then
         []
@@ -288,7 +317,7 @@ unreadableData l =
     else
         [ text <| "There are " ++ String.fromInt n ++ " rows that can't be parsed:"
         , table [ spacing size.xs ]
-            { data = unreadable
+            { data = list
             , columns =
                 [ { header = text "ID"
                   , width = shrink
@@ -296,23 +325,18 @@ unreadableData l =
                   }
                 , { header = text "Line"
                   , width = shrink
-                  , view = \e -> el [ Font.size Layout.size.m ] <| text e.text
+                  , view = \e -> el [ Font.size Layout.size.m ] <| text e.line
                   }
                 ]
             }
         ]
 
 
-readableData : List (Result Unparsed Entry) -> List (Element Msg)
-readableData l =
+readableData : List Entry -> List (Element Msg)
+readableData list =
     let
-        readable =
-            l
-                |> List.map Result.toMaybe
-                |> Maybe.Extra.values
-
         n =
-            List.length readable
+            List.length list
     in
     if n == 0 then
         []
@@ -320,7 +344,7 @@ readableData l =
     else
         [ text <| "The following " ++ String.fromInt n ++ " rows were successfully parsed: "
         , indexedTable [ spacing size.xs ]
-            { data = readable
+            { data = list
             , columns =
                 [ { header = text "Date"
                   , width = shrink

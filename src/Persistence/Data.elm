@@ -2,15 +2,18 @@ module Persistence.Data exposing
     ( Account
     , AccountStart
     , Data
-    , Entry
+    , RawAccountEntry
+    , RawEntry
     , decode
     , empty
     , encode
+    , rawAccountEntry
+    , rawEntry
     )
 
 import Dict exposing (Dict)
+import SHA1
 import Serialize as S
-import Time.Date as Date exposing (Date)
 
 
 type alias Data =
@@ -18,18 +21,41 @@ type alias Data =
 
 
 type alias DataV0 =
-    { bookEntries : Dict String Entry
+    { rawEntries : Dict String RawAccountEntry
     , accounts : Dict Int Account
     , autoIncrement : Int
     }
 
 
-type alias Entry =
+type alias RawEntry =
     { id : String
-    , date : Date
-    , description : String
-    , amount : Int
+    , line : String
     }
+
+
+rawEntry : String -> RawEntry
+rawEntry line =
+    { id = sha1 line
+    , line = line
+    }
+
+
+type alias RawAccountEntry =
+    { entry : RawEntry
+    , account : Int
+    }
+
+
+rawAccountEntry : Account -> String -> RawAccountEntry
+rawAccountEntry account line =
+    { entry = rawEntry line
+    , account = account.id
+    }
+
+
+sha1 : String -> String
+sha1 s =
+    SHA1.fromString s |> SHA1.toHex
 
 
 type alias Account =
@@ -45,7 +71,7 @@ type alias AccountStart =
 
 empty : Data
 empty =
-    { bookEntries = Dict.empty
+    { rawEntries = Dict.empty
     , accounts = Dict.empty
     , autoIncrement = 0
     }
@@ -96,13 +122,16 @@ dataCodec =
 v0Codec : S.Codec e Data
 v0Codec =
     S.record DataV0
-        |> S.field .bookEntries
+        |> S.field .rawEntries
             (S.dict S.string
-                (S.record Entry
-                    |> S.field .id S.string
-                    |> S.field .date dateCodec
-                    |> S.field .description S.string
-                    |> S.field .amount S.int
+                (S.record RawAccountEntry
+                    |> S.field .entry
+                        (S.record RawEntry
+                            |> S.field .id S.string
+                            |> S.field .line S.string
+                            |> S.finishRecord
+                        )
+                    |> S.field .account S.int
                     |> S.finishRecord
                 )
             )
@@ -126,11 +155,3 @@ accountStartCodec =
         |> S.field .year S.int
         |> S.field .month S.int
         |> S.finishRecord
-
-
-dateCodec : S.Codec e Date
-dateCodec =
-    S.customType
-        (\encoder d -> encoder (Date.year d) (Date.month d) (Date.day d))
-        |> S.variant3 Date.date S.int S.int S.int
-        |> S.finishCustomType

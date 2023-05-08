@@ -10,7 +10,7 @@ port module Persistence.Storage exposing
     )
 
 import Dict exposing (Dict)
-import Persistence.Data as Storage exposing (Account, Data, Entry, decode, encode)
+import Persistence.Data as Storage exposing (Account, Data, RawAccountEntry, decode, encode)
 
 
 port save : String -> Cmd msg
@@ -38,16 +38,16 @@ addAccount data account =
         |> save
 
 
-addEntries : Data -> List Entry -> Cmd msg
+addEntries : Data -> List RawAccountEntry -> Cmd msg
 addEntries data lines =
-    { data | bookEntries = Dict.union data.bookEntries <| Dict.fromList <| List.map (\e -> ( e.id, e )) lines }
+    { data | rawEntries = Dict.union data.rawEntries <| Dict.fromList <| List.map (\e -> ( e.entry.id, e )) lines }
         |> encode
         |> save
 
 
 removeEntry : Data -> String -> Cmd msg
 removeEntry data id =
-    { data | bookEntries = Dict.remove id data.bookEntries } |> encode |> save
+    { data | rawEntries = Dict.remove id data.rawEntries } |> encode |> save
 
 
 loadDatabase : String -> Cmd msg
