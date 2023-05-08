@@ -1,13 +1,13 @@
 module Pages.Bookings exposing (Model, Msg, page)
 
-import Dict
+import Dict exposing (Dict)
 import Element exposing (Column, Element, column, el, fill, none, shrink, spacing, table, text)
 import Element.Font as Font
 import Element.Input exposing (button)
 import Layout exposing (formatDate, formatEuro, size)
 import Maybe.Extra as Maybe
 import Page
-import Persistence.Data exposing (Data, RawAccountEntry)
+import Persistence.Data exposing (Account, Data, RawAccountEntry)
 import Persistence.Storage as LocalStorage
 import Processing.Csv as Csv
 import Processing.Model exposing (Entry)
@@ -86,11 +86,11 @@ view data model =
             Csv.parseEntries <| Dict.values data.rawEntries
     in
     { title = "Book"
-    , body = [ Layout.layout "Book" (content model entries) ]
+    , body = [ Layout.layout "Book" (content model data.accounts entries) ]
     }
 
 
-content model data =
+content model accounts data =
     let
         undobox =
             if List.isEmpty model.deletedItems then
@@ -103,13 +103,13 @@ content model data =
                     }
                 ]
     in
-    column [] (undobox ++ [ showData data ])
+    column [] (undobox ++ [ showData accounts data ])
 
 
-showData : List Entry -> Element Msg
-showData data =
+showData : Dict Int Account -> List Entry -> Element Msg
+showData accounts entries =
     table [ spacing size.s ]
-        { data = data
+        { data = entries
         , columns =
             [ { header = none
               , width = fill
@@ -130,6 +130,10 @@ showData data =
             , { header = text "Description"
               , width = shrink
               , view = \e -> text e.description
+              }
+            , { header = text "Account"
+              , width = shrink
+              , view = \e -> Dict.get e.account accounts |> Maybe.map .name |> Maybe.withDefault "Not Found" |> text
               }
             ]
         }

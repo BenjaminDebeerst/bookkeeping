@@ -26,18 +26,22 @@ parseEntries l =
 parseCsvLine : RawAccountEntry -> Result RawAccountEntry Entry
 parseCsvLine raw =
     let
+        andMap =
+            Maybe.map2 (|>)
+
         cells =
             raw.entry.line |> String.split ";" |> List.map String.trim |> Array.fromList
 
         amount =
             Array.get 11 cells |> Maybe.map (onlyNumberChars >> String.toInt) |> Maybe.Extra.join
     in
-    Maybe.map5 Entry
-        (Just raw.entry.id)
-        (Maybe.Extra.join <| Maybe.map toDate <| Array.get 4 cells)
-        (combineTexts [ Array.get 6 cells, Array.get 9 cells, Array.get 10 cells ])
-        amount
-        (Just raw)
+    Just Entry
+        |> andMap (Just raw.entry.id)
+        |> andMap (Maybe.Extra.join <| Maybe.map toDate <| Array.get 4 cells)
+        |> andMap (combineTexts [ Array.get 6 cells, Array.get 9 cells, Array.get 10 cells ])
+        |> andMap amount
+        |> andMap (Just raw.account)
+        |> andMap (Just raw)
         |> Maybe.map Ok
         |> Maybe.withDefault (Err raw)
 

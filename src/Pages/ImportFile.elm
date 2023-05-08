@@ -111,10 +111,14 @@ update data msg model =
         Store ->
             case model.account of
                 Just account ->
-                    ( { initModel | state = Stored (List.length model.fileContents) }
-                    , model.fileContents
-                        |> List.map (Data.rawAccountEntry account)
-                        |> Csv.parseEntries
+                    let
+                        parsedEntries =
+                            model.fileContents
+                                |> List.map (Data.rawAccountEntry account)
+                                |> Csv.parseEntries
+                    in
+                    ( { initModel | state = Stored (List.length parsedEntries) }
+                    , parsedEntries
                         |> List.map .raw
                         |> Storage.addEntries data
                     )
