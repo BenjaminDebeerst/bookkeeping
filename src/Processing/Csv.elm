@@ -1,4 +1,4 @@
-module Processing.Csv exposing (parseEntries, parseValidEntries)
+module Processing.Csv exposing (parseEntries)
 
 import Array exposing (Array)
 import Maybe.Extra
@@ -7,17 +7,12 @@ import Processing.Model exposing (Entry)
 import Time.Date as Date exposing (Date)
 
 
-parseValidEntries : List RawAccountEntry -> List Entry
-parseValidEntries l =
+parseEntries : List RawAccountEntry -> List Entry
+parseEntries l =
     l
         |> List.map parseCsvLine
         |> List.map Result.toMaybe
         |> Maybe.Extra.values
-
-
-parseEntries : List RawAccountEntry -> List (Result RawAccountEntry Entry)
-parseEntries l =
-    List.map parseCsvLine l
 
 
 
@@ -37,11 +32,12 @@ parseCsvLine raw =
         amount =
             Array.get 11 cells |> Maybe.map (onlyNumberChars >> String.toInt) |> Maybe.Extra.join
     in
-    Maybe.map4 Entry
+    Maybe.map5 Entry
         (Just raw.entry.id)
         (Maybe.Extra.join <| Maybe.map toDate <| Array.get 4 cells)
         (combineTexts [ Array.get 6 cells, Array.get 9 cells, Array.get 10 cells ])
         amount
+        (Just raw)
         |> Maybe.map Ok
         |> Maybe.withDefault (Err raw)
 

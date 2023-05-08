@@ -83,7 +83,7 @@ view : Data -> Model -> View Msg
 view data model =
     let
         entries =
-            Csv.parseValidEntries <| Dict.values data.rawEntries
+            Csv.parseEntries <| Dict.values data.rawEntries
     in
     { title = "Book"
     , body = [ Layout.layout "Book" (content model entries) ]

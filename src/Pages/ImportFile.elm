@@ -2,25 +2,23 @@ module Pages.ImportFile exposing (Model, Msg, page)
 
 import Dict
 import Dropdown
-import Element exposing (Attribute, Element, centerX, centerY, column, el, fill, height, indexedTable, padding, paddingXY, px, row, shrink, spacing, table, text, width)
+import Element exposing (Attribute, Element, centerX, centerY, column, el, fill, height, indexedTable, padding, paddingXY, row, shrink, spacing, table, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
-import Element.Input as Input exposing (labelHidden, labelRight)
+import Element.Input as Input
 import File exposing (File)
 import File.Select as Select
 import Gen.Params.ImportFile exposing (Params)
 import Html.Events exposing (preventDefaultOn)
 import Json.Decode as D
 import Layout exposing (color, formatDate, formatEuro, size, style)
-import Maybe.Extra
 import Page
 import Persistence.Data as Data exposing (Account, Data, RawAccountEntry, RawEntry)
 import Persistence.Storage as Storage
 import Processing.Csv as Csv
 import Processing.Model exposing (Entry)
 import Request
-import Result.Extra
 import Shared
 import Task exposing (Task)
 import View exposing (View)
@@ -116,6 +114,8 @@ update data msg model =
                     ( { initModel | state = Stored (List.length model.fileContents) }
                     , model.fileContents
                         |> List.map (Data.rawAccountEntry account)
+                        |> Csv.parseEntries
+                        |> List.map .raw
                         |> Storage.addEntries data
                     )
 
@@ -146,12 +146,7 @@ view data model =
                 viewFilePicker data model
 
             else
-                case model.account of
-                    Just account ->
-                        viewFileContentsWithAccount data model account
-
-                    Nothing ->
-                        viewFileContentsWithoutAccount data model
+                viewFileContents data model
         ]
     }
 
@@ -267,47 +262,23 @@ showStoreConfirmation s =
 -- CSV Importer
 
 
-viewFileContentsWithAccount : Data -> Model -> Account -> Element Msg
-viewFileContentsWithAccount data model account =
-    let
-        csv =
-            Csv.parseEntries <| List.map (Data.rawAccountEntry account) model.fileContents
-    in
+viewFileContents : Data -> Model -> Element Msg
+viewFileContents data model =
     column [ style.contentSpacing ]
         ([ el [ Font.size size.m ] <| text ("Importing file: " ++ model.fileName) ]
             ++ [ viewAccountSelector data model ]
-            ++ unreadableData (rawEntries csv)
-            ++ readableData (parsedEntries csv)
+            ++ unreadableData model
+            ++ readableData model
             ++ [ Input.button style.button { onPress = Just Store, label = text "Import Data" } ]
         )
 
 
-viewFileContentsWithoutAccount : Data -> Model -> Element Msg
-viewFileContentsWithoutAccount data model =
+unreadableData : Model -> List (Element Msg)
+unreadableData model =
     let
-        csv =
+        list =
             List.map Data.rawEntry model.fileContents
-    in
-    column [ style.contentSpacing ]
-        ([ el [ Font.size size.m ] <| text ("Importing file: " ++ model.fileName) ]
-            ++ [ viewAccountSelector data model ]
-            ++ unreadableData csv
-            ++ [ Input.button style.button { onPress = Just Store, label = text "Import Data" } ]
-        )
 
-
-rawEntries : List (Result RawAccountEntry Entry) -> List RawEntry
-rawEntries =
-    List.map Result.Extra.error >> Maybe.Extra.values >> List.map .entry
-
-
-parsedEntries =
-    List.map Result.toMaybe >> Maybe.Extra.values
-
-
-unreadableData : List RawEntry -> List (Element Msg)
-unreadableData list =
-    let
         n =
             List.length list
     in
@@ -315,15 +286,11 @@ unreadableData list =
         []
 
     else
-        [ text <| "There are " ++ String.fromInt n ++ " rows that can't be parsed:"
+        [ text <| "Loaded " ++ String.fromInt n ++ " lines"
         , table [ spacing size.xs ]
             { data = list
             , columns =
-                [ { header = text "ID"
-                  , width = shrink
-                  , view = \e -> el [ Font.size Layout.size.s ] <| text <| String.slice 0 8 e.id
-                  }
-                , { header = text "Line"
+                [ { header = Element.none
                   , width = shrink
                   , view = \e -> el [ Font.size Layout.size.m ] <| text e.line
                   }
@@ -332,35 +299,43 @@ unreadableData list =
         ]
 
 
-readableData : List Entry -> List (Element Msg)
-readableData list =
-    let
-        n =
-            List.length list
-    in
-    if n == 0 then
-        []
+readableData : Model -> List (Element Msg)
+readableData model =
+    case model.account of
+        Nothing ->
+            []
 
-    else
-        [ text <| "The following " ++ String.fromInt n ++ " rows were successfully parsed: "
-        , indexedTable [ spacing size.xs ]
-            { data = list
-            , columns =
-                [ { header = text "Date"
-                  , width = shrink
-                  , view = \i e -> textCell i <| formatDate e.date
-                  }
-                , { header = text "Amount"
-                  , width = shrink
-                  , view = \i e -> formatEuro (cellstyle i) <| e.amount
-                  }
-                , { header = text "Description"
-                  , width = shrink
-                  , view = \i e -> textCell i <| e.description
-                  }
+        Just account ->
+            let
+                list =
+                    Csv.parseEntries <| List.map (Data.rawAccountEntry account) model.fileContents
+
+                n =
+                    List.length list
+            in
+            if n == 0 then
+                []
+
+            else
+                [ text <| "The following " ++ String.fromInt n ++ " rows were successfully parsed: "
+                , indexedTable [ spacing size.xs ]
+                    { data = list
+                    , columns =
+                        [ { header = text "Date"
+                          , width = shrink
+                          , view = \i e -> textCell i <| formatDate e.date
+                          }
+                        , { header = text "Amount"
+                          , width = shrink
+                          , view = \i e -> formatEuro (cellstyle i) <| e.amount
+                          }
+                        , { header = text "Description"
+                          , width = shrink
+                          , view = \i e -> textCell i <| e.description
+                          }
+                        ]
+                    }
                 ]
-            }
-        ]
 
 
 textCell i s =

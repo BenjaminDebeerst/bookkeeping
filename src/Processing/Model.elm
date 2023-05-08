@@ -1,7 +1,6 @@
 module Processing.Model exposing (..)
 
-import Persistence.Data exposing (Account, RawAccountEntry)
-import SHA1
+import Persistence.Data exposing (RawAccountEntry)
 import Time.Date exposing (Date)
 
 
@@ -10,4 +9,5 @@ type alias Entry =
     , date : Date
     , description : String
     , amount : Int
+    , raw : RawAccountEntry
     }
