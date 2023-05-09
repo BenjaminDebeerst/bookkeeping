@@ -1,17 +1,14 @@
 module Pages.Book exposing (Model, Msg, page)
 
 import Dict exposing (Dict)
-import Element exposing (Attribute, Column, Element, column, el, fill, height, indexedTable, none, padding, shrink, spacing, table, text)
+import Element exposing (Attribute, Column, Element, column, el, fill, height, indexedTable, padding, shrink, spacing, text)
 import Element.Background as Background
 import Element.Font as Font
-import Element.Input exposing (button)
 import Layout exposing (color, formatDate, formatEuro, size)
-import Maybe.Extra as Maybe
 import Page
 import Persistence.Data exposing (Account, Data, RawAccountEntry)
-import Persistence.Storage as LocalStorage
-import Processing.Csv as Csv
-import Processing.Model exposing (Entry)
+import Processing.Csv exposing (Entry)
+import Processing.Model exposing (dateAsc, dateDesc, filterMonth, filterYear, getEntries)
 import Request exposing (Request)
 import Shared
 import View exposing (View)
@@ -57,7 +54,7 @@ view : Data -> Model -> View Msg
 view data model =
     let
         entries =
-            Csv.parseEntries <| Dict.values data.rawEntries
+            getEntries data [ filterYear 2023 ] dateDesc
     in
     { title = "Book"
     , body = [ Layout.layout "Book" (content model data.accounts entries) ]

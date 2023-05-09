@@ -1,14 +1,57 @@
 module Processing.Model exposing (..)
 
-import Persistence.Data exposing (Account, RawAccountEntry)
-import Time.Date exposing (Date)
+import Dict
+import Persistence.Data exposing (Account, Data, RawAccountEntry)
+import Processing.Csv exposing (Entry, parseEntries)
+import Time.Date as Date
 
 
-type alias Entry =
-    { id : String
-    , date : Date
-    , description : String
-    , amount : Int
-    , account : Int
-    , raw : RawAccountEntry
-    }
+getEntries : Data -> List Filter -> Order comparable -> List Entry
+getEntries data filters order =
+    Dict.values data.rawEntries
+        |> parseEntries
+        |> List.filter (all filters)
+        |> List.sortBy order
+
+
+
+-- Filter entries
+
+
+type alias Filter =
+    Entry -> Bool
+
+
+all : List Filter -> Filter
+all l =
+    \e -> List.all (\f -> f e) l
+
+
+filterMonth : Int -> Entry -> Bool
+filterMonth i e =
+    Date.month e.date == i
+
+
+filterYear : Int -> Entry -> Bool
+filterYear i e =
+    Date.year e.date == i
+
+
+
+-- Order entries
+
+
+type alias Order comparable =
+    Entry -> comparable
+
+
+dateAsc =
+    \e -> Date.toTuple e.date
+
+
+dateDesc =
+    \e -> negate <| Date.toTuple e.date
+
+
+negate ( a, b, c ) =
+    ( -a, -b, -c )
