@@ -1,4 +1,4 @@
-module Pages.Bookings exposing (Model, Msg, page)
+module Pages.Book exposing (Model, Msg, page)
 
 import Dict exposing (Dict)
 import Element exposing (Column, Element, column, el, fill, none, shrink, spacing, table, text)
