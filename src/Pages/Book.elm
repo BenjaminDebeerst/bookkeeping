@@ -1,10 +1,11 @@
 module Pages.Book exposing (Model, Msg, page)
 
 import Dict exposing (Dict)
-import Element exposing (Column, Element, column, el, fill, none, shrink, spacing, table, text)
+import Element exposing (Attribute, Column, Element, column, el, fill, height, indexedTable, none, padding, shrink, spacing, table, text)
+import Element.Background as Background
 import Element.Font as Font
 import Element.Input exposing (button)
-import Layout exposing (formatDate, formatEuro, size)
+import Layout exposing (color, formatDate, formatEuro, size)
 import Maybe.Extra as Maybe
 import Page
 import Persistence.Data exposing (Account, Data, RawAccountEntry)
@@ -40,39 +41,12 @@ init =
 
 
 type Msg
-    = Delete String
-    | Undo
+    = Noop
 
 
 update : Data -> Msg -> Model -> ( Model, Cmd Msg )
 update s m model =
-    case m of
-        Delete id ->
-            let
-                deleted =
-                    Dict.get id s.rawEntries
-
-                pair =
-                    Maybe.map (\v -> ( id, v )) deleted
-
-                toAdd =
-                    Maybe.toList pair
-            in
-            ( { model | deletedItems = toAdd ++ model.deletedItems }
-            , LocalStorage.removeEntry s id
-            )
-
-        Undo ->
-            let
-                item =
-                    List.map Tuple.second <| List.take 1 model.deletedItems
-
-                cmd =
-                    LocalStorage.addEntries s item
-            in
-            ( { model | deletedItems = List.drop 1 model.deletedItems }
-            , cmd
-            )
+    ( model, Cmd.none )
 
 
 
@@ -91,49 +65,64 @@ view data model =
 
 
 content model accounts data =
-    let
-        undobox =
-            if List.isEmpty model.deletedItems then
-                []
-
-            else
-                [ button Layout.style.button
-                    { onPress = Just Undo
-                    , label = text <| "Undo (" ++ (String.fromInt <| List.length model.deletedItems) ++ ")"
-                    }
-                ]
-    in
-    column [] (undobox ++ [ showData accounts data ])
+    column [] [ showData accounts data ]
 
 
 showData : Dict Int Account -> List Entry -> Element Msg
 showData accounts entries =
-    table [ spacing size.s ]
+    indexedTable [ spacing size.tiny ]
         { data = entries
         , columns =
-            [ { header = none
-              , width = fill
-              , view = \e -> button Layout.style.button { onPress = Just (Delete e.id), label = text "X" }
-              }
-            , { header = text "ID"
+            [ { header = header "Date"
               , width = shrink
-              , view = \e -> el [ Font.size Layout.size.s ] <| text <| String.slice 0 8 e.id
+              , view = \i e -> row i <| text <| formatDate e.date
               }
-            , { header = text "Date"
+            , { header = header "Amount"
               , width = shrink
-              , view = \e -> text <| formatDate e.date
+              , view = \i e -> row i <| formatEuro [] e.amount
               }
-            , { header = text "Amount"
+            , { header = header "Description"
               , width = shrink
-              , view = \e -> formatEuro [] e.amount
+              , view = \i e -> row i <| text e.description
               }
-            , { header = text "Description"
+            , { header = header "Account"
               , width = shrink
-              , view = \e -> text e.description
-              }
-            , { header = text "Account"
-              , width = shrink
-              , view = \e -> Dict.get e.account accounts |> Maybe.map .name |> Maybe.withDefault "Not Found" |> text
+              , view = \i e -> row i <| (Dict.get e.account accounts |> Maybe.map .name |> Maybe.withDefault "Not Found" |> text)
               }
             ]
         }
+
+
+header : String -> Element msg
+header s =
+    el headerStyle <| text s
+
+
+row : Int -> Element msg -> Element msg
+row i e =
+    el (rowStyle i) e
+
+
+headerStyle : List (Attribute msg)
+headerStyle =
+    [ Background.color color.brightAccent
+    , Font.bold
+    , Font.color color.black
+    , padding size.xs
+    ]
+
+
+rowStyle : Int -> List (Attribute msg)
+rowStyle i =
+    let
+        bgColor =
+            if modBy 2 i == 1 then
+                color.white
+
+            else
+                color.extraBrightAccent
+    in
+    [ Background.color bgColor
+    , height fill
+    , padding size.xs
+    ]
