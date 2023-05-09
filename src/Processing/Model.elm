@@ -6,12 +6,12 @@ import Processing.Csv exposing (Entry, parseEntries)
 import Time.Date as Date
 
 
-getEntries : Data -> List Filter -> Order comparable -> List Entry
+getEntries : Data -> List Filter -> Ordering Entry -> List Entry
 getEntries data filters order =
     Dict.values data.rawEntries
         |> parseEntries
         |> List.filter (all filters)
-        |> List.sortBy order
+        |> List.sortWith order
 
 
 
@@ -50,17 +50,23 @@ filterDescription s e =
 -- Order entries
 
 
-type alias Order comparable =
-    Entry -> comparable
+type alias Ordering a =
+    a -> a -> Basics.Order
+
+
+asc : (Entry -> comparable) -> Ordering Entry
+asc f =
+    \e1 e2 -> compare (f e1) (f e2)
+
+
+desc : (Entry -> comparable) -> Ordering Entry
+desc f =
+    \e1 e2 -> compare (f e2) (f e1)
 
 
 dateAsc =
-    \e -> Date.toTuple e.date
+    asc (\e -> Date.toTuple e.date)
 
 
 dateDesc =
-    \e -> negate <| Date.toTuple e.date
-
-
-negate ( a, b, c ) =
-    ( -a, -b, -c )
+    desc (\e -> Date.toTuple e.date)
