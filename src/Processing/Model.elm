@@ -37,6 +37,15 @@ filterYear i e =
     Date.year e.date == i
 
 
+filterDescription : String -> Entry -> Bool
+filterDescription s e =
+    if String.isEmpty s then
+        True
+
+    else
+        String.contains (String.toLower s) (String.toLower e.description)
+
+
 
 -- Order entries
 
