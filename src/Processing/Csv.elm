@@ -1,8 +1,9 @@
 module Processing.Csv exposing (Entry, parseEntries)
 
 import Array exposing (Array)
+import Dict exposing (Dict)
 import Maybe.Extra
-import Persistence.Data exposing (RawAccountEntry)
+import Persistence.Data exposing (Account, RawAccountEntry)
 import Time.Date as Date exposing (Date)
 
 
@@ -11,15 +12,15 @@ type alias Entry =
     , date : Date
     , description : String
     , amount : Int
-    , account : Int
+    , account : Account
     , raw : RawAccountEntry
     }
 
 
-parseEntries : List RawAccountEntry -> List Entry
-parseEntries l =
-    l
-        |> List.map parseCsvLine
+parseEntries : Dict Int Account -> List RawAccountEntry -> List Entry
+parseEntries accounts rawEntries =
+    rawEntries
+        |> List.map (parseCsvLine accounts)
         |> List.map Result.toMaybe
         |> Maybe.Extra.values
 
@@ -32,8 +33,8 @@ parseEntries l =
 -- The amount column
 
 
-parseCsvLine : RawAccountEntry -> Result RawAccountEntry Entry
-parseCsvLine raw =
+parseCsvLine : Dict Int Account -> RawAccountEntry -> Result RawAccountEntry Entry
+parseCsvLine accounts raw =
     let
         andMap =
             Maybe.map2 (|>)
@@ -43,13 +44,16 @@ parseCsvLine raw =
 
         amount =
             Array.get 11 cells |> Maybe.map (onlyNumberChars >> String.toInt) |> Maybe.Extra.join
+
+        account =
+            Dict.get raw.account accounts
     in
     Just Entry
         |> andMap (Just raw.entry.id)
         |> andMap (Maybe.Extra.join <| Maybe.map toDate <| Array.get 4 cells)
         |> andMap (combineTexts [ Array.get 6 cells, Array.get 9 cells, Array.get 10 cells ])
         |> andMap amount
-        |> andMap (Just raw.account)
+        |> andMap account
         |> andMap (Just raw)
         |> Maybe.map Ok
         |> Maybe.withDefault (Err raw)

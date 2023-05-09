@@ -9,7 +9,7 @@ import Time.Date as Date
 getEntries : Data -> List Filter -> Ordering Entry -> List Entry
 getEntries data filters order =
     Dict.values data.rawEntries
-        |> parseEntries
+        |> parseEntries data.accounts
         |> List.filter (all filters)
         |> List.sortWith order
 

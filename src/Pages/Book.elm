@@ -147,12 +147,17 @@ dataTable accounts entries =
               , width = shrink
               , view = \i e -> row i <| text e.description
               }
-            , { header = header (OrderBy dateAsc) (OrderBy dateDesc) "Account" -- TODO actually sort by account
+            , { header = header (OrderBy (asc accountName)) (OrderBy (desc accountName)) "Account" -- TODO actually sort by account
               , width = shrink
-              , view = \i e -> row i <| (Dict.get e.account accounts |> Maybe.map .name |> Maybe.withDefault "Not Found" |> text)
+              , view = \i e -> row i <| text e.account.name
               }
             ]
         }
+
+
+accountName : Entry -> String
+accountName e =
+    e.account.name
 
 
 maybeNoEntries n =
