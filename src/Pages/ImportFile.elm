@@ -1,6 +1,6 @@
 module Pages.ImportFile exposing (Model, Msg, page)
 
-import Dict
+import Dict exposing (Dict)
 import Dropdown
 import Element exposing (Attribute, Element, centerX, centerY, column, el, fill, height, indexedTable, padding, paddingXY, row, shrink, spacing, table, text, width)
 import Element.Background as Background
@@ -114,7 +114,7 @@ update data msg model =
                         parsedEntries =
                             model.fileContents
                                 |> List.map (Data.rawAccountEntry account)
-                                |> Csv.parseEntries
+                                |> Csv.parseEntries (asDict account)
                     in
                     ( { initModel | state = Stored (List.length parsedEntries) }
                     , parsedEntries
@@ -311,7 +311,7 @@ readableData model =
         Just account ->
             let
                 list =
-                    Csv.parseEntries <| List.map (Data.rawAccountEntry account) model.fileContents
+                    Csv.parseEntries (asDict account) <| List.map (Data.rawAccountEntry account) model.fileContents
 
                 n =
                     List.length list
@@ -348,3 +348,8 @@ textCell i s =
 cellstyle : Int -> List (Attribute msg)
 cellstyle _ =
     [ paddingXY 0 size.s ]
+
+
+asDict : Account -> Dict Int Account
+asDict a =
+    Dict.fromList [ ( a.id, a ) ]

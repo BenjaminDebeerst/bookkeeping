@@ -1,16 +1,18 @@
 module Pages.Book exposing (Model, Msg, page)
 
 import Dict exposing (Dict)
-import Element exposing (Attribute, Column, Element, centerX, centerY, column, el, explain, fill, height, indexedTable, padding, paddingXY, shrink, spacing, text, width)
+import Element exposing (Attribute, Column, Element, alignLeft, alignRight, centerX, column, el, fill, height, indexedTable, padding, paddingXY, shrink, spacing, text, width)
 import Element.Background as Background
+import Element.Events exposing (onClick)
 import Element.Font as Font
-import Element.Input as Input exposing (labelHidden, labelLeft, placeholder)
+import Element.Input as Input exposing (labelLeft, placeholder)
+import Icons exposing (triangleDown, triangleUp)
 import Layout exposing (color, formatDate, formatEuro, size)
 import Maybe.Extra
 import Page
 import Persistence.Data exposing (Account, Data, RawAccountEntry)
 import Processing.Csv exposing (Entry)
-import Processing.Model exposing (dateAsc, dateDesc, filterDescription, filterMonth, filterYear, getEntries)
+import Processing.Model exposing (Ordering, asc, dateAsc, dateDesc, desc, filterDescription, filterMonth, filterYear, getEntries)
 import Request exposing (Request)
 import Shared
 import View exposing (View)
@@ -30,12 +32,19 @@ type alias Model =
     { year : String
     , month : String
     , descr : String
+    , ordering : Ordering Entry
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { year = "", month = "", descr = "" }, Cmd.none )
+    ( { year = ""
+      , month = ""
+      , descr = ""
+      , ordering = dateAsc
+      }
+    , Cmd.none
+    )
 
 
 
@@ -46,10 +55,11 @@ type Msg
     = FilterYear String
     | FilterMonth String
     | FilterDescr String
+    | OrderBy (Ordering Entry)
 
 
 update : Data -> Msg -> Model -> ( Model, Cmd Msg )
-update data msg model =
+update _ msg model =
     case msg of
         FilterYear year ->
             ( { model | year = year }, Cmd.none )
@@ -60,9 +70,8 @@ update data msg model =
         FilterDescr descr ->
             ( { model | descr = descr }, Cmd.none )
 
-
-
--- VIEW
+        OrderBy ordering ->
+            ( { model | ordering = ordering }, Cmd.none )
 
 
 view : Data -> Model -> View Msg
@@ -75,7 +84,7 @@ view data model =
                 ++ [ model.descr |> String.trim |> filterDescription ]
 
         entries =
-            getEntries data filters dateDesc
+            getEntries data filters model.ordering
     in
     { title = "Book"
     , body = [ Layout.layout "Book" (content model data.accounts entries) ]
@@ -90,7 +99,7 @@ content model accounts data =
 
 
 showFilters : Model -> Dict Int Account -> Element Msg
-showFilters model accounts =
+showFilters model _ =
     column [ spacing size.s ]
         [ el [ Font.bold, Font.size size.m ] <| text "Filters"
         , Input.text []
@@ -126,24 +135,29 @@ dataTable accounts entries =
     indexedTable [ spacing size.tiny ]
         { data = entries
         , columns =
-            [ { header = header "Date"
+            [ { header = header (OrderBy dateAsc) (OrderBy dateDesc) "Date"
               , width = shrink
               , view = \i e -> row i <| text <| formatDate e.date
               }
-            , { header = header "Amount"
+            , { header = header (OrderBy (asc .amount)) (OrderBy (desc .amount)) "Amount"
               , width = shrink
               , view = \i e -> row i <| formatEuro [] e.amount
               }
-            , { header = header "Description"
+            , { header = header (OrderBy (asc .description)) (OrderBy (desc .description)) "Description"
               , width = shrink
               , view = \i e -> row i <| text e.description
               }
-            , { header = header "Account"
+            , { header = header (OrderBy (asc accountName)) (OrderBy (desc accountName)) "Account" -- TODO actually sort by account
               , width = shrink
-              , view = \i e -> row i <| (Dict.get e.account accounts |> Maybe.map .name |> Maybe.withDefault "Not Found" |> text)
+              , view = \i e -> row i <| text e.account.name
               }
             ]
         }
+
+
+accountName : Entry -> String
+accountName e =
+    e.account.name
 
 
 maybeNoEntries n =
@@ -154,9 +168,16 @@ maybeNoEntries n =
         Element.none
 
 
-header : String -> Element msg
-header s =
-    el headerStyle <| text s
+header : msg -> msg -> String -> Element msg
+header up down s =
+    Element.row headerStyle
+        [ el [ alignLeft ] <| text s
+        , column
+            [ alignRight, height fill, spacing size.xxs ]
+            [ triangleUp [ onClick up ] size.s
+            , triangleDown [ onClick down ] size.s
+            ]
+        ]
 
 
 row : Int -> Element msg -> Element msg
@@ -169,7 +190,9 @@ headerStyle =
     [ Background.color color.brightAccent
     , Font.bold
     , Font.color color.black
+    , Font.size size.m
     , padding size.xs
+    , spacing size.xs
     ]
 
 
