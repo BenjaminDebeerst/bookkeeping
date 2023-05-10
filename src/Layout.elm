@@ -31,7 +31,7 @@ sidebar =
         ]
         [ link [] { url = "/", label = text "Home" }
         , link [] { url = "/import-file", label = text "Import File" }
-        , link [] { url = "/bookings", label = text "Book" }
+        , link [] { url = "/book", label = text "Book" }
         , link [] { url = "/accounts", label = text "Accounts" }
         ]
 
@@ -59,7 +59,8 @@ color =
 
 
 size =
-    { xxs = 4
+    { tiny = 2
+    , xxs = 4
     , xs = 8
     , s = 12
     , m = 16

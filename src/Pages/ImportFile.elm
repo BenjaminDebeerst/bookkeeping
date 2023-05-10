@@ -17,7 +17,6 @@ import Page
 import Persistence.Data as Data exposing (Account, Data, RawAccountEntry, RawEntry)
 import Persistence.Storage as Storage
 import Processing.Csv as Csv
-import Processing.Model exposing (Entry)
 import Request
 import Shared
 import Task exposing (Task)

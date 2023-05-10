@@ -1,10 +1,19 @@
-module Processing.Csv exposing (parseEntries)
+module Processing.Csv exposing (Entry, parseEntries)
 
 import Array exposing (Array)
 import Maybe.Extra
 import Persistence.Data exposing (RawAccountEntry)
-import Processing.Model exposing (Entry)
 import Time.Date as Date exposing (Date)
+
+
+type alias Entry =
+    { id : String
+    , date : Date
+    , description : String
+    , amount : Int
+    , account : Int
+    , raw : RawAccountEntry
+    }
 
 
 parseEntries : List RawAccountEntry -> List Entry
