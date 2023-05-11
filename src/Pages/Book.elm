@@ -10,9 +10,11 @@ import Icons exposing (triangleDown, triangleUp)
 import Layout exposing (color, formatDate, formatEuro, size)
 import Maybe.Extra
 import Page
-import Persistence.Data exposing (Account, Data, RawAccountEntry)
-import Processing.Csv exposing (Entry)
-import Processing.Model exposing (Ordering, asc, dateAsc, dateDesc, desc, filterDescription, filterMonth, filterYear, getEntries)
+import Persistence.Data exposing (Account, Data)
+import Processing.BookEntry exposing (BookEntry)
+import Processing.Filter exposing (filterDescription, filterMonth, filterYear)
+import Processing.Model exposing (getEntries)
+import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
 import Request exposing (Request)
 import Shared
 import View exposing (View)
@@ -32,7 +34,7 @@ type alias Model =
     { year : String
     , month : String
     , descr : String
-    , ordering : Ordering Entry
+    , ordering : Ordering BookEntry
     }
 
 
@@ -55,7 +57,7 @@ type Msg
     = FilterYear String
     | FilterMonth String
     | FilterDescr String
-    | OrderBy (Ordering Entry)
+    | OrderBy (Ordering BookEntry)
 
 
 update : Data -> Msg -> Model -> ( Model, Cmd Msg )
@@ -123,7 +125,7 @@ showFilters model _ =
         ]
 
 
-showData : Dict Int Account -> List Entry -> Element Msg
+showData : Dict Int Account -> List BookEntry -> Element Msg
 showData accounts entries =
     column [ width shrink ]
         [ dataTable accounts entries
@@ -155,7 +157,7 @@ dataTable accounts entries =
         }
 
 
-accountName : Entry -> String
+accountName : BookEntry -> String
 accountName e =
     e.account.name
 

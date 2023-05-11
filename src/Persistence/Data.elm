@@ -2,12 +2,10 @@ module Persistence.Data exposing
     ( Account
     , AccountStart
     , Data
-    , RawAccountEntry
     , RawEntry
     , decode
     , empty
     , encode
-    , rawAccountEntry
     , rawEntry
     )
 
@@ -21,7 +19,7 @@ type alias Data =
 
 
 type alias DataV0 =
-    { rawEntries : Dict String RawAccountEntry
+    { rawEntries : Dict String RawEntry
     , accounts : Dict Int Account
     , autoIncrement : Int
     }
@@ -30,32 +28,8 @@ type alias DataV0 =
 type alias RawEntry =
     { id : String
     , line : String
+    , accountId : Int
     }
-
-
-rawEntry : String -> RawEntry
-rawEntry line =
-    { id = sha1 line
-    , line = line
-    }
-
-
-type alias RawAccountEntry =
-    { entry : RawEntry
-    , account : Int
-    }
-
-
-rawAccountEntry : Account -> String -> RawAccountEntry
-rawAccountEntry account line =
-    { entry = rawEntry line
-    , account = account.id
-    }
-
-
-sha1 : String -> String
-sha1 s =
-    SHA1.fromString s |> SHA1.toHex
 
 
 type alias Account =
@@ -67,6 +41,19 @@ type alias Account =
 
 type alias AccountStart =
     { amount : Int, year : Int, month : Int }
+
+
+rawEntry : Int -> String -> RawEntry
+rawEntry accountId line =
+    { id = sha1 line
+    , line = line
+    , accountId = accountId
+    }
+
+
+sha1 : String -> String
+sha1 s =
+    SHA1.fromString s |> SHA1.toHex
 
 
 empty : Data
@@ -122,29 +109,26 @@ dataCodec =
 v0Codec : S.Codec e Data
 v0Codec =
     S.record DataV0
-        |> S.field .rawEntries
-            (S.dict S.string
-                (S.record RawAccountEntry
-                    |> S.field .entry
-                        (S.record RawEntry
-                            |> S.field .id S.string
-                            |> S.field .line S.string
-                            |> S.finishRecord
-                        )
-                    |> S.field .account S.int
-                    |> S.finishRecord
-                )
-            )
-        |> S.field .accounts
-            (S.dict S.int
-                (S.record Account
-                    |> S.field .id S.int
-                    |> S.field .name S.string
-                    |> S.field .start accountStartCodec
-                    |> S.finishRecord
-                )
-            )
+        |> S.field .rawEntries (S.dict S.string rawEntryCodec)
+        |> S.field .accounts (S.dict S.int accountCodec)
         |> S.field .autoIncrement S.int
+        |> S.finishRecord
+
+
+rawEntryCodec =
+    S.record RawEntry
+        |> S.field .id S.string
+        |> S.field .line S.string
+        |> S.field .accountId S.int
+        |> S.finishRecord
+
+
+accountCodec : S.Codec e Account
+accountCodec =
+    S.record Account
+        |> S.field .id S.int
+        |> S.field .name S.string
+        |> S.field .start accountStartCodec
         |> S.finishRecord
 
 

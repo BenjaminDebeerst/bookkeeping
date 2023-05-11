@@ -1,72 +1,41 @@
-module Processing.Model exposing (..)
+module Processing.Model exposing (getEntries)
 
 import Dict
-import Persistence.Data exposing (Account, Data, RawAccountEntry)
-import Processing.Csv exposing (Entry, parseEntries)
-import Time.Date as Date
+import Persistence.Data exposing (Account, Data, RawEntry)
+import Processing.BookEntry exposing (BookEntry)
+import Processing.Csv exposing (Row, parseCsvLine)
+import Processing.Filter exposing (Filter, all)
+import Processing.Ordering exposing (Ordering)
 
 
-getEntries : Data -> List Filter -> Ordering Entry -> List Entry
+getEntries : Data -> List Filter -> Ordering BookEntry -> List BookEntry
 getEntries data filters order =
     Dict.values data.rawEntries
-        |> parseEntries data.accounts
+        |> List.map parseToEntry
+        |> List.filterMap (enrichRow data)
         |> List.filter (all filters)
         |> List.sortWith order
 
 
-
--- Filter entries
-
-
-type alias Filter =
-    Entry -> Bool
-
-
-all : List Filter -> Filter
-all l =
-    \e -> List.all (\f -> f e) l
+type alias Entry =
+    { id : String
+    , row : Maybe Row
+    , accountId : Int
+    }
 
 
-filterMonth : Int -> Entry -> Bool
-filterMonth i e =
-    Date.month e.date == i
+parseToEntry : RawEntry -> Entry
+parseToEntry raw =
+    parseCsvLine raw.line
+        |> Result.toMaybe
+        |> (\row -> Entry raw.id row raw.accountId)
 
 
-filterYear : Int -> Entry -> Bool
-filterYear i e =
-    Date.year e.date == i
-
-
-filterDescription : String -> Entry -> Bool
-filterDescription s e =
-    if String.isEmpty s then
-        True
-
-    else
-        String.contains (String.toLower s) (String.toLower e.description)
-
-
-
--- Order entries
-
-
-type alias Ordering a =
-    a -> a -> Basics.Order
-
-
-asc : (Entry -> comparable) -> Ordering Entry
-asc f =
-    \e1 e2 -> compare (f e1) (f e2)
-
-
-desc : (Entry -> comparable) -> Ordering Entry
-desc f =
-    \e1 e2 -> compare (f e2) (f e1)
-
-
-dateAsc =
-    asc (\e -> Date.toTuple e.date)
-
-
-dateDesc =
-    desc (\e -> Date.toTuple e.date)
+enrichRow : Data -> Entry -> Maybe BookEntry
+enrichRow data entry =
+    Maybe.map5 BookEntry
+        (Just entry.id)
+        (Maybe.map .date entry.row)
+        (Maybe.map .description entry.row)
+        (Maybe.map .amount entry.row)
+        (Dict.get entry.accountId data.accounts)
