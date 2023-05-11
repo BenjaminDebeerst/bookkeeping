@@ -48,7 +48,7 @@ addEntries lines data =
         newEntries =
             List.map (\e -> ( e.id, e )) lines |> Dict.fromList
     in
-    { data | rawEntries = Dict.union data.rawEntries newEntries }
+    { data | rawEntries = Dict.union newEntries data.rawEntries }
 
 
 addCategory : Category -> Data -> Data

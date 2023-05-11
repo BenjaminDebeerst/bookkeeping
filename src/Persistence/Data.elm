@@ -1,9 +1,11 @@
 module Persistence.Data exposing
     ( Account
     , AccountStart
+    , Categorization(..)
     , Category
     , Data
     , RawEntry
+    , SplitCatEntry
     , decode
     , empty
     , encode

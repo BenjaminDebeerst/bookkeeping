@@ -13,21 +13,6 @@ type alias Row =
     }
 
 
-
---
---
---type alias RawAccountEntry =
---    { entry : RawEntry
---    , account : Int
---    }
---
---rawAccountEntry : Account -> String -> RawAccountEntry
---rawAccountEntry account line =
---    { entry = rawEntry line
---    , account = account.id
---    }
-
-
 parseEntries : List String -> List Row
 parseEntries lines =
     lines
