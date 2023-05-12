@@ -1,26 +1,37 @@
-module Processing.Csv exposing (Entry, parseEntries)
+module Processing.Csv exposing (Row, parseCsvLine, parseEntries)
 
 import Array exposing (Array)
-import Dict exposing (Dict)
 import Maybe.Extra
-import Persistence.Data exposing (Account, RawAccountEntry)
 import Time.Date as Date exposing (Date)
 
 
-type alias Entry =
-    { id : String
-    , date : Date
+type alias Row =
+    { date : Date
     , description : String
     , amount : Int
-    , account : Account
-    , raw : RawAccountEntry
+    , raw : String
     }
 
 
-parseEntries : Dict Int Account -> List RawAccountEntry -> List Entry
-parseEntries accounts rawEntries =
-    rawEntries
-        |> List.map (parseCsvLine accounts)
+
+--
+--
+--type alias RawAccountEntry =
+--    { entry : RawEntry
+--    , account : Int
+--    }
+--
+--rawAccountEntry : Account -> String -> RawAccountEntry
+--rawAccountEntry account line =
+--    { entry = rawEntry line
+--    , account = account.id
+--    }
+
+
+parseEntries : List String -> List Row
+parseEntries lines =
+    lines
+        |> List.map parseCsvLine
         |> List.map Result.toMaybe
         |> Maybe.Extra.values
 
@@ -33,30 +44,23 @@ parseEntries accounts rawEntries =
 -- The amount column
 
 
-parseCsvLine : Dict Int Account -> RawAccountEntry -> Result RawAccountEntry Entry
-parseCsvLine accounts raw =
+parseCsvLine : String -> Result String Row
+parseCsvLine line =
     let
-        andMap =
-            Maybe.map2 (|>)
-
         cells =
-            raw.entry.line |> String.split ";" |> List.map String.trim |> Array.fromList
+            line |> String.split ";" |> List.map String.trim |> Array.fromList
 
         amount =
             Array.get 11 cells |> Maybe.map (onlyNumberChars >> String.toInt) |> Maybe.Extra.join
-
-        account =
-            Dict.get raw.account accounts
     in
-    Just Entry
-        |> andMap (Just raw.entry.id)
-        |> andMap (Maybe.Extra.join <| Maybe.map toDate <| Array.get 4 cells)
-        |> andMap (combineTexts [ Array.get 6 cells, Array.get 9 cells, Array.get 10 cells ])
-        |> andMap amount
-        |> andMap account
-        |> andMap (Just raw)
+    Maybe.map4
+        Row
+        (Maybe.Extra.join <| Maybe.map toDate <| Array.get 4 cells)
+        (combineTexts [ Array.get 6 cells, Array.get 9 cells, Array.get 10 cells ])
+        amount
+        (Just line)
         |> Maybe.map Ok
-        |> Maybe.withDefault (Err raw)
+        |> Maybe.withDefault (Err line)
 
 
 {-| If all items are Justs, shorten inner whitespace, combine them with \\n and trim the result

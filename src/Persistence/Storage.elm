@@ -4,13 +4,13 @@ port module Persistence.Storage exposing
     , load
     , loadDatabase
     , onChange
-    , removeEntry
     , save
+    , store
     , truncate
     )
 
 import Dict exposing (Dict)
-import Persistence.Data as Storage exposing (Account, Data, RawAccountEntry, decode, encode)
+import Persistence.Data exposing (Account, Data, RawEntry, decode, empty, encode)
 
 
 port save : String -> Cmd msg
@@ -19,13 +19,18 @@ port save : String -> Cmd msg
 port load : (String -> msg) -> Sub msg
 
 
+store : Data -> Cmd msg
+store =
+    encode >> save
+
+
 onChange : (Data -> msg) -> Sub msg
 onChange fromStorage =
     load (\s -> decode s |> fromStorage)
 
 
-addAccount : Data -> Account -> Cmd msg
-addAccount data account =
+addAccount : Account -> Data -> Data
+addAccount account data =
     let
         id =
             data.autoIncrement
@@ -34,20 +39,15 @@ addAccount data account =
         | accounts = Dict.insert id { account | id = id } data.accounts
         , autoIncrement = id + 1
     }
-        |> encode
-        |> save
 
 
-addEntries : Data -> List RawAccountEntry -> Cmd msg
-addEntries data lines =
-    { data | rawEntries = Dict.union data.rawEntries <| Dict.fromList <| List.map (\e -> ( e.entry.id, e )) lines }
-        |> encode
-        |> save
-
-
-removeEntry : Data -> String -> Cmd msg
-removeEntry data id =
-    { data | rawEntries = Dict.remove id data.rawEntries } |> encode |> save
+addEntries : List RawEntry -> Data -> Data
+addEntries lines data =
+    let
+        newEntries =
+            List.map (\e -> ( e.id, e )) lines |> Dict.fromList
+    in
+    { data | rawEntries = Dict.union data.rawEntries newEntries }
 
 
 loadDatabase : String -> Cmd msg
@@ -57,4 +57,4 @@ loadDatabase encodedStorage =
 
 truncate : Cmd msg
 truncate =
-    Storage.empty |> encode |> save
+    empty |> encode |> save

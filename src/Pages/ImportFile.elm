@@ -14,7 +14,7 @@ import Html.Events exposing (preventDefaultOn)
 import Json.Decode as D
 import Layout exposing (color, formatDate, formatEuro, size, style)
 import Page
-import Persistence.Data as Data exposing (Account, Data, RawAccountEntry, RawEntry)
+import Persistence.Data as Data exposing (Account, Data, RawEntry, rawEntry)
 import Persistence.Storage as Storage
 import Processing.Csv as Csv
 import Request
@@ -111,15 +111,17 @@ update data msg model =
             case model.account of
                 Just account ->
                     let
-                        parsedEntries =
+                        newEntries =
                             model.fileContents
-                                |> List.map (Data.rawAccountEntry account)
-                                |> Csv.parseEntries (asDict account)
+                                |> Csv.parseEntries
+                                |> List.map .raw
+                                |> List.map (rawEntry account.id)
+
+                        newData =
+                            data |> Storage.addEntries newEntries
                     in
-                    ( { initModel | state = Stored (List.length parsedEntries) }
-                    , parsedEntries
-                        |> List.map .raw
-                        |> Storage.addEntries data
+                    ( { initModel | state = Stored (List.length newEntries) }
+                    , Storage.store newData
                     )
 
                 Nothing ->
@@ -279,11 +281,8 @@ viewFileContents data model =
 unreadableData : Model -> List (Element Msg)
 unreadableData model =
     let
-        list =
-            List.map Data.rawEntry model.fileContents
-
         n =
-            List.length list
+            List.length model.fileContents
     in
     if n == 0 then
         []
@@ -291,11 +290,11 @@ unreadableData model =
     else
         [ text <| "Loaded " ++ String.fromInt n ++ " lines"
         , table [ spacing size.xs ]
-            { data = list
+            { data = model.fileContents
             , columns =
                 [ { header = Element.none
                   , width = shrink
-                  , view = \e -> el [ Font.size Layout.size.m ] <| text e.line
+                  , view = \line -> el [ Font.size Layout.size.m ] <| text line
                   }
                 ]
             }
@@ -304,41 +303,36 @@ unreadableData model =
 
 readableData : Model -> List (Element Msg)
 readableData model =
-    case model.account of
-        Nothing ->
-            []
+    let
+        list =
+            Csv.parseEntries model.fileContents
 
-        Just account ->
-            let
-                list =
-                    Csv.parseEntries (asDict account) <| List.map (Data.rawAccountEntry account) model.fileContents
+        n =
+            List.length list
+    in
+    if n == 0 then
+        []
 
-                n =
-                    List.length list
-            in
-            if n == 0 then
-                []
-
-            else
-                [ text <| "The following " ++ String.fromInt n ++ " rows were successfully parsed: "
-                , indexedTable [ spacing size.xs ]
-                    { data = list
-                    , columns =
-                        [ { header = text "Date"
-                          , width = shrink
-                          , view = \i e -> textCell i <| formatDate e.date
-                          }
-                        , { header = text "Amount"
-                          , width = shrink
-                          , view = \i e -> formatEuro (cellstyle i) <| e.amount
-                          }
-                        , { header = text "Description"
-                          , width = shrink
-                          , view = \i e -> textCell i <| e.description
-                          }
-                        ]
-                    }
+    else
+        [ text <| "The following " ++ String.fromInt n ++ " rows were successfully parsed: "
+        , indexedTable [ spacing size.xs ]
+            { data = list
+            , columns =
+                [ { header = text "Date"
+                  , width = shrink
+                  , view = \i e -> textCell i <| formatDate e.date
+                  }
+                , { header = text "Amount"
+                  , width = shrink
+                  , view = \i e -> formatEuro (cellstyle i) <| e.amount
+                  }
+                , { header = text "Description"
+                  , width = shrink
+                  , view = \i e -> textCell i <| e.description
+                  }
                 ]
+            }
+        ]
 
 
 textCell i s =
@@ -348,8 +342,3 @@ textCell i s =
 cellstyle : Int -> List (Attribute msg)
 cellstyle _ =
     [ paddingXY 0 size.s ]
-
-
-asDict : Account -> Dict Int Account
-asDict a =
-    Dict.fromList [ ( a.id, a ) ]
