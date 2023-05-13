@@ -39,12 +39,13 @@ type alias Model =
     , ordering : Ordering BookEntry
     , editCategories : Bool
     , categoryEdits : Dict String CatAttempt
+    , debug : List String
     }
 
 
 type CatAttempt
     = Unknown String
-    | Known Int Categorization
+    | Known Categorization
 
 
 init : ( Model, Cmd Msg )
@@ -55,6 +56,7 @@ init =
       , ordering = dateAsc
       , editCategories = False
       , categoryEdits = Dict.empty
+      , debug = []
       }
     , Cmd.none
     )
@@ -106,10 +108,13 @@ update data msg model =
                     Dict.Extra.filterMap
                         (\_ ca ->
                             case ca of
+                                Unknown "" ->
+                                    Just None
+
                                 Unknown _ ->
                                     Nothing
 
-                                Known _ cat ->
+                                Known cat ->
                                     Just cat
                         )
                         model.categoryEdits
@@ -148,9 +153,18 @@ content : Model -> Data -> List BookEntry -> Element Msg
 content model data entries =
     column [ spacing size.m ]
         [ showFilters model data.accounts
+        , showDebug data model
         , showActions model
         , showData model entries
         ]
+
+
+showDebug : Data -> Model -> Element msg
+showDebug data model =
+    column [ spacing size.m ]
+        (List.map text model.debug
+            ++ [ text <| Debug.toString model.categoryEdits ]
+        )
 
 
 showFilters : Model -> Dict Int Account -> Element Msg
@@ -259,11 +273,14 @@ categoryCellText categoryEdits entry =
         Just (Unknown edit) ->
             edit
 
-        Just (Known id (Single cat)) ->
+        Just (Known (Single cat)) ->
             cat.short
 
-        Just (Known _ ca) ->
-            Debug.toString ca
+        Just (Known (Split l)) ->
+            l |> List.map (\i -> i.category.short ++ " " ++ String.fromInt i.amount) |> String.join ", "
+
+        Just (Known None) ->
+            ""
 
         Nothing ->
             categorizationString Short entry.categorization
@@ -362,5 +379,11 @@ parseCategorization data string =
     Dict.values data.categories
         |> List.filter (\c -> c.short == string)
         |> List.head
-        |> Maybe.map (\c -> Known c.id (Single c))
-        |> Maybe.withDefault (Unknown string)
+        |> Maybe.map (\c -> Known (Single c))
+        |> Maybe.withDefault
+            (if string == "" then
+                Known None
+
+             else
+                Unknown string
+            )
