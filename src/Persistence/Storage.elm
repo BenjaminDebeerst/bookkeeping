@@ -1,5 +1,6 @@
 port module Persistence.Storage exposing
     ( addAccount
+    , addCategory
     , addEntries
     , load
     , loadDatabase
@@ -10,7 +11,7 @@ port module Persistence.Storage exposing
     )
 
 import Dict exposing (Dict)
-import Persistence.Data exposing (Account, Data, RawEntry, decode, empty, encode)
+import Persistence.Data as Storage exposing (Account, Category, Data, RawEntry, decode, empty, encode)
 
 
 port save : String -> Cmd msg
@@ -48,6 +49,18 @@ addEntries lines data =
             List.map (\e -> ( e.id, e )) lines |> Dict.fromList
     in
     { data | rawEntries = Dict.union data.rawEntries newEntries }
+
+
+addCategory : Category -> Data -> Data
+addCategory category data =
+    let
+        id =
+            data.autoIncrement
+    in
+    { data
+        | categories = Dict.insert id { category | id = id } data.categories
+        , autoIncrement = id + 1
+    }
 
 
 loadDatabase : String -> Cmd msg

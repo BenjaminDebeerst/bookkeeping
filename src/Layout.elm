@@ -33,6 +33,7 @@ sidebar =
         , link [] { url = "/import-file", label = text "Import File" }
         , link [] { url = "/book", label = text "Book" }
         , link [] { url = "/accounts", label = text "Accounts" }
+        , link [] { url = "/categories", label = text "Categories" }
         ]
 
 
