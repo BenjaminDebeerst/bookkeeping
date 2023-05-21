@@ -5,7 +5,7 @@ import Element exposing (Element, column, el, shrink, spacing, table, text)
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, placeholder)
 import Gen.Params.Accounts exposing (Params)
-import Layout exposing (color, formatEuro, size, style)
+import Layout exposing (color, size, style)
 import Page
 import Persistence.Data exposing (Category, Data)
 import Persistence.Storage as Storage
@@ -141,8 +141,8 @@ editArea editing mna =
             [ Element.Input.text []
                 { onChange = EditName
                 , text = mna.name
-                , placeholder = Just <| placeholder [] <| text "Cagegory Name"
-                , label = labelHidden "Cagtegory name"
+                , placeholder = Just <| placeholder [] <| text "Category Name"
+                , label = labelHidden "Category name"
                 }
             , Element.Input.text []
                 { onChange = EditShort

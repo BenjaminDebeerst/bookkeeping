@@ -14,6 +14,7 @@ import Page
 import Persistence.Data exposing (Account, Category, Data, RawEntry)
 import Persistence.Storage as Storage exposing (addEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
+import Processing.CategoryParser as Parser
 import Processing.Filter exposing (filterDescription, filterMonth, filterYear)
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
@@ -45,7 +46,7 @@ type alias Model =
 
 type CatAttempt
     = Unknown String
-    | Known Categorization
+    | Known String Categorization
 
 
 init : ( Model, Cmd Msg )
@@ -114,7 +115,7 @@ update data msg model =
                                 Unknown _ ->
                                     Nothing
 
-                                Known cat ->
+                                Known _ cat ->
                                     Just cat
                         )
                         model.categoryEdits
@@ -236,7 +237,7 @@ dataTable model entries =
               , width = shrink
               , view = \i e -> row i <| text e.description
               }
-            , { header = header (OrderBy (asc accountName)) (OrderBy (desc accountName)) "Account" -- TODO actually sort by account
+            , { header = header (OrderBy (asc accountName)) (OrderBy (desc accountName)) "Account"
               , width = shrink
               , view = \i e -> row i <| text e.account.name
               }
@@ -249,38 +250,23 @@ categoryCell model entry =
     if model.editCategories then
         Input.text []
             { onChange = EditCategory entry.id
-            , text = categoryCellText model.categoryEdits entry
+            , text = categoryInputText model.categoryEdits entry
             , placeholder = Nothing
             , label = labelHidden "Categorization"
             }
 
     else
-        text <|
-            case entry.categorization of
-                None ->
-                    ""
-
-                Single category ->
-                    category.name
-
-                Split _ ->
-                    "split"
+        text <| categorizationString Full entry.categorization
 
 
-categoryCellText : Dict String CatAttempt -> BookEntry -> String
-categoryCellText categoryEdits entry =
+categoryInputText : Dict String CatAttempt -> BookEntry -> String
+categoryInputText categoryEdits entry =
     case Dict.get entry.id categoryEdits of
         Just (Unknown edit) ->
             edit
 
-        Just (Known (Single cat)) ->
-            cat.short
-
-        Just (Known (Split l)) ->
-            l |> List.map (\i -> i.category.short ++ " " ++ String.fromInt i.amount) |> String.join ", "
-
-        Just (Known None) ->
-            ""
+        Just (Known edit _) ->
+            edit
 
         Nothing ->
             categorizationString Short entry.categorization
@@ -304,15 +290,16 @@ categorizationString p c =
             cat.name
 
         ( Split cats, Short ) ->
-            cats |> List.map (.category >> .short) |> List.sort |> String.join ", "
+            cats
+                |> List.map (\s -> s.category.short ++ " " ++ String.fromInt s.amount)
+                |> List.sort
+                |> String.join " "
 
         ( Split cats, Full ) ->
-            cats |> List.map (.category >> .name) |> List.sort |> String.join ", "
-
-
-toString : EntrySplit -> String
-toString s =
-    s.category.short ++ " " ++ String.fromInt s.amount
+            cats
+                |> List.map (\es -> es.category.name ++ " " ++ String.fromInt es.amount)
+                |> List.sort
+                |> String.join "\n"
 
 
 accountName : BookEntry -> String
@@ -372,18 +359,40 @@ rowStyle i =
     ]
 
 
-{-| No support for split categorization yet
--}
 parseCategorization : Data -> String -> CatAttempt
 parseCategorization data string =
+    case Parser.parseCategorization string of
+        Ok Parser.Empty ->
+            Known string None
+
+        Ok (Parser.One shortName) ->
+            getCategoryByShort data shortName
+                |> Maybe.map (Known string << Single)
+                |> Maybe.withDefault (Unknown string)
+
+        Ok (Parser.Multiple list) ->
+            case
+                list
+                    |> List.map (categoryForTuple data)
+                    |> Maybe.Extra.combine
+            of
+                Just categories ->
+                    Known string (Split categories)
+
+                Nothing ->
+                    Unknown string
+
+        Err _ ->
+            Unknown string
+
+
+categoryForTuple : Data -> ( String, Int ) -> Maybe EntrySplit
+categoryForTuple data ( string, int ) =
+    getCategoryByShort data string |> Maybe.map (\c -> EntrySplit c int)
+
+
+getCategoryByShort : Data -> String -> Maybe Category
+getCategoryByShort data string =
     Dict.values data.categories
         |> List.filter (\c -> c.short == string)
         |> List.head
-        |> Maybe.map (\c -> Known (Single c))
-        |> Maybe.withDefault
-            (if string == "" then
-                Known None
-
-             else
-                Unknown string
-            )

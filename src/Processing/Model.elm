@@ -1,8 +1,9 @@
 module Processing.Model exposing (getEntries)
 
 import Dict
+import Maybe.Extra
 import Persistence.Data as Data exposing (Account, Category, Data, RawEntry)
-import Processing.BookEntry exposing (BookEntry, Categorization(..))
+import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit)
 import Processing.Csv exposing (Row, parseCsvLine)
 import Processing.Filter exposing (Filter, all)
 import Processing.Ordering exposing (Ordering)
@@ -57,4 +58,12 @@ liftCategorization data cat =
             Dict.get id data.categories |> Maybe.map Single
 
         Just (Data.Split list) ->
-            Debug.todo "Handle a list of split entries"
+            list
+                |> List.map (liftSplitEntry data)
+                |> Maybe.Extra.combine
+                |> Maybe.map Split
+
+
+liftSplitEntry : Data -> Data.SplitCatEntry -> Maybe EntrySplit
+liftSplitEntry data se =
+    Dict.get se.id data.categories |> Maybe.map (\c -> EntrySplit c se.amount)

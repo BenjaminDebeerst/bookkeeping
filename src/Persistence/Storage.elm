@@ -11,7 +11,7 @@ port module Persistence.Storage exposing
     )
 
 import Dict exposing (Dict)
-import Persistence.Data as Storage exposing (Account, Category, Data, RawEntry, decode, empty, encode)
+import Persistence.Data exposing (Account, Category, Data, RawEntry, decode, empty, encode)
 
 
 port save : String -> Cmd msg
