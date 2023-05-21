@@ -76,7 +76,8 @@ update data msg model =
 view : Data -> Model -> View Msg
 view data model =
     { title = "Home"
-    , body = [ Layout.layout "Home" (showData data model) ]
+    , body =
+        [ Layout.layout "Home" (showData data model) ]
     }
 
 

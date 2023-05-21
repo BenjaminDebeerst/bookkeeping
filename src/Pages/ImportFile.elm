@@ -14,7 +14,7 @@ import Html.Events exposing (preventDefaultOn)
 import Json.Decode as D
 import Layout exposing (color, formatDate, formatEuro, size, style)
 import Page
-import Persistence.Data as Data exposing (Account, Data, RawEntry, rawEntry)
+import Persistence.Data exposing (Account, Data, RawEntry, rawEntry)
 import Persistence.Storage as Storage
 import Processing.Csv as Csv
 import Request

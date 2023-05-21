@@ -1,21 +1,8 @@
-module Tests exposing (..)
+module FormatEuro exposing (..)
 
 import Expect exposing (Expectation)
 import Layout exposing (formatEuroStr)
 import Test exposing (..)
-
-
-
-{-
-   suite : Test
-   suite =
-       describe "Data serialization"
-           [ fuzz (list (pair string string)) "encode and decode are inverse" <|
-               \data -> { bookEntries = data } |> encode |> decode |> Expect.equal { bookEntries = data }
-           , fuzz (list (pair string string)) "spaces are trimmed before decoding" <|
-               \data -> { bookEntries = data } |> encode |> (\s -> " " ++ s ++ " ") |> decode |> Expect.equal { bookEntries = data }
-           ]
--}
 
 
 format_euro_str : Test

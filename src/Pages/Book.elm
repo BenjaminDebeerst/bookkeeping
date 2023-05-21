@@ -1,17 +1,20 @@
 module Pages.Book exposing (Model, Msg, page)
 
 import Dict exposing (Dict)
+import Dict.Extra
 import Element exposing (Attribute, Column, Element, alignLeft, alignRight, centerX, column, el, fill, height, indexedTable, padding, paddingXY, shrink, spacing, text, width)
 import Element.Background as Background
 import Element.Events exposing (onClick)
 import Element.Font as Font
-import Element.Input as Input exposing (labelLeft, placeholder)
+import Element.Input as Input exposing (labelHidden, labelLeft, placeholder)
 import Icons exposing (triangleDown, triangleUp)
-import Layout exposing (color, formatDate, formatEuro, size)
+import Layout exposing (color, formatDate, formatEuro, size, style)
 import Maybe.Extra
 import Page
-import Persistence.Data exposing (Account, Data)
-import Processing.BookEntry exposing (BookEntry)
+import Persistence.Data exposing (Account, Category, Data, RawEntry)
+import Persistence.Storage as Storage exposing (addEntries)
+import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
+import Processing.CategoryParser as Parser
 import Processing.Filter exposing (filterDescription, filterMonth, filterYear)
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
@@ -35,7 +38,15 @@ type alias Model =
     , month : String
     , descr : String
     , ordering : Ordering BookEntry
+    , editCategories : Bool
+    , categoryEdits : Dict String CatAttempt
+    , debug : List String
     }
+
+
+type CatAttempt
+    = Unknown String
+    | Known String Categorization
 
 
 init : ( Model, Cmd Msg )
@@ -44,6 +55,9 @@ init =
       , month = ""
       , descr = ""
       , ordering = dateAsc
+      , editCategories = False
+      , categoryEdits = Dict.empty
+      , debug = []
       }
     , Cmd.none
     )
@@ -58,10 +72,14 @@ type Msg
     | FilterMonth String
     | FilterDescr String
     | OrderBy (Ordering BookEntry)
+    | Categorize
+    | EditCategory String String
+    | SaveCategories
+    | AbortCategorize
 
 
 update : Data -> Msg -> Model -> ( Model, Cmd Msg )
-update _ msg model =
+update data msg model =
     case msg of
         FilterYear year ->
             ( { model | year = year }, Cmd.none )
@@ -74,6 +92,45 @@ update _ msg model =
 
         OrderBy ordering ->
             ( { model | ordering = ordering }, Cmd.none )
+
+        Categorize ->
+            ( { model | editCategories = True }, Cmd.none )
+
+        AbortCategorize ->
+            ( { model | editCategories = False }, Cmd.none )
+
+        EditCategory id cat ->
+            ( { model | categoryEdits = Dict.insert id (parseCategorization data cat) model.categoryEdits }, Cmd.none )
+
+        SaveCategories ->
+            let
+                entryCategorizations : Dict String Categorization
+                entryCategorizations =
+                    Dict.Extra.filterMap
+                        (\_ ca ->
+                            case ca of
+                                Unknown "" ->
+                                    Just None
+
+                                Unknown _ ->
+                                    Nothing
+
+                                Known _ cat ->
+                                    Just cat
+                        )
+                        model.categoryEdits
+
+                alteredCategories =
+                    Dict.Extra.filterMap (\k v -> Dict.get k data.rawEntries |> Maybe.map (\e -> { e | categorization = toPersistence v })) entryCategorizations
+
+                editedEntries : List RawEntry
+                editedEntries =
+                    alteredCategories
+                        |> Dict.values
+            in
+            ( { model | editCategories = False, categoryEdits = Dict.empty }
+            , addEntries editedEntries data |> Storage.store
+            )
 
 
 view : Data -> Model -> View Msg
@@ -89,15 +146,26 @@ view data model =
             getEntries data filters model.ordering
     in
     { title = "Book"
-    , body = [ Layout.layout "Book" (content model data.accounts entries) ]
+    , body = [ Layout.layout "Book" (content model data entries) ]
     }
 
 
-content model accounts data =
+content : Model -> Data -> List BookEntry -> Element Msg
+content model data entries =
     column [ spacing size.m ]
-        [ showFilters model accounts
-        , showData accounts data
+        [ showFilters model data.accounts
+        , showDebug data model
+        , showActions model
+        , showData model entries
         ]
+
+
+showDebug : Data -> Model -> Element msg
+showDebug data model =
+    column [ spacing size.m ]
+        (List.map text model.debug
+            ++ [ text <| Debug.toString model.categoryEdits ]
+        )
 
 
 showFilters : Model -> Dict Int Account -> Element Msg
@@ -125,15 +193,31 @@ showFilters model _ =
         ]
 
 
-showData : Dict Int Account -> List BookEntry -> Element Msg
-showData accounts entries =
+showActions : Model -> Element Msg
+showActions model =
+    Element.row [ spacing size.s ]
+        ([]
+            ++ [ Input.button style.button { onPress = Just Categorize, label = text "Edit Categories" } ]
+            ++ (if model.editCategories then
+                    [ Input.button style.button { onPress = Just SaveCategories, label = text "Save Category Edits" }
+                    , Input.button style.button { onPress = Just AbortCategorize, label = text "Abort" }
+                    ]
+
+                else
+                    []
+               )
+        )
+
+
+showData : Model -> List BookEntry -> Element Msg
+showData model entries =
     column [ width shrink ]
-        [ dataTable accounts entries
+        [ dataTable model entries
         , maybeNoEntries <| List.length entries
         ]
 
 
-dataTable accounts entries =
+dataTable model entries =
     indexedTable [ spacing size.tiny ]
         { data = entries
         , columns =
@@ -145,16 +229,77 @@ dataTable accounts entries =
               , width = shrink
               , view = \i e -> row i <| formatEuro [] e.amount
               }
+            , { header = header (OrderBy (asc <| .categorization >> categorizationString Full)) (OrderBy (desc <| .categorization >> categorizationString Full)) "Category"
+              , width = shrink
+              , view = \i e -> row i <| categoryCell model e
+              }
             , { header = header (OrderBy (asc .description)) (OrderBy (desc .description)) "Description"
               , width = shrink
               , view = \i e -> row i <| text e.description
               }
-            , { header = header (OrderBy (asc accountName)) (OrderBy (desc accountName)) "Account" -- TODO actually sort by account
+            , { header = header (OrderBy (asc accountName)) (OrderBy (desc accountName)) "Account"
               , width = shrink
               , view = \i e -> row i <| text e.account.name
               }
             ]
         }
+
+
+categoryCell : Model -> BookEntry -> Element Msg
+categoryCell model entry =
+    if model.editCategories then
+        Input.text []
+            { onChange = EditCategory entry.id
+            , text = categoryInputText model.categoryEdits entry
+            , placeholder = Nothing
+            , label = labelHidden "Categorization"
+            }
+
+    else
+        text <| categorizationString Full entry.categorization
+
+
+categoryInputText : Dict String CatAttempt -> BookEntry -> String
+categoryInputText categoryEdits entry =
+    case Dict.get entry.id categoryEdits of
+        Just (Unknown edit) ->
+            edit
+
+        Just (Known edit _) ->
+            edit
+
+        Nothing ->
+            categorizationString Short entry.categorization
+
+
+type CategoryPresentation
+    = Full
+    | Short
+
+
+categorizationString : CategoryPresentation -> Categorization -> String
+categorizationString p c =
+    case ( c, p ) of
+        ( None, _ ) ->
+            ""
+
+        ( Single cat, Short ) ->
+            cat.short
+
+        ( Single cat, Full ) ->
+            cat.name
+
+        ( Split cats, Short ) ->
+            cats
+                |> List.map (\s -> s.category.short ++ " " ++ String.fromInt s.amount)
+                |> List.sort
+                |> String.join " "
+
+        ( Split cats, Full ) ->
+            cats
+                |> List.map (\es -> es.category.name ++ " " ++ String.fromInt es.amount)
+                |> List.sort
+                |> String.join "\n"
 
 
 accountName : BookEntry -> String
@@ -212,3 +357,42 @@ rowStyle i =
     , height fill
     , padding size.xs
     ]
+
+
+parseCategorization : Data -> String -> CatAttempt
+parseCategorization data string =
+    case Parser.parseCategorization string of
+        Ok Parser.Empty ->
+            Known string None
+
+        Ok (Parser.One shortName) ->
+            getCategoryByShort data shortName
+                |> Maybe.map (Known string << Single)
+                |> Maybe.withDefault (Unknown string)
+
+        Ok (Parser.Multiple list) ->
+            case
+                list
+                    |> List.map (categoryForTuple data)
+                    |> Maybe.Extra.combine
+            of
+                Just categories ->
+                    Known string (Split categories)
+
+                Nothing ->
+                    Unknown string
+
+        Err _ ->
+            Unknown string
+
+
+categoryForTuple : Data -> ( String, Int ) -> Maybe EntrySplit
+categoryForTuple data ( string, int ) =
+    getCategoryByShort data string |> Maybe.map (\c -> EntrySplit c int)
+
+
+getCategoryByShort : Data -> String -> Maybe Category
+getCategoryByShort data string =
+    Dict.values data.categories
+        |> List.filter (\c -> c.short == string)
+        |> List.head
