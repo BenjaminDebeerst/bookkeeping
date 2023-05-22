@@ -27,11 +27,11 @@ Arch
     * Only store the raw csv string + hash identifier, for each hash: parsing mappings and compute instructions
 
 How to categorize
-  * "Book" is a generic table view
-  * Useful filters at the top: Month/Year (time window?), category, amount, description
-  * Useful stats at the top: #entries, sum, avg?
-  * Filter for "uncategorized"
-  * Button to switch to category-edit mode
-    * Keyboard-only navigation allows for easy edit of category
-    * A category has a name and (optionally) a (user-defined) text code - this is what is expected in the input field
+  x "Book" is a generic table view
+  x Useful filters at the top: Month/Year (time window?), category, amount, description
+  x Useful stats at the top: #entries, sum, avg?
+  x Filter for "uncategorized"
+  x Button to switch to category-edit mode
+    x Keyboard-only navigation allows for easy edit of category
+    x A category has a name and (optionally) a (user-defined) text code - this is what is expected in the input field
     * The category found is displayed inline, if none of the given code is found, display a hint that allows to create a category

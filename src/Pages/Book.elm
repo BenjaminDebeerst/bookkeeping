@@ -7,8 +7,9 @@ import Element.Background as Background
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelHidden, labelLeft, labelRight, placeholder)
+import Html exposing (summary)
 import Icons exposing (triangleDown, triangleUp)
-import Layout exposing (color, formatDate, formatEuro, size, style)
+import Layout exposing (color, formatDate, formatEuro, formatEuroStr, size, style)
 import Maybe.Extra
 import Page
 import Persistence.Data exposing (Account, Category, Data, RawEntry)
@@ -213,10 +214,35 @@ showActions model =
 
 showData : Model -> List BookEntry -> Element Msg
 showData model entries =
-    column [ width shrink ]
-        [ dataTable model entries
+    column [ width shrink, spacing size.m ]
+        [ summary entries
+        , dataTable model entries
         , maybeNoEntries <| List.length entries
         ]
+
+
+summary entries =
+    let
+        n =
+            List.length entries
+
+        sum =
+            List.foldl (\e s -> s + e.amount) 0 entries
+
+        avg =
+            sum // n
+    in
+    el [] <|
+        text <|
+            String.join " "
+                [ "Showing"
+                , n |> String.fromInt
+                , "entries. Sum:"
+                , sum |> formatEuroStr
+                , ". Average amount:"
+                , formatEuroStr avg
+                , "."
+                ]
 
 
 dataTable model entries =
