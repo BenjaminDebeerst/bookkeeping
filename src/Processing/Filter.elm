@@ -1,5 +1,6 @@
 module Processing.Filter exposing (..)
 
+import Persistence.Data exposing (Category)
 import Processing.BookEntry exposing (BookEntry)
 import Time.Date as Date
 
@@ -30,3 +31,16 @@ filterDescription s e =
 
     else
         String.contains (String.toLower s) (String.toLower e.description)
+
+
+filterCategory : Category -> BookEntry -> Bool
+filterCategory category bookEntry =
+    case bookEntry.categorization of
+        Processing.BookEntry.None ->
+            False
+
+        Processing.BookEntry.Single c ->
+            c.id == category.id
+
+        Processing.BookEntry.Split entrySplits ->
+            List.map .category entrySplits |> List.filter (\c -> c.id == category.id) |> List.isEmpty >> not

@@ -16,7 +16,7 @@ import Persistence.Data exposing (Account, Category, Data, RawEntry)
 import Persistence.Storage as Storage exposing (addEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
 import Processing.CategoryParser as Parser
-import Processing.Filter exposing (Filter, filterDescription, filterMonth, filterYear)
+import Processing.Filter exposing (Filter, filterCategory, filterDescription, filterMonth, filterYear)
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
 import Request exposing (Request)
@@ -38,6 +38,7 @@ type alias Model =
     { year : String
     , month : String
     , descr : String
+    , categoryFilter : String
     , ordering : Ordering BookEntry
     , editCategories : Bool
     , categoryEdits : Dict String CatAttempt
@@ -55,6 +56,7 @@ init =
     ( { year = ""
       , month = ""
       , descr = ""
+      , categoryFilter = ""
       , ordering = dateAsc
       , editCategories = False
       , categoryEdits = Dict.empty
@@ -72,6 +74,7 @@ type Msg
     = FilterYear String
     | FilterMonth String
     | FilterDescr String
+    | FilterCategory String
     | OnlyUncategorized Bool
     | OrderBy (Ordering BookEntry)
     | Categorize
@@ -91,6 +94,9 @@ update data msg model =
 
         FilterDescr descr ->
             ( { model | descr = descr }, Cmd.none )
+
+        FilterCategory cat ->
+            ( { model | categoryFilter = cat }, Cmd.none )
 
         OnlyUncategorized b ->
             ( { model | onlyUncategorized = b }, Cmd.none )
@@ -146,6 +152,7 @@ view data model =
                 ++ (model.year |> String.toInt |> Maybe.map filterYear |> Maybe.Extra.toList)
                 ++ (model.month |> String.toInt |> Maybe.map filterMonth |> Maybe.Extra.toList)
                 ++ [ model.descr |> String.trim |> filterDescription ]
+                ++ (getCategoryByShort data model.categoryFilter |> Maybe.map (\c -> [ filterCategory c ]) |> Maybe.withDefault [])
                 ++ [ \bookEntry -> not model.onlyUncategorized || bookEntry.categorization == None ]
 
         entries =
@@ -186,6 +193,12 @@ showFilters model _ =
             , text = model.descr
             , placeholder = Just <| placeholder [] <| text "Description"
             , label = labelLeft [ paddingXY size.m 0 ] <| text "Description"
+            }
+        , Input.text []
+            { onChange = FilterCategory
+            , text = model.categoryFilter
+            , placeholder = Just <| placeholder [] <| text "Category"
+            , label = labelLeft [ paddingXY size.m 0 ] <| text "Category"
             }
         , Input.checkbox []
             { onChange = OnlyUncategorized
