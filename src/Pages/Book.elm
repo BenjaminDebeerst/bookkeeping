@@ -6,7 +6,7 @@ import Element exposing (Attribute, Column, Element, alignLeft, alignRight, cent
 import Element.Background as Background
 import Element.Events exposing (onClick)
 import Element.Font as Font
-import Element.Input as Input exposing (labelHidden, labelLeft, placeholder)
+import Element.Input as Input exposing (labelHidden, labelLeft, labelRight, placeholder)
 import Icons exposing (triangleDown, triangleUp)
 import Layout exposing (color, formatDate, formatEuro, size, style)
 import Maybe.Extra
@@ -15,7 +15,7 @@ import Persistence.Data exposing (Account, Category, Data, RawEntry)
 import Persistence.Storage as Storage exposing (addEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
 import Processing.CategoryParser as Parser
-import Processing.Filter exposing (filterDescription, filterMonth, filterYear)
+import Processing.Filter exposing (Filter, filterDescription, filterMonth, filterYear)
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
 import Request exposing (Request)
@@ -40,7 +40,7 @@ type alias Model =
     , ordering : Ordering BookEntry
     , editCategories : Bool
     , categoryEdits : Dict String CatAttempt
-    , debug : List String
+    , onlyUncategorized : Bool
     }
 
 
@@ -57,7 +57,7 @@ init =
       , ordering = dateAsc
       , editCategories = False
       , categoryEdits = Dict.empty
-      , debug = []
+      , onlyUncategorized = False
       }
     , Cmd.none
     )
@@ -71,6 +71,7 @@ type Msg
     = FilterYear String
     | FilterMonth String
     | FilterDescr String
+    | OnlyUncategorized Bool
     | OrderBy (Ordering BookEntry)
     | Categorize
     | EditCategory String String
@@ -89,6 +90,9 @@ update data msg model =
 
         FilterDescr descr ->
             ( { model | descr = descr }, Cmd.none )
+
+        OnlyUncategorized b ->
+            ( { model | onlyUncategorized = b }, Cmd.none )
 
         OrderBy ordering ->
             ( { model | ordering = ordering }, Cmd.none )
@@ -141,6 +145,7 @@ view data model =
                 ++ (model.year |> String.toInt |> Maybe.map filterYear |> Maybe.Extra.toList)
                 ++ (model.month |> String.toInt |> Maybe.map filterMonth |> Maybe.Extra.toList)
                 ++ [ model.descr |> String.trim |> filterDescription ]
+                ++ [ \bookEntry -> not model.onlyUncategorized || bookEntry.categorization == None ]
 
         entries =
             getEntries data filters model.ordering
@@ -154,18 +159,9 @@ content : Model -> Data -> List BookEntry -> Element Msg
 content model data entries =
     column [ spacing size.m ]
         [ showFilters model data.accounts
-        , showDebug data model
         , showActions model
         , showData model entries
         ]
-
-
-showDebug : Data -> Model -> Element msg
-showDebug data model =
-    column [ spacing size.m ]
-        (List.map text model.debug
-            ++ [ text <| Debug.toString model.categoryEdits ]
-        )
 
 
 showFilters : Model -> Dict Int Account -> Element Msg
@@ -189,6 +185,12 @@ showFilters model _ =
             , text = model.descr
             , placeholder = Just <| placeholder [] <| text "Description"
             , label = labelLeft [ paddingXY size.m 0 ] <| text "Description"
+            }
+        , Input.checkbox []
+            { onChange = OnlyUncategorized
+            , icon = Input.defaultCheckbox
+            , checked = model.onlyUncategorized
+            , label = labelLeft [ paddingXY size.m size.xs ] <| text "Show uncategorized only"
             }
         ]
 
