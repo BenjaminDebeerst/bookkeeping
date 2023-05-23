@@ -358,7 +358,7 @@ maybeNoEntries n =
 
 header : msg -> msg -> String -> Element msg
 header up down s =
-    Element.row headerStyle
+    Element.row style.header
         [ el [ alignLeft ] <| text s
         , column
             [ alignRight, height fill, spacing size.xxs ]
@@ -370,34 +370,7 @@ header up down s =
 
 row : Int -> Element msg -> Element msg
 row i e =
-    el (rowStyle i) e
-
-
-headerStyle : List (Attribute msg)
-headerStyle =
-    [ Background.color color.brightAccent
-    , Font.bold
-    , Font.color color.black
-    , Font.size size.m
-    , padding size.xs
-    , spacing size.xs
-    ]
-
-
-rowStyle : Int -> List (Attribute msg)
-rowStyle i =
-    let
-        bgColor =
-            if modBy 2 i == 1 then
-                color.white
-
-            else
-                color.extraBrightAccent
-    in
-    [ Background.color bgColor
-    , height fill
-    , padding size.xs
-    ]
+    el (style.row i) e
 
 
 parseCategorization : Data -> String -> CatAttempt

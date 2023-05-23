@@ -79,6 +79,28 @@ style =
         , Background.color color.brightAccent
         ]
     , contentSpacing = spacing size.m
+    , header =
+        [ Background.color color.brightAccent
+        , Font.bold
+        , Font.color color.black
+        , Font.size size.m
+        , padding size.xs
+        , spacing size.xs
+        ]
+    , row =
+        \i ->
+            let
+                bgColor =
+                    if modBy 2 i == 1 then
+                        color.white
+
+                    else
+                        color.extraBrightAccent
+            in
+            [ Background.color bgColor
+            , height fill
+            , padding size.xs
+            ]
     }
 
 

@@ -1,9 +1,9 @@
 module Pages.Categories exposing (Model, Msg, page)
 
 import Dict
-import Element exposing (Element, column, el, shrink, spacing, table, text)
+import Element exposing (Element, column, el, indexedTable, paddingXY, shrink, spacing, table, text)
 import Element.Font as Font
-import Element.Input exposing (button, labelHidden, placeholder)
+import Element.Input exposing (button, labelHidden, labelLeft, placeholder)
 import Gen.Params.Accounts exposing (Params)
 import Layout exposing (color, size, style)
 import Page
@@ -62,7 +62,7 @@ update data msg model =
             ( { model | editing = True }, Cmd.none )
 
         Abort ->
-            ( { model | editing = False }, Cmd.none )
+            ( { model | editing = False, error = Nothing }, Cmd.none )
 
         EditName name ->
             ( { model | name = name }, Cmd.none )
@@ -140,18 +140,18 @@ errorNotice error =
 editArea : Bool -> Model -> Element Msg
 editArea editing mna =
     if editing then
-        column []
+        column [ spacing size.m ]
             [ Element.Input.text []
                 { onChange = EditName
                 , text = mna.name
                 , placeholder = Just <| placeholder [] <| text "Category Name"
-                , label = labelHidden "Category name"
+                , label = labelLeft [ paddingXY size.m 0 ] <| text "Category name"
                 }
             , Element.Input.text []
                 { onChange = EditShort
                 , text = mna.short
                 , placeholder = Just <| placeholder [] <| text "Short input name"
-                , label = labelHidden "Short name"
+                , label = labelLeft [ paddingXY size.m 0 ] <| text "Short name"
                 }
             , button style.button { onPress = Just Save, label = text "Save" }
             , button style.button { onPress = Just Abort, label = text "Abort" }
@@ -167,20 +167,20 @@ showData data _ =
         text "There are no categories defined yet"
 
     else
-        table [ spacing size.s ]
+        indexedTable [ spacing size.tiny ]
             { data = Dict.values data.categories
             , columns =
-                [ { header = text "Id"
+                [ { header = el style.header <| text "Id"
                   , width = shrink
-                  , view = \a -> text <| String.fromInt a.id
+                  , view = \i a -> el (style.row i) <| text <| String.fromInt a.id
                   }
-                , { header = text "Name"
+                , { header = el style.header <| text "Name"
                   , width = shrink
-                  , view = \a -> text <| a.name
+                  , view = \i a -> el (style.row i) <| text a.name
                   }
-                , { header = text "Short"
+                , { header = el style.header <| text "Short"
                   , width = shrink
-                  , view = \a -> text <| a.short
+                  , view = \i a -> el (style.row i) <| text a.short
                   }
                 ]
             }
