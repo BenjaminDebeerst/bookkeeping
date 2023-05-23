@@ -11,6 +11,9 @@ import Parser exposing (DeadEnd)
 import Persistence.Data exposing (Category, Data)
 import Persistence.Storage as Storage
 import Processing.CategoryParser exposing (categoryShortName)
+import Processing.Filter exposing (filterCategory)
+import Processing.Model exposing (getEntries)
+import Processing.Ordering exposing (dateAsc)
 import Request
 import Shared
 import View exposing (View)
@@ -34,6 +37,7 @@ type Editing
     = Off
     | NewCategory
     | Existing Category
+    | Deleting Category
 
 
 type alias Model =
@@ -59,8 +63,8 @@ type Msg
     | EditShort String
     | Save
     | Abort
-      --| Delete Int
-      --| DeleteConfirm Int
+    | Delete Category
+    | DeleteConfirm Category
     | EditExisting Category
 
 
@@ -98,6 +102,20 @@ update data msg model =
 
                 Err e ->
                     ( { model | error = Just e }, Cmd.none )
+
+        Delete cat ->
+            let
+                n =
+                    List.length <| getEntries data [ filterCategory cat ] dateAsc
+            in
+            if n > 0 then
+                ( { model | error = Just ("Cannot delete the category '" ++ cat.name ++ "', it has " ++ String.fromInt n ++ " entries associated.") }, Cmd.none )
+
+            else
+                ( { model | error = Nothing, editing = Deleting cat }, Cmd.none )
+
+        DeleteConfirm cat ->
+            ( { model | error = Nothing, name = "", short = "", editing = Off }, Storage.deleteCategory cat data |> Storage.store )
 
 
 
@@ -151,7 +169,7 @@ view data model =
         [ Layout.layout "Categories" <|
             column [ spacing size.m ]
                 [ errorNotice model.error
-                , editArea model.editing model
+                , editArea data model
                 , showData data model
                 ]
         ]
@@ -168,28 +186,36 @@ errorNotice error =
             el [ Font.color color.red ] (text message)
 
 
-editArea : Editing -> Model -> Element Msg
-editArea editing mna =
-    if editing == Off then
-        button style.button { onPress = Just Add, label = text "Add" }
+editArea : Data -> Model -> Element Msg
+editArea data model =
+    case model.editing of
+        Off ->
+            button style.button { onPress = Just Add, label = text "Add" }
 
-    else
-        column [ spacing size.m ]
-            [ Input.text []
-                { onChange = EditName
-                , text = mna.name
-                , placeholder = Just <| placeholder [] <| text "Category Name"
-                , label = labelLeft [ paddingXY size.m 0 ] <| text "Category name"
-                }
-            , Input.text []
-                { onChange = EditShort
-                , text = mna.short
-                , placeholder = Just <| placeholder [] <| text "Short input name"
-                , label = labelLeft [ paddingXY size.m 0 ] <| text "Short name"
-                }
-            , button style.button { onPress = Just Save, label = text "Save" }
-            , button style.button { onPress = Just Abort, label = text "Abort" }
-            ]
+        Deleting cat ->
+            column [ spacing size.m ]
+                [ text <| "You are about to delete the category '" ++ cat.name ++ "'. Continue?"
+                , button style.button { onPress = Just (DeleteConfirm cat), label = text "Really Delete" }
+                , button style.button { onPress = Just Abort, label = text "Abort" }
+                ]
+
+        _ ->
+            column [ spacing size.m ]
+                [ Input.text []
+                    { onChange = EditName
+                    , text = model.name
+                    , placeholder = Just <| placeholder [] <| text "Category Name"
+                    , label = labelLeft [ paddingXY size.m 0 ] <| text "Category name"
+                    }
+                , Input.text []
+                    { onChange = EditShort
+                    , text = model.short
+                    , placeholder = Just <| placeholder [] <| text "Short input name"
+                    , label = labelLeft [ paddingXY size.m 0 ] <| text "Short name"
+                    }
+                , button style.button { onPress = Just Save, label = text "Save" }
+                , button style.button { onPress = Just Abort, label = text "Abort" }
+                ]
 
 
 showData : Data -> Model -> Element Msg
@@ -207,7 +233,7 @@ showData data _ =
                         \i a ->
                             row (style.row i ++ [ spacing size.xs ])
                                 [ Input.button style.button { onPress = Just (EditExisting a), label = text "Edit" }
-                                , Input.button style.button { onPress = Nothing, label = text "Delete" }
+                                , Input.button style.button { onPress = Just (Delete a), label = text "Delete" }
                                 ]
                   }
                 , { header = el style.header <| text "Name"

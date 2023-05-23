@@ -2,6 +2,7 @@ port module Persistence.Storage exposing
     ( addAccount
     , addCategory
     , addEntries
+    , deleteCategory
     , editCategory
     , load
     , loadDatabase
@@ -67,6 +68,11 @@ addCategory category data =
 editCategory : Category -> Data -> Data
 editCategory category data =
     { data | categories = Dict.insert category.id category data.categories }
+
+
+deleteCategory : Category -> Data -> Data
+deleteCategory category data =
+    { data | categories = Dict.remove category.id data.categories }
 
 
 loadDatabase : String -> Cmd msg
