@@ -1,4 +1,4 @@
-module Processing.CategoryParser exposing (Categorization(..), parseCategorization)
+module Processing.CategoryParser exposing (Categorization(..), categoryShortName, parseCategorization)
 
 import Parser exposing (..)
 import Set

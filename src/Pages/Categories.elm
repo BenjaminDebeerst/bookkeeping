@@ -7,8 +7,10 @@ import Element.Input exposing (button, labelHidden, placeholder)
 import Gen.Params.Accounts exposing (Params)
 import Layout exposing (color, size, style)
 import Page
+import Parser exposing (DeadEnd)
 import Persistence.Data exposing (Category, Data)
 import Persistence.Storage as Storage
+import Processing.CategoryParser exposing (categoryShortName)
 import Request
 import Shared
 import View exposing (View)
@@ -97,7 +99,8 @@ validateCategory m =
             Err "Short name for account is longer than name o.O!"
 
          else
-            Ok m.short
+            Parser.run categoryShortName m.short
+                |> Result.mapError (\_ -> "Short name must start with a letter an be alphanumeric only")
         )
 
 
