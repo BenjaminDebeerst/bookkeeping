@@ -1,9 +1,9 @@
 module Pages.Categories exposing (Model, Msg, page)
 
 import Dict
-import Element exposing (Element, column, el, indexedTable, paddingXY, shrink, spacing, table, text)
+import Element exposing (Element, column, el, indexedTable, paddingXY, row, shrink, spacing, table, text)
 import Element.Font as Font
-import Element.Input exposing (button, labelHidden, labelLeft, placeholder)
+import Element.Input as Input exposing (button, labelHidden, labelLeft, placeholder)
 import Gen.Params.Accounts exposing (Params)
 import Layout exposing (color, size, style)
 import Page
@@ -30,9 +30,15 @@ page shared req =
 -- INIT
 
 
+type Editing
+    = Off
+    | NewCategory
+    | Existing Category
+
+
 type alias Model =
     { error : Maybe String
-    , editing : Bool
+    , editing : Editing
     , name : String
     , short : String
     }
@@ -40,7 +46,7 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model Nothing False "" "", Cmd.none )
+    ( Model Nothing Off "" "", Cmd.none )
 
 
 
@@ -53,16 +59,19 @@ type Msg
     | EditShort String
     | Save
     | Abort
+      --| Delete Int
+      --| DeleteConfirm Int
+    | EditExisting Category
 
 
 update : Data -> Msg -> Model -> ( Model, Cmd Msg )
 update data msg model =
     case msg of
         Add ->
-            ( { model | editing = True }, Cmd.none )
+            ( { model | editing = NewCategory }, Cmd.none )
 
         Abort ->
-            ( { model | editing = False, error = Nothing }, Cmd.none )
+            ( { model | editing = Off, error = Nothing, name = "", short = "" }, Cmd.none )
 
         EditName name ->
             ( { model | name = name }, Cmd.none )
@@ -70,10 +79,22 @@ update data msg model =
         EditShort short ->
             ( { model | short = short }, Cmd.none )
 
+        EditExisting cat ->
+            ( { model | editing = Existing cat, short = cat.short, name = cat.name }, Cmd.none )
+
         Save ->
+            let
+                storeFunction =
+                    case model.editing of
+                        Existing _ ->
+                            Storage.editCategory
+
+                        _ ->
+                            Storage.addCategory
+            in
             case validateCategory model of
                 Ok a ->
-                    ( { model | error = Just ("Storing" ++ Debug.toString a) }, Storage.addCategory a data |> Storage.store )
+                    ( { model | error = Nothing, name = "", short = "", editing = Off }, storeFunction a data |> Storage.store )
 
                 Err e ->
                     ( { model | error = Just e }, Cmd.none )
@@ -85,7 +106,17 @@ update data msg model =
 
 validateCategory : Model -> Result String Category
 validateCategory m =
-    Result.map2 makeCategory
+    let
+        id =
+            case m.editing of
+                Existing cat ->
+                    cat.id
+
+                _ ->
+                    -1
+    in
+    Result.map3 makeCategory
+        (Ok id)
         (if String.isEmpty m.name then
             Err "Account name is empty!"
 
@@ -104,9 +135,9 @@ validateCategory m =
         )
 
 
-makeCategory : String -> String -> Category
-makeCategory n s =
-    Category 0 n s
+makeCategory : Int -> String -> String -> Category
+makeCategory id n s =
+    Category id n s
 
 
 
@@ -137,17 +168,20 @@ errorNotice error =
             el [ Font.color color.red ] (text message)
 
 
-editArea : Bool -> Model -> Element Msg
+editArea : Editing -> Model -> Element Msg
 editArea editing mna =
-    if editing then
+    if editing == Off then
+        button style.button { onPress = Just Add, label = text "Add" }
+
+    else
         column [ spacing size.m ]
-            [ Element.Input.text []
+            [ Input.text []
                 { onChange = EditName
                 , text = mna.name
                 , placeholder = Just <| placeholder [] <| text "Category Name"
                 , label = labelLeft [ paddingXY size.m 0 ] <| text "Category name"
                 }
-            , Element.Input.text []
+            , Input.text []
                 { onChange = EditShort
                 , text = mna.short
                 , placeholder = Just <| placeholder [] <| text "Short input name"
@@ -157,11 +191,8 @@ editArea editing mna =
             , button style.button { onPress = Just Abort, label = text "Abort" }
             ]
 
-    else
-        button style.button { onPress = Just Add, label = text "Add" }
 
-
-showData : Data -> Model -> Element msg
+showData : Data -> Model -> Element Msg
 showData data _ =
     if Dict.isEmpty data.categories then
         text "There are no categories defined yet"
@@ -170,9 +201,14 @@ showData data _ =
         indexedTable [ spacing size.tiny ]
             { data = Dict.values data.categories
             , columns =
-                [ { header = el style.header <| text "Id"
+                [ { header = el style.header <| text "Actions"
                   , width = shrink
-                  , view = \i a -> el (style.row i) <| text <| String.fromInt a.id
+                  , view =
+                        \i a ->
+                            row (style.row i ++ [ spacing size.xs ])
+                                [ Input.button style.button { onPress = Just (EditExisting a), label = text "Edit" }
+                                , Input.button style.button { onPress = Nothing, label = text "Delete" }
+                                ]
                   }
                 , { header = el style.header <| text "Name"
                   , width = shrink

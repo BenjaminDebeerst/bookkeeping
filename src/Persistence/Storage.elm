@@ -2,6 +2,7 @@ port module Persistence.Storage exposing
     ( addAccount
     , addCategory
     , addEntries
+    , editCategory
     , load
     , loadDatabase
     , onChange
@@ -61,6 +62,11 @@ addCategory category data =
         | categories = Dict.insert id { category | id = id } data.categories
         , autoIncrement = id + 1
     }
+
+
+editCategory : Category -> Data -> Data
+editCategory category data =
+    { data | categories = Dict.insert category.id category data.categories }
 
 
 loadDatabase : String -> Cmd msg
