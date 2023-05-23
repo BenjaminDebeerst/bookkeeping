@@ -6,13 +6,14 @@ import Element.Font as Font
 import Element.Input as Input exposing (button, labelHidden, labelLeft, placeholder)
 import Gen.Params.Accounts exposing (Params)
 import Layout exposing (color, size, style)
+import Maybe.Extra
 import Page
 import Parser exposing (DeadEnd)
 import Persistence.Data exposing (Category, Data)
 import Persistence.Storage as Storage
 import Processing.CategoryParser exposing (categoryShortName)
 import Processing.Filter exposing (filterCategory)
-import Processing.Model exposing (getEntries)
+import Processing.Model exposing (getCategoryByShort, getEntries)
 import Processing.Ordering exposing (dateAsc)
 import Request
 import Shared
@@ -96,7 +97,7 @@ update data msg model =
                         _ ->
                             Storage.addCategory
             in
-            case validateCategory model of
+            case validateCategory data model of
                 Ok a ->
                     ( { model | error = Nothing, name = "", short = "", editing = Off }, storeFunction a data |> Storage.store )
 
@@ -122,8 +123,8 @@ update data msg model =
 {- This isn't proper parsing at all but it works -}
 
 
-validateCategory : Model -> Result String Category
-validateCategory m =
+validateCategory : Data -> Model -> Result String Category
+validateCategory data m =
     let
         id =
             case m.editing of
@@ -146,6 +147,9 @@ validateCategory m =
 
          else if String.length m.short >= String.length m.name then
             Err "Short name for account is longer than name o.O!"
+
+         else if Maybe.Extra.isJust (getCategoryByShort data m.short) then
+            Err "Short name already used!"
 
          else
             Parser.run categoryShortName m.short
