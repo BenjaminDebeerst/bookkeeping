@@ -17,7 +17,7 @@ import Persistence.Storage as Storage exposing (addEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
 import Processing.CategoryParser as Parser
 import Processing.Filter exposing (Filter, filterCategory, filterDescription, filterMonth, filterYear)
-import Processing.Model exposing (getEntries)
+import Processing.Model exposing (getCategoryByShort, getEntries)
 import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
 import Request exposing (Request)
 import Shared
@@ -358,7 +358,7 @@ maybeNoEntries n =
 
 header : msg -> msg -> String -> Element msg
 header up down s =
-    Element.row headerStyle
+    Element.row style.header
         [ el [ alignLeft ] <| text s
         , column
             [ alignRight, height fill, spacing size.xxs ]
@@ -370,34 +370,7 @@ header up down s =
 
 row : Int -> Element msg -> Element msg
 row i e =
-    el (rowStyle i) e
-
-
-headerStyle : List (Attribute msg)
-headerStyle =
-    [ Background.color color.brightAccent
-    , Font.bold
-    , Font.color color.black
-    , Font.size size.m
-    , padding size.xs
-    , spacing size.xs
-    ]
-
-
-rowStyle : Int -> List (Attribute msg)
-rowStyle i =
-    let
-        bgColor =
-            if modBy 2 i == 1 then
-                color.white
-
-            else
-                color.extraBrightAccent
-    in
-    [ Background.color bgColor
-    , height fill
-    , padding size.xs
-    ]
+    el (style.row i) e
 
 
 parseCategorization : Data -> String -> CatAttempt
@@ -430,10 +403,3 @@ parseCategorization data string =
 categoryForTuple : Data -> ( String, Int ) -> Maybe EntrySplit
 categoryForTuple data ( string, int ) =
     getCategoryByShort data string |> Maybe.map (\c -> EntrySplit c int)
-
-
-getCategoryByShort : Data -> String -> Maybe Category
-getCategoryByShort data string =
-    Dict.values data.categories
-        |> List.filter (\c -> c.short == string)
-        |> List.head

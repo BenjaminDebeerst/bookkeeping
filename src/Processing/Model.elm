@@ -1,4 +1,4 @@
-module Processing.Model exposing (getEntries)
+module Processing.Model exposing (getCategoryByShort, getEntries)
 
 import Dict
 import Maybe.Extra
@@ -67,3 +67,10 @@ liftCategorization data cat =
 liftSplitEntry : Data -> Data.SplitCatEntry -> Maybe EntrySplit
 liftSplitEntry data se =
     Dict.get se.id data.categories |> Maybe.map (\c -> EntrySplit c se.amount)
+
+
+getCategoryByShort : Data -> String -> Maybe Category
+getCategoryByShort data string =
+    Dict.values data.categories
+        |> List.filter (\c -> c.short == string)
+        |> List.head
