@@ -1,21 +1,25 @@
-module Layout exposing (color, formatDate, formatEuro, formatEuroStr, layout, size, style)
+module Layout exposing (color, formatDate, formatEuro, formatEuroStr, page, size, style)
 
 import Element exposing (Attribute, Element, alignRight, column, el, fill, fillPortion, height, link, minimum, padding, paddingEach, rgb255, row, scrollbarX, scrollbarY, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
-import Html exposing (Html)
 import Time.Date as Date exposing (Date)
+import View exposing (View)
 
 
-layout : String -> Element msg -> Html msg
-layout title pageContent =
-    Element.layout [ width fill, height fill ] <|
-        row
-            [ width <| minimum 600 fill, height fill, Font.size size.m ]
-            [ sidebar
-            , content title pageContent
-            ]
+page : String -> List (Element msg) -> View msg
+page title pageContent =
+    { title = title
+    , body =
+        [ Element.layout [ width fill, height fill ] <|
+            row
+                [ width <| minimum 600 fill, height fill, Font.size size.m ]
+                [ sidebar
+                , content title pageContent
+                ]
+        ]
+    }
 
 
 sidebar =
@@ -32,16 +36,17 @@ sidebar =
         [ link [] { url = "/", label = text "Home" }
         , link [] { url = "/import-file", label = text "Import File" }
         , link [] { url = "/book", label = text "Book" }
+        , link [] { url = "/monthly", label = text "Monthly View" }
         , link [] { url = "/accounts", label = text "Accounts" }
         , link [] { url = "/categories", label = text "Categories" }
         ]
 
 
 content title pageContent =
-    column [ height fill, width <| fillPortion 7, scrollbarX, padding size.l, Background.color color.white ]
-        [ el [ Font.bold, Font.size size.l, paddingBottom size.l, width fill ] <| text title
-        , pageContent
-        ]
+    column [ height fill, width <| fillPortion 7, scrollbarX, padding size.l, spacing size.m, Background.color color.white ]
+        ([ el [ Font.bold, Font.size size.l, paddingBottom size.l, width fill ] <| text title ]
+            ++ pageContent
+        )
 
 
 paddingBottom i =

@@ -158,14 +158,7 @@ view data model =
         entries =
             getEntries data filters model.ordering
     in
-    { title = "Book"
-    , body = [ Layout.layout "Book" (content model data entries) ]
-    }
-
-
-content : Model -> Data -> List BookEntry -> Element Msg
-content model data entries =
-    column [ spacing size.m ]
+    Layout.page "Book" <|
         [ showFilters model data.accounts
         , showActions model
         , showData model entries

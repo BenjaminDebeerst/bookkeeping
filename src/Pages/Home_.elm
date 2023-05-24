@@ -4,7 +4,7 @@ import Dict
 import Element exposing (Element, column, el, fill, height, maximum, px, spacing, text, width)
 import Element.Font as Font
 import Element.Input as Input exposing (labelAbove, placeholder)
-import Layout
+import Layout exposing (style)
 import Page
 import Persistence.Data exposing (Data, encode)
 import Persistence.Storage as Storage
@@ -75,15 +75,7 @@ update data msg model =
 
 view : Data -> Model -> View Msg
 view data model =
-    { title = "Home"
-    , body =
-        [ Layout.layout "Home" (showData data model) ]
-    }
-
-
-showData : Data -> Model -> Element Msg
-showData data model =
-    column [ spacing 20 ]
+    Layout.page "Home" <|
         ([ el [] <| text ("Currently, the DB has " ++ (String.fromInt <| Dict.size <| data.rawEntries) ++ " entries. You can start over or load a database.")
          , Input.multiline [ width <| maximum 600 fill, height <| maximum 400 <| px 200 ]
             { onChange = TextInput

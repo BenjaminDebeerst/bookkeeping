@@ -144,16 +144,12 @@ readFileContents content =
 
 view : Data -> Model -> View Msg
 view data model =
-    { title = "Import File"
-    , body =
-        [ Layout.layout "Import File" <|
-            if List.isEmpty model.fileContents then
-                viewFilePicker data model
+    Layout.page "Import File" <|
+        if List.isEmpty model.fileContents then
+            viewFilePicker data model
 
-            else
-                viewFileContents data model
-        ]
-    }
+        else
+            viewFileContents data model
 
 
 
@@ -215,32 +211,31 @@ dropdownConfig data =
 -- FILE PICKER
 
 
-viewFilePicker : Data -> Model -> Element Msg
+viewFilePicker : Data -> Model -> List (Element Msg)
 viewFilePicker data model =
-    column [ width fill, height fill, spacing Layout.size.m ]
-        (showStoreConfirmation model.state
-            ++ [ viewAccountSelector data model ]
-            ++ [ el [] (text "Import a CSV File")
-               , el
-                    [ width fill
-                    , height fill
-                    , Border.dashed
-                    , Border.color <|
-                        if model.state == PickHover then
-                            Layout.color.brightAccent
+    --column [ width fill, height fill, spacing Layout.size.m ]
+    showStoreConfirmation model.state
+        ++ [ viewAccountSelector data model ]
+        ++ [ el [] (text "Import a CSV File")
+           , el
+                [ width fill
+                , height fill
+                , Border.dashed
+                , Border.color <|
+                    if model.state == PickHover then
+                        Layout.color.brightAccent
 
-                        else
-                            Layout.color.darkAccent
-                    , Border.width Layout.size.xs
-                    , Border.rounded Layout.size.xl
-                    , onEvent "dragenter" (D.succeed DragEnter)
-                    , onEvent "dragover" (D.succeed DragEnter)
-                    , onEvent "dragleave" (D.succeed DragLeave)
-                    , onEvent "drop" fileDropDecoder
-                    ]
-                    (Input.button ([ centerX, centerY ] ++ Layout.style.button) { onPress = Just PickFile, label = text "Select File" })
-               ]
-        )
+                    else
+                        Layout.color.darkAccent
+                , Border.width Layout.size.xs
+                , Border.rounded Layout.size.xl
+                , onEvent "dragenter" (D.succeed DragEnter)
+                , onEvent "dragover" (D.succeed DragEnter)
+                , onEvent "dragleave" (D.succeed DragLeave)
+                , onEvent "drop" fileDropDecoder
+                ]
+                (Input.button ([ centerX, centerY ] ++ Layout.style.button) { onPress = Just PickFile, label = text "Select File" })
+           ]
 
 
 fileDropDecoder : D.Decoder Msg
@@ -267,15 +262,13 @@ showStoreConfirmation s =
 -- CSV Importer
 
 
-viewFileContents : Data -> Model -> Element Msg
+viewFileContents : Data -> Model -> List (Element Msg)
 viewFileContents data model =
-    column [ style.contentSpacing ]
-        ([ el [ Font.size size.m ] <| text ("Importing file: " ++ model.fileName) ]
-            ++ [ viewAccountSelector data model ]
-            ++ unreadableData model
-            ++ readableData model
-            ++ [ Input.button style.button { onPress = Just Store, label = text "Import Data" } ]
-        )
+    [ el [ Font.size size.m ] <| text ("Importing file: " ++ model.fileName) ]
+        ++ [ viewAccountSelector data model ]
+        ++ unreadableData model
+        ++ readableData model
+        ++ [ Input.button style.button { onPress = Just Store, label = text "Import Data" } ]
 
 
 unreadableData : Model -> List (Element Msg)

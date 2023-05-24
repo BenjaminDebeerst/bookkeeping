@@ -115,16 +115,11 @@ makeAccount n a y m =
 
 view : Data -> Model -> View Msg
 view data model =
-    { title = "Accounts"
-    , body =
-        [ Layout.layout "Accounts" <|
-            column [ spacing size.m ]
-                [ errorNotice model.error
-                , editArea model.editing model
-                , showData data model
-                ]
+    Layout.page "Accounts" <|
+        [ errorNotice model.error
+        , editArea model.editing model
+        , showData data model
         ]
-    }
 
 
 errorNotice : Maybe String -> Element Msg

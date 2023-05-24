@@ -168,16 +168,11 @@ makeCategory id n s =
 
 view : Data -> Model -> View Msg
 view data model =
-    { title = "Categories"
-    , body =
-        [ Layout.layout "Categories" <|
-            column [ spacing size.m ]
-                [ errorNotice model.error
-                , editArea data model
-                , showData data model
-                ]
+    Layout.page "Categories" <|
+        [ errorNotice model.error
+        , editArea data model
+        , showData data model
         ]
-    }
 
 
 errorNotice : Maybe String -> Element Msg
