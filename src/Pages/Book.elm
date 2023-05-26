@@ -168,7 +168,7 @@ view data model =
 showFilters : Model -> Dict Int Account -> Element Msg
 showFilters model _ =
     column [ spacing size.s ]
-        [ el [ Font.bold, Font.size size.m ] <| text "Filters"
+        [ el style.h2 <| text "Filters"
         , Input.text []
             { onChange = FilterYear
             , text = model.year

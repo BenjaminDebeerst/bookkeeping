@@ -1,6 +1,6 @@
 module Processing.Filter exposing (..)
 
-import Persistence.Data exposing (Category)
+import Persistence.Data exposing (Account, Category)
 import Processing.BookEntry exposing (BookEntry)
 import Time.Date as Date
 
@@ -44,3 +44,8 @@ filterCategory category bookEntry =
 
         Processing.BookEntry.Split entrySplits ->
             List.map .category entrySplits |> List.filter (\c -> c.id == category.id) |> List.isEmpty >> not
+
+
+filterAccount : Account -> BookEntry -> Bool
+filterAccount account bookEntry =
+    bookEntry.account == account

@@ -1,8 +1,8 @@
 module Processing.Model exposing (getCategoryByShort, getEntries)
 
-import Dict
+import Dict exposing (Dict)
 import Maybe.Extra
-import Persistence.Data as Data exposing (Account, Category, Data, RawEntry)
+import Persistence.Data as Data exposing (Account, AccountStart, Category, Data, RawEntry)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit)
 import Processing.Csv exposing (Row, parseCsvLine)
 import Processing.Filter exposing (Filter, all)

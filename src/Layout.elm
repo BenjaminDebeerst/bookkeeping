@@ -106,6 +106,7 @@ style =
             , height fill
             , padding size.xs
             ]
+    , h2 = [ Font.bold, Font.size size.m ]
     }
 
 

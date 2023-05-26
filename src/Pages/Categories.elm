@@ -73,7 +73,7 @@ update : Data -> Msg -> Model -> ( Model, Cmd Msg )
 update data msg model =
     case msg of
         Add ->
-            ( { model | editing = NewCategory }, Cmd.none )
+            ( { model | editing = NewCategory, error = Nothing }, Cmd.none )
 
         Abort ->
             ( { model | editing = Off, error = Nothing, name = "", short = "" }, Cmd.none )
