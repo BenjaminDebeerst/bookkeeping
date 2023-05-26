@@ -1,4 +1,4 @@
-module Icons exposing (triangleDown, triangleUp)
+module Icons exposing (checkMark, triangleDown, triangleUp, warnTriangle)
 
 import Element exposing (el)
 import FeatherIcons
@@ -18,3 +18,19 @@ triangleUp attrs size =
 
 triangleDown attrs size =
     el [ Element.rotate <| degrees 180 ] <| triangleUp attrs size
+
+
+checkMark attrs size =
+    el attrs <|
+        Element.html
+            (FeatherIcons.check
+                |> FeatherIcons.toHtml [ Attributes.height <| String.fromInt size ]
+            )
+
+
+warnTriangle attrs size =
+    el attrs <|
+        Element.html
+            (FeatherIcons.alertTriangle
+                |> FeatherIcons.toHtml [ Attributes.height <| String.fromInt size ]
+            )

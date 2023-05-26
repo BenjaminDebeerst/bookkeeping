@@ -2,24 +2,25 @@ module Pages.Book exposing (Model, Msg, page)
 
 import Dict exposing (Dict)
 import Dict.Extra
-import Element exposing (Attribute, Column, Element, alignLeft, alignRight, centerX, column, el, fill, height, indexedTable, padding, paddingXY, shrink, spacing, text, width)
-import Element.Background as Background
+import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, paddingXY, shrink, spacing, text, width)
 import Element.Events exposing (onClick)
 import Element.Font as Font
-import Element.Input as Input exposing (labelHidden, labelLeft, labelRight, placeholder)
-import Html exposing (summary)
-import Icons exposing (triangleDown, triangleUp)
-import Layout exposing (color, formatDate, formatEuro, formatEuroStr, size, style)
+import Element.Input as Input exposing (labelHidden, labelLeft, placeholder)
+import Icons exposing (checkMark, triangleDown, triangleUp, warnTriangle)
+import Layout exposing (color, formatDate, formatEuro, formatEuroStr, size, style, tooltip)
 import Maybe.Extra
 import Page
+import Parser
 import Persistence.Data exposing (Account, Category, Data, RawEntry)
 import Persistence.Storage as Storage exposing (addEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
-import Processing.CategoryParser as Parser
+import Processing.CategoryParser as Parser exposing (categorizationParser)
 import Processing.Filter exposing (Filter, filterCategory, filterDescription, filterMonth, filterYear)
 import Processing.Model exposing (getCategoryByShort, getEntries)
 import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
 import Request exposing (Request)
+import Result.Extra
+import Set
 import Shared
 import View exposing (View)
 
@@ -47,7 +48,7 @@ type alias Model =
 
 
 type CatAttempt
-    = Unknown String
+    = Unknown String String
     | Known String Categorization
 
 
@@ -78,7 +79,7 @@ type Msg
     | OnlyUncategorized Bool
     | OrderBy (Ordering BookEntry)
     | Categorize
-    | EditCategory String String
+    | EditCategory String Int String
     | SaveCategories
     | AbortCategorize
 
@@ -110,8 +111,8 @@ update data msg model =
         AbortCategorize ->
             ( { model | editCategories = False }, Cmd.none )
 
-        EditCategory id cat ->
-            ( { model | categoryEdits = Dict.insert id (parseCategorization data cat) model.categoryEdits }, Cmd.none )
+        EditCategory id amount cat ->
+            ( { model | categoryEdits = Dict.insert id (parseCategorization data amount cat) model.categoryEdits }, Cmd.none )
 
         SaveCategories ->
             let
@@ -120,10 +121,10 @@ update data msg model =
                     Dict.Extra.filterMap
                         (\_ ca ->
                             case ca of
-                                Unknown "" ->
+                                Unknown "" _ ->
                                     Just None
 
-                                Unknown _ ->
+                                Unknown _ _ ->
                                     Nothing
 
                                 Known _ cat ->
@@ -282,21 +283,47 @@ dataTable model entries =
 categoryCell : Model -> BookEntry -> Element Msg
 categoryCell model entry =
     if model.editCategories then
-        Input.text []
-            { onChange = EditCategory entry.id
-            , text = categoryInputText model.categoryEdits entry
-            , placeholder = Nothing
-            , label = labelHidden "Categorization"
-            }
+        Element.row []
+            [ Input.text []
+                { onChange = EditCategory entry.id entry.amount
+                , text = categoryInputText model.categoryEdits entry
+                , placeholder = Nothing
+                , label = labelHidden "Categorization"
+                }
+            , categoryEditAnnotation model.categoryEdits entry
+            ]
 
     else
         text <| categorizationString Full entry.categorization
 
 
+categoryEditAnnotation : Dict String CatAttempt -> BookEntry -> Element Msg
+categoryEditAnnotation categoryEdits entry =
+    case Dict.get entry.id categoryEdits of
+        Just (Unknown _ error) ->
+            warnTriangle
+                [ padding size.xs
+                , Font.color color.red
+                , tooltip below error
+                ]
+                size.l
+
+        Just (Known _ _) ->
+            checkMark [ padding size.xs, Font.color color.darkAccent ] size.l
+
+        Nothing ->
+            case entry.categorization of
+                None ->
+                    Element.none
+
+                _ ->
+                    checkMark [ padding size.xs, Font.color color.darkAccent ] size.l
+
+
 categoryInputText : Dict String CatAttempt -> BookEntry -> String
 categoryInputText categoryEdits entry =
     case Dict.get entry.id categoryEdits of
-        Just (Unknown edit) ->
+        Just (Unknown edit _) ->
             edit
 
         Just (Known edit _) ->
@@ -366,33 +393,54 @@ row i e =
     el (style.row i) e
 
 
-parseCategorization : Data -> String -> CatAttempt
-parseCategorization data string =
-    case Parser.parseCategorization string of
+parseCategorization : Data -> Int -> String -> CatAttempt
+parseCategorization data targetAmount string =
+    case Parser.run categorizationParser string of
         Ok Parser.Empty ->
             Known string None
 
         Ok (Parser.One shortName) ->
             getCategoryByShort data shortName
                 |> Maybe.map (Known string << Single)
-                |> Maybe.withDefault (Unknown string)
+                |> Maybe.withDefault (Unknown string ("Unknown category " ++ shortName))
 
         Ok (Parser.Multiple list) ->
             case
                 list
                     |> List.map (categoryForTuple data)
-                    |> Maybe.Extra.combine
+                    |> Result.Extra.partition
             of
-                Just categories ->
-                    Known string (Split categories)
+                ( categories, [] ) ->
+                    let
+                        remainder =
+                            targetAmount - (categories |> List.map .amount |> List.sum)
+                    in
+                    if remainder == 0 then
+                        Known string (Split categories)
 
-                Nothing ->
-                    Unknown string
+                    else
+                        Unknown string ("Remaining unallocated amount: " ++ formatEuroStr remainder)
+
+                ( _, unknowns ) ->
+                    let
+                        cats =
+                            Set.fromList unknowns
+                                |> Set.toList
+                                |> List.sort
+                                |> String.join ", "
+                    in
+                    if List.length unknowns == 1 then
+                        Unknown string ("Unknown category " ++ cats)
+
+                    else
+                        Unknown string ("Unknown categories: " ++ cats)
 
         Err _ ->
-            Unknown string
+            Unknown string "Unrecognized format"
 
 
-categoryForTuple : Data -> ( String, Int ) -> Maybe EntrySplit
+categoryForTuple : Data -> ( String, Int ) -> Result String EntrySplit
 categoryForTuple data ( string, int ) =
-    getCategoryByShort data string |> Maybe.map (\c -> EntrySplit c int)
+    getCategoryByShort data string
+        |> Maybe.map (\c -> Ok <| EntrySplit c int)
+        |> Maybe.withDefault (Err string)

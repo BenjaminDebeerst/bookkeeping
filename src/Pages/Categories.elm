@@ -153,7 +153,7 @@ validateCategory data m =
 
          else
             Parser.run categoryShortName m.short
-                |> Result.mapError (\_ -> "Short name must start with a letter an be alphanumeric only")
+                |> Result.mapError (\_ -> "Short name must start with a letter and be alphanumeric only")
         )
 
 

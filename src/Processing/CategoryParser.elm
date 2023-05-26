@@ -1,4 +1,4 @@
-module Processing.CategoryParser exposing (Categorization(..), categoryShortName, parseCategorization)
+module Processing.CategoryParser exposing (Categorization(..), categorizationParser, categoryShortName)
 
 import Parser exposing (..)
 import Set
@@ -8,12 +8,6 @@ type Categorization
     = Empty
     | One String
     | Multiple (List ( String, Int ))
-
-
-parseCategorization : String -> Result String Categorization
-parseCategorization string =
-    Parser.run categorizationParser string
-        |> Result.mapError (\_ -> string)
 
 
 categorizationParser : Parser Categorization
@@ -54,7 +48,13 @@ tupleParserHelper tuples =
             |. Parser.spaces
             |= categoryShortName
             |. Parser.symbol " "
-            |= Parser.int
+            |. Parser.spaces
+            |= oneOf
+                [ succeed negate
+                    |. symbol "-"
+                    |= int
+                , int
+                ]
             |. Parser.spaces
         , succeed ()
             |> Parser.map (\_ -> Done tuples)
