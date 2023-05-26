@@ -23,21 +23,21 @@ categories =
 
 
 account1 =
-    Persistence.Data.Account 43 "Account Name" <| Persistence.Data.AccountStart 10000 2023 3
+    Persistence.Data.Account 43 "Account Name" <| Persistence.Data.AccountStart 10 2023 3
 
 
 account2 =
-    Persistence.Data.Account 123 "Account Name 2" <| Persistence.Data.AccountStart 0 2023 3
+    Persistence.Data.Account 123 "Account Name 2" <| Persistence.Data.AccountStart 20 2023 3
 
 
 entries : List BookEntry
 entries =
-    [ BookEntry "a" (Date.date 2023 3 1) "" 1000 account1 (Single cat1)
-    , BookEntry "b" (Date.date 2023 3 2) "" 1000 account1 (Single cat2)
-    , BookEntry "c" (Date.date 2023 4 12) "" 1000 account1 (Single cat2)
-    , BookEntry "d" (Date.date 2023 4 28) "" 1000 account1 (Single cat2)
-    , BookEntry "e" (Date.date 2023 5 4) "" 1000 account1 (Single cat1)
-    , BookEntry "f" (Date.date 2023 3 4) "" 5000 account2 (Single cat1)
+    [ BookEntry "a" (Date.date 2023 3 1) "" 1 account1 (Single cat1)
+    , BookEntry "b" (Date.date 2023 3 2) "" 1 account1 (Single cat2)
+    , BookEntry "c" (Date.date 2023 4 12) "" 1 account1 (Single cat2)
+    , BookEntry "d" (Date.date 2023 4 28) "" 1 account1 (Single cat2)
+    , BookEntry "e" (Date.date 2023 5 4) "" 1 account1 (Single cat1)
+    , BookEntry "f" (Date.date 2023 4 4) "" 5 account2 (Single cat1)
     ]
 
 
@@ -48,12 +48,15 @@ aggregate_book_entries =
             \_ ->
                 (aggregate entries account1).rows
                     |> Expect.equal
-                        [ MonthAggregate "March 2023" <| Dict.fromList [ ( 1, 1000 ), ( 2, 1000 ) ]
-                        , MonthAggregate "April 2023" <| Dict.fromList [ ( 2, 2000 ) ]
-                        , MonthAggregate "May 2023" <| Dict.fromList [ ( 1, 1000 ) ]
+                        [ { month = "March 2023", balance = 12, entries = Dict.fromList [ ( 1, 1 ), ( 2, 1 ) ] }
+                        , { month = "April 2023", balance = 14, entries = Dict.fromList [ ( 2, 2 ) ] }
+                        , { month = "May 2023", balance = 15, entries = Dict.fromList [ ( 1, 1 ) ] }
                         ]
         , test "filters by account" <|
             \_ ->
                 (aggregate entries account2).rows
-                    |> Expect.equal [ { month = "March 2023", entries = Dict.fromList [ ( 1, 5000 ) ] } ]
+                    |> Expect.equal
+                        [ { month = "March 2023", balance = 20, entries = Dict.fromList [] }
+                        , { month = "April 2023", balance = 25, entries = Dict.fromList [ ( 1, 5 ) ] }
+                        ]
         ]

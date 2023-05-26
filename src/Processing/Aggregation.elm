@@ -9,6 +9,7 @@ import Time.Date as Date exposing (Date, date)
 
 type alias MonthAggregate =
     { month : String
+    , balance : Int
     , entries : Dict Int Int -- Category id -> Amount
     }
 
@@ -32,32 +33,32 @@ aggregate bookEntries account =
                 |> List.filter (filterAccount account)
 
         monthAggregates =
-            aggHelper startMonth Dict.empty accEntries []
+            aggHelper startMonth ( Dict.empty, account.start.amount ) accEntries []
     in
     Aggregate account monthAggregates
 
 
-aggHelper : Date -> Dict Int Int -> List BookEntry -> List MonthAggregate -> List MonthAggregate
-aggHelper currentMonth monthEntries remainingBookEntries aggregatedMonths =
+aggHelper : Date -> ( Dict Int Int, Int ) -> List BookEntry -> List MonthAggregate -> List MonthAggregate
+aggHelper currentMonth ( monthEntries, balance ) remainingBookEntries aggregatedMonths =
     case remainingBookEntries of
         [] ->
-            aggregatedMonths ++ [ MonthAggregate (monthString currentMonth) monthEntries ]
+            aggregatedMonths ++ [ MonthAggregate (monthString currentMonth) balance monthEntries ]
 
         be :: tail ->
             -- FIXME Ensure this is tail recursive. Otherwise the stack will explode.
             if equalMonths currentMonth be then
                 aggHelper
                     currentMonth
-                    (addCategorizedAmount be monthEntries)
+                    ( addCategorizedAmount be monthEntries, balance + be.amount )
                     tail
                     aggregatedMonths
 
             else
                 aggHelper
                     (Date.addMonths 1 currentMonth)
-                    Dict.empty
+                    ( Dict.empty, balance )
                     remainingBookEntries
-                    (aggregatedMonths ++ [ MonthAggregate (monthString currentMonth) monthEntries ])
+                    (aggregatedMonths ++ [ MonthAggregate (monthString currentMonth) balance monthEntries ])
 
 
 monthString : Date -> String

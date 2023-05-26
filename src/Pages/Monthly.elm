@@ -80,6 +80,10 @@ view data _ =
                               , width = shrink
                               , view = \i e -> el (style.row i) <| text e.month
                               }
+                            , { header = el style.header <| text "Balance"
+                              , width = shrink
+                              , view = \i e -> el (style.row i) <| formatEuro [] e.balance
+                              }
                             ]
                                 ++ categoryColumns data.categories
                         }
