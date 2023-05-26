@@ -331,7 +331,7 @@ categorizationString p c =
 
         ( Split cats, Full ) ->
             cats
-                |> List.map (\es -> es.category.name ++ " " ++ String.fromInt es.amount)
+                |> List.map (\es -> es.category.name ++ " " ++ formatEuroStr es.amount)
                 |> List.sort
                 |> String.join "\n"
 
