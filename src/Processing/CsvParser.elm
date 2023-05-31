@@ -24,7 +24,7 @@ rowDecoder : Decoder ParsedRow
 rowDecoder =
     Decode.into ParsedRow
         |> Decode.pipeline (column 4 dateDecoder)
-        |> Decode.pipeline (combinedStrings (column 6 string) (column 9 string) (column 10 string))
+        |> Decode.pipeline (combinedTextColumns [ 6, 9, 10 ])
         |> Decode.pipeline (column 11 twoDigitFloatToIntDecoder)
 
 
@@ -42,19 +42,33 @@ twoDigitFloatToIntDecoder =
         (String.append "Not a number: ")
 
 
-combinedStrings : Decoder String -> Decoder String -> Decoder String -> Decoder String
-combinedStrings a b c =
-    Decode.map3
-        (\s1 s2 s3 ->
-            [ s1, s2, s3 ]
-                |> List.map String.trim
-                |> List.filter (not << String.isEmpty)
-                |> List.map deduplicateSpaces
-                |> String.join "\n"
-        )
-        a
-        b
-        c
+combinedTextColumns : List Int -> Decoder String
+combinedTextColumns columns =
+    columns
+        |> List.map (\i -> column i string)
+        |> traverse
+        |> Decode.map sanitizeTextFields
+        |> Decode.map (String.join "\n")
+
+
+sanitizeTextFields : List String -> List String
+sanitizeTextFields =
+    List.map String.trim
+        >> List.filter (not << String.isEmpty)
+        >> List.map deduplicateSpaces
+
+
+traverse : List (Decoder a) -> Decoder (List a)
+traverse decoders =
+    case decoders of
+        [] ->
+            Decode.succeed []
+
+        head :: tail ->
+            Decode.map2
+                (\h t -> h :: t)
+                head
+                (traverse tail)
 
 
 contextualDecoder : (String -> Maybe b) -> (String -> String) -> Decoder b
