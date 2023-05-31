@@ -1,26 +1,34 @@
-module Processing.Model exposing (getCategoryByShort, getEntries)
+module Processing.Model exposing (getCategoryByShort, getEntries, getEntriesAndErrors)
 
 import Dict exposing (Dict)
 import Maybe.Extra
 import Persistence.Data as Data exposing (Account, AccountStart, Category, Data, RawEntry)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit)
-import Processing.Csv exposing (Row, parseCsvLine)
+import Processing.CsvParser exposing (ParsedRow, parseCsvLine)
 import Processing.Filter exposing (Filter, all)
 import Processing.Ordering exposing (Ordering)
+import Result.Extra
 
 
 getEntries : Data -> List Filter -> Ordering BookEntry -> List BookEntry
 getEntries data filters order =
+    getEntriesAndErrors data filters order
+        |> Tuple.first
+
+
+getEntriesAndErrors : Data -> List Filter -> Ordering BookEntry -> ( List BookEntry, List String )
+getEntriesAndErrors data filters order =
     Dict.values data.rawEntries
         |> List.map parseToEntry
-        |> List.filterMap (enrichRow data)
-        |> List.filter (all filters)
-        |> List.sortWith order
+        |> List.map (enrichRow data)
+        |> Result.Extra.partition
+        |> Tuple.mapFirst (List.filter (all filters))
+        |> Tuple.mapFirst (List.sortWith order)
 
 
 type alias Entry =
     { id : String
-    , row : Maybe Row
+    , row : Result String ParsedRow
     , accountId : Int
     , categorization : Maybe Data.Categorization
     }
@@ -29,23 +37,22 @@ type alias Entry =
 parseToEntry : RawEntry -> Entry
 parseToEntry raw =
     parseCsvLine raw.line
-        |> Result.toMaybe
         |> (\row -> Entry raw.id row raw.accountId raw.categorization)
 
 
 andMap =
-    Maybe.map2 (|>)
+    Result.map2 (|>)
 
 
-enrichRow : Data -> Entry -> Maybe BookEntry
+enrichRow : Data -> Entry -> Result String BookEntry
 enrichRow data entry =
-    Just BookEntry
-        |> andMap (Just entry.id)
-        |> andMap (Maybe.map .date entry.row)
-        |> andMap (Maybe.map .description entry.row)
-        |> andMap (Maybe.map .amount entry.row)
-        |> andMap (Dict.get entry.accountId data.accounts)
-        |> andMap (liftCategorization data entry.categorization)
+    Ok BookEntry
+        |> andMap (Ok entry.id)
+        |> andMap (Result.map .date entry.row)
+        |> andMap (Result.map .description entry.row)
+        |> andMap (Result.map .amount entry.row)
+        |> andMap (Dict.get entry.accountId data.accounts |> Result.fromMaybe ("Account not found: " ++ String.fromInt entry.accountId))
+        |> andMap (liftCategorization data entry.categorization |> Result.fromMaybe "Category not found")
 
 
 liftCategorization : Data -> Maybe Data.Categorization -> Maybe Categorization

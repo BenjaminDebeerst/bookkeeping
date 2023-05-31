@@ -16,7 +16,7 @@ import Persistence.Storage as Storage exposing (addEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
 import Processing.CategoryParser as Parser exposing (categorizationParser)
 import Processing.Filter exposing (Filter, filterCategory, filterDescription, filterMonth, filterYear)
-import Processing.Model exposing (getCategoryByShort, getEntries)
+import Processing.Model exposing (getCategoryByShort, getEntriesAndErrors)
 import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
 import Request exposing (Request)
 import Result.Extra
@@ -156,13 +156,14 @@ view data model =
                 ++ (getCategoryByShort data model.categoryFilter |> Maybe.map (\c -> [ filterCategory c ]) |> Maybe.withDefault [])
                 ++ [ \bookEntry -> not model.onlyUncategorized || bookEntry.categorization == None ]
 
-        entries =
-            getEntries data filters model.ordering
+        ( entries, errors ) =
+            getEntriesAndErrors data filters model.ordering
     in
     Layout.page "Book" <|
         [ showFilters model data.accounts
         , showActions model
         , showData model entries
+        , showErrors errors
         ]
 
 
@@ -226,6 +227,11 @@ showData model entries =
         , dataTable model entries
         , maybeNoEntries <| List.length entries
         ]
+
+
+showErrors : List String -> Element msg
+showErrors strings =
+    column [] (List.map text strings)
 
 
 summary entries =

@@ -176,3 +176,12 @@ tooltip usher tooltipContent =
                     (text tooltipContent)
             ]
             none
+
+
+visibleWhitespace : String -> String
+visibleWhitespace string =
+    string
+        |> String.replace "\n" "↵"
+        |> String.replace "\t" "→"
+        |> String.replace " " "␣"
+        |> String.replace "\u{000D}" "¶"

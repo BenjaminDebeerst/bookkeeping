@@ -1,8 +1,9 @@
 module Pages.ImportFile exposing (Model, Msg, page)
 
+import Csv.Decode as Decode
 import Dict exposing (Dict)
 import Dropdown
-import Element exposing (Attribute, Element, centerX, centerY, column, el, fill, height, indexedTable, padding, paddingXY, row, shrink, spacing, table, text, width)
+import Element exposing (Attribute, Element, centerX, centerY, el, fill, height, indexedTable, padding, paddingXY, row, shrink, spacing, table, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
@@ -16,7 +17,7 @@ import Layout exposing (color, formatDate, formatEuro, size, style)
 import Page
 import Persistence.Data exposing (Account, Data, RawEntry, rawEntry)
 import Persistence.Storage as Storage
-import Processing.Csv as Csv
+import Processing.CsvParser as Csv
 import Request
 import Shared
 import Task exposing (Task)
@@ -47,15 +48,15 @@ type State
 type alias Model =
     { state : State
     , accountDropdownState : Dropdown.State Account
-    , fileContents : List String
-    , fileName : String
+    , fileContents : Maybe String
+    , fileName : Maybe String
     , account : Maybe Account
     }
 
 
 initModel : Model
 initModel =
-    Model Pick (Dropdown.init "") [] "" Nothing
+    Model Pick (Dropdown.init "") Nothing Nothing Nothing
 
 
 
@@ -102,7 +103,7 @@ update data msg model =
             ( model, readFile filename )
 
         GotFile name content ->
-            ( { model | state = Show, fileContents = readFileContents content, fileName = name }, Cmd.none )
+            ( { model | state = Show, fileContents = Just content, fileName = Just name }, Cmd.none )
 
         ChooseAccount id ->
             ( { model | account = Dict.get id data.accounts }, Cmd.none )
@@ -112,10 +113,18 @@ update data msg model =
                 Just account ->
                     let
                         newEntries =
-                            model.fileContents
-                                |> Csv.parseEntries
-                                |> List.map .raw
-                                |> List.map (rawEntry account.id)
+                            case model.fileContents of
+                                Nothing ->
+                                    []
+
+                                Just content ->
+                                    content
+                                        |> String.split "\n"
+                                        -- drop the headers
+                                        |> List.drop 1
+                                        |> List.map String.trim
+                                        |> List.filter (not << String.isEmpty)
+                                        |> List.map (rawEntry account.id)
 
                         newData =
                             data |> Storage.addEntries newEntries
@@ -133,11 +142,6 @@ readFile file =
     Task.perform (GotFile <| File.name file) <| File.toString file
 
 
-readFileContents : String -> List String
-readFileContents content =
-    List.filter (not << String.isEmpty) (String.split "\n" content)
-
-
 
 -- VIEW
 
@@ -145,11 +149,12 @@ readFileContents content =
 view : Data -> Model -> View Msg
 view data model =
     Layout.page "Import File" <|
-        if List.isEmpty model.fileContents then
-            viewFilePicker data model
+        case model.fileContents of
+            Nothing ->
+                viewFilePicker data model
 
-        else
-            viewFileContents data model
+            Just content ->
+                viewFileContents data model content
 
 
 
@@ -262,70 +267,79 @@ showStoreConfirmation s =
 -- CSV Importer
 
 
-viewFileContents : Data -> Model -> List (Element Msg)
-viewFileContents data model =
-    [ el [ Font.size size.m ] <| text ("Importing file: " ++ model.fileName) ]
+viewFileContents : Data -> Model -> String -> List (Element Msg)
+viewFileContents data model content =
+    [ el [ Font.size size.m ] <| text ("Importing file: " ++ Debug.toString model.fileName) ]
         ++ [ viewAccountSelector data model ]
-        ++ unreadableData model
-        ++ readableData model
-        ++ [ Input.button style.button { onPress = Just Store, label = text "Import Data" } ]
+        ++ viewFileData content
 
 
-unreadableData : Model -> List (Element Msg)
-unreadableData model =
-    let
-        n =
-            List.length model.fileContents
-    in
-    if n == 0 then
-        []
+viewFileData : String -> List (Element Msg)
+viewFileData csvFileContent =
+    case Csv.parse csvFileContent of
+        Ok rows ->
+            let
+                n =
+                    List.length rows
+            in
+            if n == 0 then
+                []
 
-    else
-        [ text <| "Loaded " ++ String.fromInt n ++ " lines"
-        , table [ spacing size.xs ]
-            { data = model.fileContents
-            , columns =
-                [ { header = Element.none
-                  , width = shrink
-                  , view = \line -> el [ Font.size Layout.size.m ] <| text line
-                  }
+            else
+                [ text <| "The following " ++ String.fromInt n ++ " rows were successfully parsed: "
+                , indexedTable [ spacing size.xs ]
+                    { data = rows
+                    , columns =
+                        [ { header = text "Date"
+                          , width = shrink
+                          , view = \i e -> textCell i <| formatDate e.date
+                          }
+                        , { header = text "Amount"
+                          , width = shrink
+                          , view = \i e -> formatEuro (cellstyle i) <| e.amount
+                          }
+                        , { header = text "Description"
+                          , width = shrink
+                          , view = \i e -> textCell i <| e.description
+                          }
+                        ]
+                    }
+                , Input.button style.button { onPress = Just Store, label = text "Import Data" }
                 ]
-            }
-        ]
+
+        Err errors ->
+            let
+                rows =
+                    csvFileContent
+                        |> String.split "\n"
+                        |> List.map String.trim
+                        |> List.take 5
+            in
+            [ errors
+                |> Decode.errorToString
+                |> text
+            , text "This is how the first few rows in the CSV look like:"
+            , table [ spacing size.xs ]
+                { data = rows
+                , columns =
+                    [ { header = Element.none
+                      , width = shrink
+                      , view = \line -> el [ Font.size Layout.size.m ] <| text line
+                      }
+                    ]
+                }
+            ]
 
 
-readableData : Model -> List (Element Msg)
-readableData model =
-    let
-        list =
-            Csv.parseEntries model.fileContents
 
-        n =
-            List.length list
-    in
-    if n == 0 then
-        []
-
-    else
-        [ text <| "The following " ++ String.fromInt n ++ " rows were successfully parsed: "
-        , indexedTable [ spacing size.xs ]
-            { data = list
-            , columns =
-                [ { header = text "Date"
-                  , width = shrink
-                  , view = \i e -> textCell i <| formatDate e.date
-                  }
-                , { header = text "Amount"
-                  , width = shrink
-                  , view = \i e -> formatEuro (cellstyle i) <| e.amount
-                  }
-                , { header = text "Description"
-                  , width = shrink
-                  , view = \i e -> textCell i <| e.description
-                  }
-                ]
-            }
-        ]
+--unreadableData : Model -> List (Element Msg)
+--unreadableData model =
+--
+--
+--
+--readableData : Model -> List (Element Msg)
+--readableData model =
+--
 
 
 textCell i s =

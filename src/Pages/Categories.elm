@@ -1,9 +1,9 @@
 module Pages.Categories exposing (Model, Msg, page)
 
 import Dict
-import Element exposing (Element, column, el, indexedTable, paddingXY, row, shrink, spacing, table, text)
+import Element exposing (Element, column, el, indexedTable, paddingXY, row, shrink, spacing, text)
 import Element.Font as Font
-import Element.Input as Input exposing (button, labelHidden, labelLeft, placeholder)
+import Element.Input as Input exposing (button, labelLeft, placeholder)
 import Gen.Params.Accounts exposing (Params)
 import Layout exposing (color, size, style)
 import Maybe.Extra
