@@ -2,9 +2,7 @@ module Pages.ImportFile exposing (Model, Msg, page)
 
 import Csv.Decode as Decode
 import Dict exposing (Dict)
-import Dropdown
-import Element exposing (Attribute, Element, centerX, centerY, el, fill, height, indexedTable, padding, paddingXY, row, shrink, spacing, table, text, width)
-import Element.Background as Background
+import Element exposing (Attribute, Element, centerX, centerY, el, fill, height, indexedTable, paddingXY, shrink, spacing, table, text, width)
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
@@ -13,9 +11,9 @@ import File.Select as Select
 import Gen.Params.ImportFile exposing (Params)
 import Html.Events exposing (preventDefaultOn)
 import Json.Decode as D
-import Layout exposing (color, formatDate, formatEuro, size, style)
+import Layout exposing (formatDate, formatEuro, size, style)
 import Page
-import Persistence.Data exposing (Account, Data, RawEntry, rawEntry)
+import Persistence.Data exposing (Account, Data, ImportProfile, RawEntry, rawEntry)
 import Persistence.Storage as Storage
 import Processing.CsvParser as Csv
 import Request
@@ -47,16 +45,15 @@ type State
 
 type alias Model =
     { state : State
-    , accountDropdownState : Dropdown.State Account
     , fileContents : Maybe String
     , fileName : Maybe String
-    , account : Maybe Account
+    , importProfile : Maybe ImportProfile
     }
 
 
 initModel : Model
 initModel =
-    Model Pick (Dropdown.init "") Nothing Nothing Nothing
+    Model Pick Nothing Nothing Nothing
 
 
 
@@ -64,30 +61,18 @@ initModel =
 
 
 type Msg
-    = AccountPicked (Maybe Account)
-    | AccountDropdownMsg (Dropdown.Msg Account)
-    | PickFile
+    = PickFile
     | DragEnter
     | DragLeave
     | GotFileName File
     | GotFile String String
-    | ChooseAccount Int
+    | ChooseImportProfile ImportProfile
     | Store
 
 
 update : Data -> Msg -> Model -> ( Model, Cmd Msg )
 update data msg model =
     case msg of
-        AccountPicked option ->
-            ( { model | account = option }, Cmd.none )
-
-        AccountDropdownMsg subMsg ->
-            let
-                ( state, cmd ) =
-                    Dropdown.update (dropdownConfig data) subMsg model model.accountDropdownState
-            in
-            ( { model | accountDropdownState = state }, cmd )
-
         DragEnter ->
             ( { model | state = PickHover }, Cmd.none )
 
@@ -105,12 +90,12 @@ update data msg model =
         GotFile name content ->
             ( { model | state = Show, fileContents = Just content, fileName = Just name }, Cmd.none )
 
-        ChooseAccount id ->
-            ( { model | account = Dict.get id data.accounts }, Cmd.none )
+        ChooseImportProfile profile ->
+            ( { model | importProfile = Just profile }, Cmd.none )
 
         Store ->
-            case model.account of
-                Just account ->
+            case model.importProfile of
+                Just profile ->
                     let
                         newEntries =
                             case model.fileContents of
@@ -124,7 +109,7 @@ update data msg model =
                                         |> List.drop 1
                                         |> List.map String.trim
                                         |> List.filter (not << String.isEmpty)
-                                        |> List.map (rawEntry account.id)
+                                        |> List.map (rawEntry profile.id)
 
                         newData =
                             data |> Storage.addEntries newEntries
@@ -157,59 +142,20 @@ view data model =
                 viewFileContents data model content
 
 
-
--- Account Selector
-
-
-viewAccountSelector : Data -> Model -> Element Msg
-viewAccountSelector data model =
-    row [ spacing size.s ]
-        [ text "Choose Account to import for: "
-        , Dropdown.view (dropdownConfig data) model model.accountDropdownState
-        ]
-
-
-dropdownConfig : Data -> Dropdown.Config Account Msg Model
-dropdownConfig data =
-    let
-        itemToPrompt item =
-            text item.name
-
-        itemToElement selected highlighted item =
-            el
-                [ padding size.s
-                , Background.color
-                    (if highlighted then
-                        color.extraBrightAccent
-
-                     else
-                        color.white
+viewProfileSelector : Data -> Model -> List (Element Msg)
+viewProfileSelector data model =
+    [ Input.radioRow []
+        { onChange = ChooseImportProfile
+        , selected = model.importProfile
+        , label = Input.labelLeft [ paddingXY size.m 0 ] <| text "Choose import profile"
+        , options =
+            Dict.values data.importProfiles
+                |> List.map
+                    (\p ->
+                        Input.option p (text p.name)
                     )
-                ]
-                (text item.name)
-
-        accounts =
-            Dict.values data.accounts
-    in
-    Dropdown.withListAttributes
-        [ Background.color color.white
-        , Border.color color.darkAccent
-        , Border.shadow
-            { offset = ( 0, 1 )
-            , size = 0.01
-            , blur = 5
-            , color = color.black
-            }
-        ]
-    <|
-        Dropdown.basic
-            { itemsFromModel = always accounts
-            , selectionFromModel = \m -> m.account
-            , dropdownMsg = AccountDropdownMsg
-            , onSelectMsg = AccountPicked
-            , itemToPrompt = itemToPrompt
-            , itemToElement = itemToElement
-            }
+        }
+    ]
 
 
 
@@ -220,9 +166,8 @@ viewFilePicker : Data -> Model -> List (Element Msg)
 viewFilePicker data model =
     --column [ width fill, height fill, spacing Layout.size.m ]
     showStoreConfirmation model.state
-        ++ [ viewAccountSelector data model ]
-        ++ [ el [] (text "Import a CSV File")
-           , el
+        ++ viewProfileSelector data model
+        ++ [ el
                 [ width fill
                 , height fill
                 , Border.dashed
@@ -270,14 +215,17 @@ showStoreConfirmation s =
 viewFileContents : Data -> Model -> String -> List (Element Msg)
 viewFileContents data model content =
     [ el [ Font.size size.m ] <| text ("Importing file: " ++ Debug.toString model.fileName) ]
-        ++ [ viewAccountSelector data model ]
-        ++ viewFileData content
+        ++ viewProfileSelector data model
+        ++ viewFileData model content
 
 
-viewFileData : String -> List (Element Msg)
-viewFileData csvFileContent =
-    case Csv.parse csvFileContent of
-        Ok rows ->
+viewFileData : Model -> String -> List (Element Msg)
+viewFileData model csvFileContent =
+    case model.importProfile |> Maybe.map (\p -> Csv.parse p csvFileContent) of
+        Nothing ->
+            [ text "Choose an import profile" ]
+
+        Just (Ok rows) ->
             let
                 n =
                     List.length rows
@@ -307,7 +255,7 @@ viewFileData csvFileContent =
                 , Input.button style.button { onPress = Just Store, label = text "Import Data" }
                 ]
 
-        Err errors ->
+        Just (Err errors) ->
             let
                 rows =
                     csvFileContent

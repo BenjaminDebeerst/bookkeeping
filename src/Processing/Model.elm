@@ -19,8 +19,8 @@ getEntries data filters order =
 getEntriesAndErrors : Data -> List Filter -> Ordering BookEntry -> ( List BookEntry, List String )
 getEntriesAndErrors data filters order =
     Dict.values data.rawEntries
-        |> List.map parseToEntry
-        |> List.map (enrichRow data)
+        |> List.map (parseToEntry data)
+        |> List.map (Result.andThen (enrichRow data))
         |> Result.Extra.partition
         |> Tuple.mapFirst (List.filter (all filters))
         |> Tuple.mapFirst (List.sortWith order)
@@ -34,10 +34,18 @@ type alias Entry =
     }
 
 
-parseToEntry : RawEntry -> Entry
-parseToEntry raw =
-    parseCsvLine raw.line
-        |> (\row -> Entry raw.id row raw.accountId raw.categorization)
+parseToEntry : Data -> RawEntry -> Result String Entry
+parseToEntry data raw =
+    Dict.get raw.importProfile data.importProfiles
+        |> Maybe.map
+            (\profile ->
+                let
+                    row =
+                        parseCsvLine profile raw.line
+                in
+                Entry raw.id row profile.accountId raw.categorization
+            )
+        |> Result.fromMaybe "Import profile not found."
 
 
 andMap =

@@ -2,8 +2,11 @@ port module Persistence.Storage exposing
     ( addAccount
     , addCategory
     , addEntries
+    , addImportProfile
     , deleteCategory
+    , deleteImportProfile
     , editCategory
+    , editImportProfile
     , load
     , loadDatabase
     , onChange
@@ -13,7 +16,7 @@ port module Persistence.Storage exposing
     )
 
 import Dict exposing (Dict)
-import Persistence.Data exposing (Account, Category, Data, RawEntry, decode, empty, encode)
+import Persistence.Data exposing (Account, Category, Data, ImportProfile, RawEntry, decode, empty, encode)
 
 
 port save : String -> Cmd msg
@@ -73,6 +76,28 @@ editCategory category data =
 deleteCategory : Category -> Data -> Data
 deleteCategory category data =
     { data | categories = Dict.remove category.id data.categories }
+
+
+addImportProfile : ImportProfile -> Data -> Data
+addImportProfile profile data =
+    let
+        id =
+            data.autoIncrement
+    in
+    { data
+        | importProfiles = Dict.insert id { profile | id = id } data.importProfiles
+        , autoIncrement = id + 1
+    }
+
+
+editImportProfile : ImportProfile -> Data -> Data
+editImportProfile profile data =
+    { data | importProfiles = Dict.insert profile.id profile data.importProfiles }
+
+
+deleteImportProfile : ImportProfile -> Data -> Data
+deleteImportProfile profile data =
+    { data | importProfiles = Dict.remove profile.id data.importProfiles }
 
 
 loadDatabase : String -> Cmd msg

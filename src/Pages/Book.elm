@@ -231,7 +231,11 @@ showData model entries =
 
 showErrors : List String -> Element msg
 showErrors strings =
-    column [] (List.map text strings)
+    if List.isEmpty strings then
+        Element.none
+
+    else
+        el [] (text <| "There were " ++ (List.length strings |> String.fromInt) ++ " book entries in the DB that could not be parsed. Something is wrong.")
 
 
 summary entries =

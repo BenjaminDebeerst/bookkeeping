@@ -1,6 +1,7 @@
 module Processing.CsvParser exposing (ParsedRow, parse, parseCsvLine)
 
 import Csv.Decode as Decode exposing (Decoder, Error(..), column, string)
+import Persistence.Data exposing (ImportProfile)
 import Time.Date as Date exposing (Date)
 
 
@@ -11,21 +12,21 @@ type alias ParsedRow =
     }
 
 
-parse : String -> Result Decode.Error (List ParsedRow)
-parse s =
+parse : ImportProfile -> String -> Result Decode.Error (List ParsedRow)
+parse profile s =
     Decode.decodeCustom
-        { fieldSeparator = ';' }
+        { fieldSeparator = profile.splitAt }
         Decode.FieldNamesFromFirstRow
-        rowDecoder
+        (rowDecoder profile)
         s
 
 
-rowDecoder : Decoder ParsedRow
-rowDecoder =
+rowDecoder : ImportProfile -> Decoder ParsedRow
+rowDecoder profile =
     Decode.into ParsedRow
-        |> Decode.pipeline (column 4 dateDecoder)
-        |> Decode.pipeline (combinedTextColumns [ 6, 9, 10 ])
-        |> Decode.pipeline (column 11 twoDigitFloatToIntDecoder)
+        |> Decode.pipeline (column profile.dateField dateDecoder)
+        |> Decode.pipeline (combinedTextColumns profile.descrFields)
+        |> Decode.pipeline (column profile.amountField twoDigitFloatToIntDecoder)
 
 
 dateDecoder : Decoder Date
@@ -78,22 +79,14 @@ contextualDecoder decoder error =
         |> Decode.andThen (\( decoded, s ) -> Decode.fromMaybe (error s) decoded)
 
 
-
--- Arguments to generalize over later:
--- The split char ';'
--- The date column 4
--- The descr column(s)
--- The amount column
-
-
-parseCsvLine : String -> Result String ParsedRow
-parseCsvLine line =
+parseCsvLine : ImportProfile -> String -> Result String ParsedRow
+parseCsvLine importProfile line =
     let
         res =
             Decode.decodeCustom
-                { fieldSeparator = ';' }
+                { fieldSeparator = importProfile.splitAt }
                 Decode.NoFieldNames
-                rowDecoder
+                (rowDecoder importProfile)
                 line
     in
     res
@@ -115,10 +108,9 @@ onlyNumberChars s =
     String.filter (\c -> Char.isDigit c || c == '-') s
 
 
-toDate :
-    String
-    -> Maybe Date -- TODO error handling
+toDate : String -> Maybe Date
 toDate s =
+    -- TODO error handling
     -- format 25.3.1970
     case s |> String.split "." |> List.map String.toInt of
         (Just a) :: (Just b) :: (Just c) :: [] ->

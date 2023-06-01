@@ -4,6 +4,7 @@ module Persistence.Data exposing
     , Categorization(..)
     , Category
     , Data
+    , ImportProfile
     , RawEntry
     , SplitCatEntry
     , decode
@@ -25,6 +26,7 @@ type alias DataV0 =
     { rawEntries : Dict String RawEntry
     , accounts : Dict Int Account
     , categories : Dict Int Category
+    , importProfiles : Dict Int ImportProfile
     , autoIncrement : Int
     }
 
@@ -32,7 +34,7 @@ type alias DataV0 =
 type alias RawEntry =
     { id : String
     , line : String
-    , accountId : Int
+    , importProfile : Int
     , categorization : Maybe Categorization
     }
 
@@ -49,10 +51,10 @@ type alias AccountStart =
 
 
 rawEntry : Int -> String -> RawEntry
-rawEntry accountId line =
+rawEntry profileId line =
     { id = sha1 line
     , line = line
-    , accountId = accountId
+    , importProfile = profileId
     , categorization = Nothing
     }
 
@@ -78,11 +80,25 @@ type alias SplitCatEntry =
     { id : Int, amount : Int }
 
 
+type alias ImportProfile =
+    { id : Int
+    , name : String
+    , accountId : Int
+    , splitAt : Char
+    , dateField : Int
+    , descrFields : List Int
+    , amountField : Int
+    , dateFormat : String
+    , categoryField : Maybe Int
+    }
+
+
 empty : Data
 empty =
     { rawEntries = Dict.empty
     , accounts = Dict.empty
     , categories = Dict.empty
+    , importProfiles = Dict.empty
     , autoIncrement = 0
     }
 
@@ -135,6 +151,7 @@ v0Codec =
         |> S.field .rawEntries (S.dict S.string rawEntryCodec)
         |> S.field .accounts (S.dict S.int accountCodec)
         |> S.field .categories (S.dict S.int categoryCodec)
+        |> S.field .importProfiles (S.dict S.int profileCodec)
         |> S.field .autoIncrement S.int
         |> S.finishRecord
 
@@ -143,7 +160,7 @@ rawEntryCodec =
     S.record RawEntry
         |> S.field .id S.string
         |> S.field .line S.string
-        |> S.field .accountId S.int
+        |> S.field .importProfile S.int
         |> S.field .categorization (S.maybe categorizationCodec)
         |> S.finishRecord
 
@@ -199,3 +216,25 @@ categorizationCodec =
         |> S.variant1 Single S.int
         |> S.variant1 Split splitCategorizationCodec
         |> S.finishCustomType
+
+
+profileCodec : S.Codec e ImportProfile
+profileCodec =
+    S.record ImportProfile
+        |> S.field .id S.int
+        |> S.field .name S.string
+        |> S.field .accountId S.int
+        |> S.field .splitAt charCodec
+        |> S.field .dateField S.int
+        |> S.field .descrFields (S.list S.int)
+        |> S.field .amountField S.int
+        |> S.field .dateFormat S.string
+        |> S.field .categoryField (S.maybe S.int)
+        |> S.finishRecord
+
+
+{-| Just store the char as 1-character string. The default value when decoding doesn't matter.
+-}
+charCodec : S.Codec e Char
+charCodec =
+    S.string |> S.map (\s -> s |> String.toList |> List.head |> Maybe.withDefault '?') String.fromChar
