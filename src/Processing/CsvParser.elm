@@ -1,4 +1,4 @@
-module Processing.CsvParser exposing (ParsedRow, parse, parseCsvLine)
+module Processing.CsvParser exposing (ParsedRow, csvRows, parse, parseCsvLine)
 
 import Csv.Decode as Decode exposing (Decoder, Error(..), column, string)
 import Persistence.Data exposing (ImportProfile)
@@ -10,6 +10,35 @@ type alias ParsedRow =
     , description : String
     , amount : Int
     }
+
+
+csvRows : String -> Result Decode.Error (List String)
+csvRows csvFile =
+    Decode.decodeCustom
+        { fieldSeparator = ';' }
+        Decode.FieldNamesFromFirstRow
+        -- mock implementation, only works for exactly 12 columns
+        ([ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ]
+            |> List.map (\i -> column i string)
+            |> traverse
+            |> Decode.map (List.map (quoteIfNecessary ";"))
+            |> Decode.map (String.join ";")
+        )
+        csvFile
+
+
+quoteIfNecessary : String -> String -> String
+quoteIfNecessary fieldSeparator value =
+    if
+        String.contains "\"" value
+            || String.contains fieldSeparator value
+            || String.contains "\u{000D}\n" value
+            || String.contains "\n" value
+    then
+        "\"" ++ String.replace "\"" "\"\"" value ++ "\""
+
+    else
+        value
 
 
 parse : ImportProfile -> String -> Result Decode.Error (List ParsedRow)

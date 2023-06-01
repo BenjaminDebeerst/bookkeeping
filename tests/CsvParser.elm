@@ -6,6 +6,19 @@ import Test exposing (Test, describe, test)
 import Time.Date as Date
 
 
+profile =
+    { id = 0
+    , name = "Test"
+    , accountId = 42
+    , splitAt = ';'
+    , dateField = 4
+    , descrFields = [ 6, 9, 10 ]
+    , amountField = 11
+    , dateFormat = "unused"
+    , categoryField = Nothing
+    }
+
+
 csvText =
     "This;is the first line that shall be skipped, and the number of columns doesn't matter\u{000D}\n"
         ++ oneCsvLine
@@ -28,5 +41,7 @@ parse_csv : Test
 parse_csv =
     describe "CSV Parser"
         [ test "parses CSV" <|
-            \_ -> Csv.parse csvText |> Expect.equal (Ok [ expectedRow, expectedRow ])
+            \_ -> Csv.parse profile csvText |> Expect.equal (Ok [ expectedRow, expectedRow ])
+        , test "is able to preserve entire rows" <|
+            \_ -> Csv.csvRows csvText |> Expect.equal (Ok [ oneCsvLine, oneCsvLine ])
         ]

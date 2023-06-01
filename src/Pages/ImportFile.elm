@@ -15,7 +15,7 @@ import Layout exposing (formatDate, formatEuro, size, style)
 import Page
 import Persistence.Data exposing (Account, Data, ImportProfile, RawEntry, rawEntry)
 import Persistence.Storage as Storage
-import Processing.CsvParser as Csv
+import Processing.CsvParser as CsvParser
 import Request
 import Shared
 import Task exposing (Task)
@@ -98,15 +98,15 @@ update data msg model =
                 Just profile ->
                     let
                         newEntries =
-                            case model.fileContents of
+                            case model.fileContents |> Maybe.map CsvParser.csvRows of
                                 Nothing ->
                                     []
 
-                                Just content ->
-                                    content
-                                        |> String.split "\n"
-                                        -- drop the headers
-                                        |> List.drop 1
+                                Just (Err _) ->
+                                    []
+
+                                Just (Ok lines) ->
+                                    lines
                                         |> List.map String.trim
                                         |> List.filter (not << String.isEmpty)
                                         |> List.map (rawEntry profile.id)
@@ -221,7 +221,7 @@ viewFileContents data model content =
 
 viewFileData : Model -> String -> List (Element Msg)
 viewFileData model csvFileContent =
-    case model.importProfile |> Maybe.map (\p -> Csv.parse p csvFileContent) of
+    case model.importProfile |> Maybe.map (\p -> CsvParser.parse p csvFileContent) of
         Nothing ->
             [ text "Choose an import profile" ]
 
