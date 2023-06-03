@@ -94,32 +94,31 @@ update data msg model =
             ( { model | importProfile = Just profile }, Cmd.none )
 
         Store ->
-            case model.importProfile of
-                Just profile ->
-                    let
-                        newEntries =
-                            case model.fileContents |> Maybe.map CsvParser.csvRows of
-                                Nothing ->
-                                    []
+            let
+                newEntries =
+                    case
+                        Maybe.map2
+                            (\p c -> ( p, CsvParser.parse p c ))
+                            model.importProfile
+                            model.fileContents
+                    of
+                        Nothing ->
+                            []
 
-                                Just (Err _) ->
-                                    []
+                        Just ( _, Err _ ) ->
+                            []
 
-                                Just (Ok lines) ->
-                                    lines
-                                        |> List.map String.trim
-                                        |> List.filter (not << String.isEmpty)
-                                        |> List.map (rawEntry profile.id)
+                        Just ( profile, Ok lines ) ->
+                            lines
+                                |> List.map .rawLine
+                                |> List.map (rawEntry profile.id)
 
-                        newData =
-                            data |> Storage.addEntries newEntries
-                    in
-                    ( { initModel | state = Stored (List.length newEntries) }
-                    , Storage.store newData
-                    )
-
-                Nothing ->
-                    ( model, Cmd.none )
+                newData =
+                    data |> Storage.addEntries newEntries
+            in
+            ( { initModel | state = Stored (List.length newEntries) }
+            , Storage.store newData
+            )
 
 
 readFile : File -> Cmd Msg

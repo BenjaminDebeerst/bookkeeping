@@ -1,6 +1,7 @@
-module Processing.CsvParser exposing (ParsedRow, csvRows, parse, parseCsvLine)
+module Processing.CsvParser exposing (ParsedRow, parse, parseCsvLine)
 
 import Csv.Decode as Decode exposing (Decoder, Error(..), column, string)
+import Csv.Parser as Parser
 import Persistence.Data exposing (ImportProfile)
 import Time.Date as Date exposing (Date)
 
@@ -9,22 +10,8 @@ type alias ParsedRow =
     { date : Date
     , description : String
     , amount : Int
+    , rawLine : String
     }
-
-
-csvRows : String -> Result Decode.Error (List String)
-csvRows csvFile =
-    Decode.decodeCustom
-        { fieldSeparator = ';' }
-        Decode.FieldNamesFromFirstRow
-        -- mock implementation, only works for exactly 12 columns
-        ([ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 ]
-            |> List.map (\i -> column i string)
-            |> traverse
-            |> Decode.map (List.map (quoteIfNecessary ";"))
-            |> Decode.map (String.join ";")
-        )
-        csvFile
 
 
 quoteIfNecessary : String -> String -> String
@@ -41,13 +28,46 @@ quoteIfNecessary fieldSeparator value =
         value
 
 
+{-| While Csv.Parser.parse is exposed, the internal function to implement Decode.decodeCustom
+in terms of Csv.Parser.parse is not (in particular: Decode.applyDecoder). This means we need
+to parse the CSV twice in order to lay hands on the raw row _and_ the decoded entities. :-/
+-}
 parse : ImportProfile -> String -> Result Decode.Error (List ParsedRow)
 parse profile s =
-    Decode.decodeCustom
+    Result.map2
+        joinRawLinesAndParsedRows
+        (parseIntoRows profile s)
+        (Decode.decodeCustom
+            { fieldSeparator = profile.splitAt }
+            Decode.FieldNamesFromFirstRow
+            (rowDecoder profile)
+            s
+        )
+
+
+joinRawLinesAndParsedRows : List String -> List ParsedRow -> List ParsedRow
+joinRawLinesAndParsedRows =
+    List.map2 (\raw parsed -> { parsed | rawLine = raw })
+
+
+{-| Parse into the raw Strings that make up the rows, dropping the header row
+-}
+parseIntoRows : ImportProfile -> String -> Result Decode.Error (List String)
+parseIntoRows profile s =
+    Parser.parse
         { fieldSeparator = profile.splitAt }
-        Decode.FieldNamesFromFirstRow
-        (rowDecoder profile)
         s
+        |> Result.mapError ParsingError
+        |> Result.map (List.map (joinColumns profile))
+        |> Result.map (List.drop 1)
+
+
+joinColumns : ImportProfile -> List String -> String
+joinColumns profile row =
+    row
+        |> List.map (quoteIfNecessary (String.fromChar profile.splitAt))
+        -- TODO: use Csv.Encode instead of String.join?
+        |> String.join (String.fromChar profile.splitAt)
 
 
 rowDecoder : ImportProfile -> Decoder ParsedRow
@@ -56,6 +76,9 @@ rowDecoder profile =
         |> Decode.pipeline (column profile.dateField dateDecoder)
         |> Decode.pipeline (combinedTextColumns profile.descrFields)
         |> Decode.pipeline (column profile.amountField twoDigitFloatToIntDecoder)
+        -- Since Csv.Decode provides no way to lay hands on the entire row in a generic way,
+        -- the CSV is parsed in raw format separately in order to populate this field.
+        |> Decode.pipeline (Decode.succeed "")
 
 
 dateDecoder : Decoder Date

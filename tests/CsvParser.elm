@@ -19,8 +19,10 @@ profile =
     }
 
 
+{-| intentionally inconsistent line breaks
+-}
 csvText =
-    "This;is the first line that shall be skipped, and the number of columns doesn't matter\u{000D}\n"
+    "This;is the first line that shall be skipped, and the number of columns doesn't matter\n"
         ++ oneCsvLine
         ++ "\u{000D}\n"
         ++ oneCsvLine
@@ -34,6 +36,7 @@ expectedRow =
     { date = Date.date 1970 1 1
     , description = "this\nis the;\ndescription"
     , amount = 123456
+    , rawLine = oneCsvLine
     }
 
 
@@ -42,6 +45,4 @@ parse_csv =
     describe "CSV Parser"
         [ test "parses CSV" <|
             \_ -> Csv.parse profile csvText |> Expect.equal (Ok [ expectedRow, expectedRow ])
-        , test "is able to preserve entire rows" <|
-            \_ -> Csv.csvRows csvText |> Expect.equal (Ok [ oneCsvLine, oneCsvLine ])
         ]
