@@ -1,11 +1,11 @@
 module Pages.Categories exposing (Model, Msg, page)
 
+import Components.Layout as Layout exposing (color, size, style)
 import Dict
 import Element exposing (Element, column, el, indexedTable, paddingXY, row, shrink, spacing, text)
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelLeft, placeholder)
 import Gen.Params.Accounts exposing (Params)
-import Layout exposing (color, size, style)
 import Maybe.Extra
 import Page
 import Parser exposing (DeadEnd)

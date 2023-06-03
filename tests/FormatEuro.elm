@@ -1,7 +1,7 @@
 module FormatEuro exposing (..)
 
+import Components.Layout exposing (formatEuroStr)
 import Expect exposing (Expectation)
-import Layout exposing (formatEuroStr)
 import Test exposing (..)
 
 

@@ -1,10 +1,10 @@
 module Pages.Monthly exposing (Model, Msg, page)
 
+import Components.Layout as Layout exposing (formatEuro, size, style)
 import Dict exposing (Dict)
 import Element exposing (Element, IndexedColumn, column, el, indexedTable, paddingEach, paddingXY, shrink, spacing, text)
 import Element.Input as Input exposing (labelRight)
 import Gen.Params.Monthly exposing (Params)
-import Layout exposing (formatEuro, size, style)
 import Page
 import Persistence.Data exposing (Account, Category, Data)
 import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate)

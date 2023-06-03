@@ -1,13 +1,13 @@
 module Pages.Book exposing (Model, Msg, page)
 
+import Components.Icons exposing (checkMark, triangleDown, triangleUp, warnTriangle)
+import Components.Layout as Layout exposing (color, formatDate, formatEuro, formatEuroStr, size, style, tooltip)
 import Dict exposing (Dict)
 import Dict.Extra
 import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, paddingEach, paddingXY, shrink, spacing, text, width)
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelHidden, labelLeft, labelRight, placeholder)
-import Icons exposing (checkMark, triangleDown, triangleUp, warnTriangle)
-import Layout exposing (color, formatDate, formatEuro, formatEuroStr, size, style, tooltip)
 import Maybe.Extra
 import Page
 import Parser

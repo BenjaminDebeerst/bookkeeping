@@ -1,4 +1,4 @@
-module Layout exposing (color, formatDate, formatEuro, formatEuroStr, page, size, style, tooltip)
+module Components.Layout exposing (color, formatDate, formatEuro, formatEuroStr, page, size, style, tooltip)
 
 import Element exposing (..)
 import Element.Background as Background
