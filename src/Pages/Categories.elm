@@ -148,7 +148,7 @@ validateCategory data m =
          else if String.length m.short >= String.length m.name then
             Err "Short name for account is longer than name o.O!"
 
-         else if Maybe.Extra.isJust (getCategoryByShort data m.short) then
+         else if Maybe.Extra.isJust (getCategoryByShort (Dict.values data.categories) m.short) then
             Err "Short name already used!"
 
          else

@@ -1,14 +1,13 @@
 module Pages.Monthly exposing (Model, Msg, page)
 
+import Components.Filter as Filter
 import Components.Layout as Layout exposing (formatEuro, size, style)
 import Dict exposing (Dict)
-import Element exposing (Element, IndexedColumn, column, el, indexedTable, paddingEach, paddingXY, shrink, spacing, text)
-import Element.Input as Input exposing (labelRight)
+import Element exposing (Element, IndexedColumn, column, el, indexedTable, shrink, spacing, text)
 import Gen.Params.Monthly exposing (Params)
 import Page
 import Persistence.Data exposing (Account, Category, Data)
 import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate)
-import Processing.Filter as Filter exposing (any)
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (dateAsc)
 import Request
@@ -31,13 +30,13 @@ page shared req =
 
 
 type alias Model =
-    { accountFilter : List Account
+    { filters : Filter.Model
     }
 
 
 init : Data -> ( Model, Cmd Msg )
 init data =
-    ( { accountFilter = Dict.values data.accounts }, Cmd.none )
+    ( { filters = Filter.init (Dict.values data.accounts) }, Cmd.none )
 
 
 
@@ -45,26 +44,14 @@ init data =
 
 
 type Msg
-    = FilterAddAccount Account
-    | FilterRemoveAccount Account
-    | FilterAllAccounts Bool
+    = Filter Filter.Msg
 
 
 update : Data -> Msg -> Model -> ( Model, Cmd Msg )
 update data msg model =
     case msg of
-        FilterAddAccount acc ->
-            ( { model | accountFilter = acc :: model.accountFilter }, Cmd.none )
-
-        FilterRemoveAccount acc ->
-            ( { model | accountFilter = List.filter (\a -> not <| a.id == acc.id) model.accountFilter }, Cmd.none )
-
-        FilterAllAccounts on ->
-            if on then
-                ( { model | accountFilter = Dict.values data.accounts }, Cmd.none )
-
-            else
-                ( { model | accountFilter = [] }, Cmd.none )
+        Filter filterMsg ->
+            ( { model | filters = Filter.update filterMsg model.filters }, Cmd.none )
 
 
 
@@ -75,51 +62,23 @@ view : Data -> Model -> View Msg
 view data model =
     let
         filter =
-            [ model.accountFilter |> List.map Filter.filterAccount |> any ]
+            Filter.toFilter (Dict.values data.categories) model.filters
 
         aggregatedData =
             aggregate <| getEntries data filter dateAsc
     in
     Layout.page "Monthly" <|
-        [ showFilters model data.accounts
+        [ showFilters model <| Dict.values data.accounts
         , showData data aggregatedData
         ]
 
 
-showFilters : Model -> Dict Int Account -> Element Msg
+showFilters : Model -> List Account -> Element Msg
 showFilters model accounts =
     column [ spacing size.s ]
         [ el style.h2 <| text "Filters"
-        , Element.row []
-            ([ el [ paddingXY size.m 0 ] <| text "Accounts "
-             , Input.checkbox []
-                { onChange = FilterAllAccounts
-                , icon = Input.defaultCheckbox
-                , checked = List.length model.accountFilter == Dict.size accounts
-                , label = labelRight [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text <| "All"
-                }
-             ]
-                ++ List.map
-                    (\acc ->
-                        Input.checkbox []
-                            { onChange = filterAccount acc
-                            , icon = Input.defaultCheckbox
-                            , checked = List.member acc model.accountFilter
-                            , label = labelRight [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text <| acc.name
-                            }
-                    )
-                    (Dict.values accounts)
-            )
+        , Filter.accountFilter accounts model.filters Filter
         ]
-
-
-filterAccount : Account -> Bool -> Msg
-filterAccount acc add =
-    if add then
-        FilterAddAccount acc
-
-    else
-        FilterRemoveAccount acc
 
 
 showData : Data -> Aggregate -> Element msg
