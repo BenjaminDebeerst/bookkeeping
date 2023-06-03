@@ -11,7 +11,7 @@ import Gen.Params.Accounts exposing (Params)
 import Layout exposing (color, size, style)
 import Maybe.Extra
 import Page
-import Persistence.Data exposing (Account, Category, Data, ImportProfile)
+import Persistence.Data exposing (Account, Category, Data, DateFormat(..), ImportProfile)
 import Persistence.Storage as Storage
 import Processing.CsvParser as CsvParser
 import Request
@@ -45,7 +45,7 @@ type alias Model =
     , name : String
     , splitChar : Char
     , dateColumn : String
-    , dateFormat : String
+    , dateFormat : DateFormat
     , descrColumns : String
     , amountColumn : String
     , categoryColumn : String
@@ -57,7 +57,7 @@ type alias Model =
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model Nothing Off "" ',' "" "" "" "" "" Nothing (Dropdown.init "") "", Cmd.none )
+    ( Model Nothing Off "" ',' "" (YYYYMMDD '-') "" "" "" Nothing (Dropdown.init "") "", Cmd.none )
 
 
 
@@ -80,7 +80,7 @@ type Msg
     | AccountDropdownMsg (Dropdown.Msg Account)
     | EditSplitChar Char
     | EditDateColumn String
-    | EditDateFormat String
+    | EditDateFormat DateFormat
     | EditAmountColumn String
     | EditDescrColumns String
     | EditCategoryColumn String
@@ -110,8 +110,8 @@ update data msg model =
         EditDateColumn string ->
             ( { model | dateColumn = string }, Cmd.none )
 
-        EditDateFormat string ->
-            ( { model | dateFormat = string }, Cmd.none )
+        EditDateFormat df ->
+            ( { model | dateFormat = df }, Cmd.none )
 
         EditDescrColumns string ->
             ( { model | descrColumns = string }, Cmd.none )
@@ -203,7 +203,7 @@ validateImportProfile data model =
         |> andMap (model.descrColumns |> String.split " " |> List.map String.trim |> List.filter (not << String.isEmpty) |> List.map String.toInt |> Maybe.Extra.combine |> Result.fromMaybe "Description columns must be integers")
         |> andMap (String.toInt model.amountColumn |> Result.fromMaybe "Amount column is not an integer")
         -- TODO implement date formats
-        |> andMap (Ok "We don't use the date format anywhere yet")
+        |> andMap (Ok model.dateFormat)
         -- TODO implement optional category parsing
         |> andMap (Ok Nothing)
 
@@ -309,7 +309,16 @@ form data model =
             ]
         }
     , textInput EditDateColumn model.dateColumn "Date Column"
-    , textInput EditDateFormat model.dateFormat "Date Format"
+    , Input.radioRow [ padding size.m, spacing size.m ]
+        { onChange = EditDateFormat
+        , selected = Just model.dateFormat
+        , label = labelLeft [ paddingXY size.m 0 ] (text "Date Format")
+        , options =
+            [ Input.option (YYYYMMDD '-') (text "1970-07-31")
+            , Input.option (DDMMYYYY '.') (text "31.7.1970")
+            , Input.option (DDMMYYYY '/') (text "31/7/1970")
+            ]
+        }
     , textInput EditAmountColumn model.amountColumn "Amount Column"
     , textInput EditDescrColumns model.descrColumns "Description Columns"
     ]

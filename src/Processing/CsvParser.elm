@@ -2,7 +2,7 @@ module Processing.CsvParser exposing (ParsedRow, parse, parseCsvLine)
 
 import Csv.Decode as Decode exposing (Decoder, Error(..), column, string)
 import Csv.Parser as Parser
-import Persistence.Data exposing (ImportProfile)
+import Persistence.Data exposing (DateFormat(..), ImportProfile)
 import Time.Date as Date exposing (Date)
 
 
@@ -73,7 +73,7 @@ joinColumns profile row =
 rowDecoder : ImportProfile -> Decoder ParsedRow
 rowDecoder profile =
     Decode.into ParsedRow
-        |> Decode.pipeline (column profile.dateField dateDecoder)
+        |> Decode.pipeline (column profile.dateField <| dateDecoder profile.dateFormat)
         |> Decode.pipeline (combinedTextColumns profile.descrFields)
         |> Decode.pipeline (column profile.amountField twoDigitFloatToIntDecoder)
         -- Since Csv.Decode provides no way to lay hands on the entire row in a generic way,
@@ -81,11 +81,10 @@ rowDecoder profile =
         |> Decode.pipeline (Decode.succeed "")
 
 
-dateDecoder : Decoder Date
-dateDecoder =
-    contextualDecoder
-        toDate
-        (String.append "No date of format dd.mm.yyyy: ")
+dateDecoder : DateFormat -> Decoder Date
+dateDecoder df =
+    Decode.string
+        |> Decode.andThen (Decode.fromResult << toDate df)
 
 
 twoDigitFloatToIntDecoder : Decoder Int
@@ -160,13 +159,32 @@ onlyNumberChars s =
     String.filter (\c -> Char.isDigit c || c == '-') s
 
 
-toDate : String -> Maybe Date
-toDate s =
-    -- TODO error handling
-    -- format 25.3.1970
-    case s |> String.split "." |> List.map String.toInt of
-        (Just a) :: (Just b) :: (Just c) :: [] ->
-            Just <| Date.date c b a
+toDate : DateFormat -> String -> Result String Date
+toDate df s =
+    case df of
+        YYYYMMDD char ->
+            toDateHelper (String.fromChar char) False s
+
+        DDMMYYYY char ->
+            toDateHelper (String.fromChar char) True s
+
+
+toDateHelper : String -> Bool -> String -> Result String Date
+toDateHelper split reverse string =
+    let
+        parts =
+            string |> String.split split |> List.map String.toInt
+
+        ( yearMonthDay, format ) =
+            if reverse then
+                ( List.reverse parts, [ "DD", "MM", "YYYY" ] )
+
+            else
+                ( parts, [ "YYYY", "MM", "DD" ] )
+    in
+    case yearMonthDay of
+        (Just year) :: (Just month) :: (Just day) :: [] ->
+            Ok <| Date.date year month day
 
         _ ->
-            Nothing
+            Err <| "Date not of format " ++ String.join split format ++ ": " ++ string

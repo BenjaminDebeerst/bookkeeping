@@ -4,6 +4,7 @@ module Persistence.Data exposing
     , Categorization(..)
     , Category
     , Data
+    , DateFormat(..)
     , ImportProfile
     , RawEntry
     , SplitCatEntry
@@ -88,9 +89,14 @@ type alias ImportProfile =
     , dateField : Int
     , descrFields : List Int
     , amountField : Int
-    , dateFormat : String
+    , dateFormat : DateFormat
     , categoryField : Maybe Int
     }
+
+
+type DateFormat
+    = YYYYMMDD Char
+    | DDMMYYYY Char
 
 
 empty : Data
@@ -228,9 +234,25 @@ profileCodec =
         |> S.field .dateField S.int
         |> S.field .descrFields (S.list S.int)
         |> S.field .amountField S.int
-        |> S.field .dateFormat S.string
+        |> S.field .dateFormat dateFormatCodec
         |> S.field .categoryField (S.maybe S.int)
         |> S.finishRecord
+
+
+dateFormatCodec : S.Codec e DateFormat
+dateFormatCodec =
+    S.customType
+        (\a b value ->
+            case value of
+                YYYYMMDD char ->
+                    a char
+
+                DDMMYYYY char ->
+                    b char
+        )
+        |> S.variant1 YYYYMMDD charCodec
+        |> S.variant1 DDMMYYYY charCodec
+        |> S.finishCustomType
 
 
 {-| Just store the char as 1-character string. The default value when decoding doesn't matter.
