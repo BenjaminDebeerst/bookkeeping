@@ -10,7 +10,6 @@ import Time.Date as Date
 profile =
     { id = 0
     , name = "Test"
-    , accountId = 42
     , splitAt = ';'
     , dateField = 4
     , descrFields = [ 6, 9, 10 ]

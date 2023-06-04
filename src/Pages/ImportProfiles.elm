@@ -49,15 +49,13 @@ type alias Model =
     , descrColumns : String
     , amountColumn : String
     , categoryColumn : String
-    , account : Maybe Account
-    , accountDropdownState : Dropdown.State Account
     , testString : String
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model Nothing Off "" ',' "" (YYYYMMDD '-') "" "" "" Nothing (Dropdown.init "") "", Cmd.none )
+    ( Model Nothing Off "" ',' "" (YYYYMMDD '-') "" "" "" "", Cmd.none )
 
 
 
@@ -76,8 +74,6 @@ init =
 type Msg
     = Add
     | EditName String
-    | EditAccount (Maybe Account)
-    | AccountDropdownMsg (Dropdown.Msg Account)
     | EditSplitChar Char
     | EditDateColumn String
     | EditDateFormat DateFormat
@@ -122,24 +118,13 @@ update data msg model =
         EditCategoryColumn string ->
             ( { model | categoryColumn = string }, Cmd.none )
 
-        EditAccount option ->
-            ( { model | account = option }, Cmd.none )
-
         EditTestString string ->
             ( { model | testString = string }, Cmd.none )
-
-        AccountDropdownMsg subMsg ->
-            let
-                ( state, cmd ) =
-                    Dropdown.update (dropdownConfig data) subMsg model model.accountDropdownState
-            in
-            ( { model | accountDropdownState = state }, cmd )
 
         EditExisting p ->
             ( { model
                 | editing = Existing p
                 , name = p.name
-                , account = Dict.get p.accountId data.accounts
                 , splitChar = p.splitAt
                 , dateColumn = String.fromInt p.dateField
                 , dateFormat = p.dateFormat
@@ -197,7 +182,6 @@ validateImportProfile data model =
              else
                 Ok model.name
             )
-        |> andMap (model.account |> Maybe.map .id |> Result.fromMaybe "No account selected")
         |> andMap (Ok model.splitChar)
         |> andMap (String.toInt model.dateColumn |> Result.fromMaybe "Date column is not an integer")
         |> andMap (model.descrColumns |> String.split " " |> List.map String.trim |> List.filter (not << String.isEmpty) |> List.map String.toInt |> Maybe.Extra.combine |> Result.fromMaybe "Description columns must be integers")
@@ -206,49 +190,6 @@ validateImportProfile data model =
         |> andMap (Ok model.dateFormat)
         -- TODO implement optional category parsing
         |> andMap (Ok Nothing)
-
-
-dropdownConfig : Data -> Dropdown.Config Account Msg Model
-dropdownConfig data =
-    let
-        itemToPrompt item =
-            text item.name
-
-        itemToElement selected highlighted item =
-            el
-                [ padding size.s
-                , Background.color
-                    (if highlighted then
-                        color.extraBrightAccent
-
-                     else
-                        color.white
-                    )
-                ]
-                (text item.name)
-
-        accounts =
-            Dict.values data.accounts
-    in
-    Dropdown.withListAttributes
-        [ Background.color color.white
-        , Border.color color.darkAccent
-        , Border.shadow
-            { offset = ( 0, 1 )
-            , size = 0.01
-            , blur = 5
-            , color = color.black
-            }
-        ]
-    <|
-        Dropdown.basic
-            { itemsFromModel = always accounts
-            , selectionFromModel = \m -> m.account
-            , dropdownMsg = AccountDropdownMsg
-            , onSelectMsg = EditAccount
-            , itemToPrompt = itemToPrompt
-            , itemToElement = itemToElement
-            }
 
 
 
@@ -294,10 +235,6 @@ editArea data model =
 form data model =
     [ el style.h2 (text "Import settings")
     , textInput EditName model.name "Import Profile Name"
-    , row [ paddingXY size.m 0, spacing size.m ]
-        [ text "Choose Account to import for: "
-        , Dropdown.view (dropdownConfig data) model model.accountDropdownState
-        ]
     , Input.radioRow [ padding size.m, spacing size.m ]
         { onChange = EditSplitChar
         , selected = Just model.splitChar
@@ -381,7 +318,6 @@ showData data _ =
                                 ]
                   }
                 , tableColumn "Name" .name
-                , tableColumn "Account" (.accountId >> (\i -> Dict.get i data.accounts) >> Maybe.map .name >> Maybe.withDefault "Not found")
                 , tableColumn "Split Char" (.splitAt >> String.fromChar)
                 , tableColumn "Date Field" (.dateField >> String.fromInt)
                 , tableColumn "Amount Field" (.amountField >> String.fromInt)

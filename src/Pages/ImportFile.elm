@@ -3,7 +3,7 @@ module Pages.ImportFile exposing (Model, Msg, page)
 import Components.Layout as Layout exposing (formatDate, formatEuro, size, style)
 import Csv.Decode as Decode
 import Dict exposing (Dict)
-import Element exposing (Attribute, Element, centerX, centerY, el, fill, height, indexedTable, paddingXY, shrink, spacing, table, text, width)
+import Element exposing (Attribute, Element, centerX, centerY, el, fill, height, indexedTable, paddingEach, paddingXY, shrink, spacing, table, text, width)
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
@@ -48,12 +48,13 @@ type alias Model =
     , fileContents : Maybe String
     , fileName : Maybe String
     , importProfile : Maybe ImportProfile
+    , account : Maybe Account
     }
 
 
 initModel : Model
 initModel =
-    Model Pick Nothing Nothing Nothing
+    Model Pick Nothing Nothing Nothing Nothing
 
 
 
@@ -67,6 +68,7 @@ type Msg
     | GotFileName File
     | GotFile String String
     | ChooseImportProfile ImportProfile
+    | ChooseAccount Account
     | Store
 
 
@@ -93,25 +95,29 @@ update data msg model =
         ChooseImportProfile profile ->
             ( { model | importProfile = Just profile }, Cmd.none )
 
+        ChooseAccount account ->
+            ( { model | account = Just account }, Cmd.none )
+
         Store ->
             let
                 newEntries =
                     case
-                        Maybe.map2
-                            (\p c -> ( p, CsvParser.parse p c ))
+                        Maybe.map3
+                            (\a p c -> ( a, p, CsvParser.parse p c ))
+                            model.account
                             model.importProfile
                             model.fileContents
                     of
                         Nothing ->
                             []
 
-                        Just ( _, Err _ ) ->
+                        Just ( _, _, Err _ ) ->
                             []
 
-                        Just ( profile, Ok lines ) ->
+                        Just ( account, profile, Ok lines ) ->
                             lines
                                 |> List.map .rawLine
-                                |> List.map (rawEntry profile.id)
+                                |> List.map (rawEntry account.id profile.id)
 
                 newData =
                     data |> Storage.addEntries newEntries
@@ -141,8 +147,8 @@ view data model =
                 viewFileContents data model content
 
 
-viewProfileSelector : Data -> Model -> List (Element Msg)
-viewProfileSelector data model =
+viewImportSelectors : Data -> Model -> List (Element Msg)
+viewImportSelectors data model =
     [ Input.radioRow []
         { onChange = ChooseImportProfile
         , selected = model.importProfile
@@ -151,7 +157,18 @@ viewProfileSelector data model =
             Dict.values data.importProfiles
                 |> List.map
                     (\p ->
-                        Input.option p (text p.name)
+                        Input.option p (el [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text p.name)
+                    )
+        }
+    , Input.radioRow []
+        { onChange = ChooseAccount
+        , selected = model.account
+        , label = Input.labelLeft [ paddingXY size.m 0 ] <| text "Choose account"
+        , options =
+            Dict.values data.accounts
+                |> List.map
+                    (\a ->
+                        Input.option a (el [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text a.name)
                     )
         }
     ]
@@ -165,7 +182,7 @@ viewFilePicker : Data -> Model -> List (Element Msg)
 viewFilePicker data model =
     --column [ width fill, height fill, spacing Layout.size.m ]
     showStoreConfirmation model.state
-        ++ viewProfileSelector data model
+        ++ viewImportSelectors data model
         ++ [ el
                 [ width fill
                 , height fill
@@ -214,7 +231,7 @@ showStoreConfirmation s =
 viewFileContents : Data -> Model -> String -> List (Element Msg)
 viewFileContents data model content =
     [ el [ Font.size size.m ] <| text ("Importing file: " ++ Debug.toString model.fileName) ]
-        ++ viewProfileSelector data model
+        ++ viewImportSelectors data model
         ++ viewFileData model content
 
 

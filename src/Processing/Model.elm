@@ -43,7 +43,7 @@ parseToEntry data raw =
                     row =
                         parseCsvLine profile raw.line
                 in
-                Entry raw.id row profile.accountId raw.categorization
+                Entry raw.id row raw.accountId raw.categorization
             )
         |> Result.fromMaybe "Import profile not found."
 
