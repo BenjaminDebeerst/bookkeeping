@@ -137,16 +137,16 @@ validateCategory data m =
     Result.map3 makeCategory
         (Ok id)
         (if String.isEmpty m.name then
-            Err "Account name is empty!"
+            Err "Category name is empty!"
 
          else
             Ok m.name
         )
         (if String.isEmpty m.short then
-            Err "Short name for account is empty!"
+            Err "Short name for category is empty!"
 
-         else if String.length m.short >= String.length m.name then
-            Err "Short name for account is longer than name o.O!"
+         else if String.length m.short > String.length m.name then
+            Err "Short name for category is longer than name o.O!"
 
          else if Maybe.Extra.isJust (getCategoryByShort (Dict.values data.categories) m.short) then
             Err "Short name already used!"

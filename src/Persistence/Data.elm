@@ -35,6 +35,7 @@ type alias DataV0 =
 type alias RawEntry =
     { id : String
     , line : String
+    , accountId : Int
     , importProfile : Int
     , categorization : Maybe Categorization
     }
@@ -51,10 +52,11 @@ type alias AccountStart =
     { amount : Int, year : Int, month : Int }
 
 
-rawEntry : Int -> String -> RawEntry
-rawEntry profileId line =
+rawEntry : Int -> Int -> String -> RawEntry
+rawEntry accountId profileId line =
     { id = sha1 line
     , line = line
+    , accountId = accountId
     , importProfile = profileId
     , categorization = Nothing
     }
@@ -84,7 +86,6 @@ type alias SplitCatEntry =
 type alias ImportProfile =
     { id : Int
     , name : String
-    , accountId : Int
     , splitAt : Char
     , dateField : Int
     , descrFields : List Int
@@ -166,6 +167,7 @@ rawEntryCodec =
     S.record RawEntry
         |> S.field .id S.string
         |> S.field .line S.string
+        |> S.field .accountId S.int
         |> S.field .importProfile S.int
         |> S.field .categorization (S.maybe categorizationCodec)
         |> S.finishRecord
@@ -229,7 +231,6 @@ profileCodec =
     S.record ImportProfile
         |> S.field .id S.int
         |> S.field .name S.string
-        |> S.field .accountId S.int
         |> S.field .splitAt charCodec
         |> S.field .dateField S.int
         |> S.field .descrFields (S.list S.int)
