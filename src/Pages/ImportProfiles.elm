@@ -1,6 +1,6 @@
 module Pages.ImportProfiles exposing (Model, Msg, page)
 
-import Components.Layout as Layout exposing (color, size, style)
+import Components.Layout as Layout exposing (color, formatDate, formatEuroStr, size, style)
 import Dict
 import Dropdown
 import Element exposing (Element, IndexedColumn, column, el, indexedTable, none, padding, paddingXY, row, shrink, spacing, text)
@@ -276,7 +276,7 @@ testArea data model =
         in
         case result of
             Ok a ->
-                text (Debug.toString a)
+                text (String.join ", " [ formatDate a.date, formatEuroStr a.amount, a.description ])
 
             Err message ->
                 el [ paddingXY size.m 0, Font.color color.red ] (text message)

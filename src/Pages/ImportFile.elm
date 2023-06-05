@@ -103,7 +103,7 @@ update data msg model =
                 newEntries =
                     case
                         Maybe.map3
-                            (\a p c -> ( a, p, CsvParser.parse p c ))
+                            (\acc profile content -> ( acc, profile, CsvParser.parse profile content ))
                             model.account
                             model.importProfile
                             model.fileContents
@@ -116,8 +116,16 @@ update data msg model =
 
                         Just ( account, profile, Ok lines ) ->
                             lines
-                                |> List.map .rawLine
-                                |> List.map (rawEntry account.id profile.id)
+                                |> List.map
+                                    (\row ->
+                                        rawEntry
+                                            account.id
+                                            profile.id
+                                            row.rawLine
+                                            row.date
+                                            row.amount
+                                            row.description
+                                    )
 
                 newData =
                     data |> Storage.addEntries newEntries
@@ -230,7 +238,7 @@ showStoreConfirmation s =
 
 viewFileContents : Data -> Model -> String -> List (Element Msg)
 viewFileContents data model content =
-    [ el [ Font.size size.m ] <| text ("Importing file: " ++ Debug.toString model.fileName) ]
+    [ el [ Font.size size.m ] <| text ("Importing file: " ++ Maybe.withDefault "None" model.fileName) ]
         ++ viewImportSelectors data model
         ++ viewFileData model content
 

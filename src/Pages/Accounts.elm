@@ -85,7 +85,7 @@ update data msg model =
         Save ->
             case validateAccount model of
                 Ok a ->
-                    ( { model | error = Just ("Storing" ++ Debug.toString a) }, Storage.store <| Storage.addAccount a data )
+                    ( { model | error = Nothing }, Storage.store <| Storage.addAccount a data )
 
                 Err e ->
                     ( { model | error = Just e }, Cmd.none )

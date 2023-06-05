@@ -17,6 +17,7 @@ module Persistence.Data exposing
 import Dict exposing (Dict)
 import SHA1
 import Serialize as S
+import Time.Date as Date exposing (Date)
 
 
 type alias Data =
@@ -35,6 +36,9 @@ type alias DataV0 =
 type alias RawEntry =
     { id : String
     , line : String
+    , date : Date
+    , amount : Int
+    , description : String
     , accountId : Int
     , importProfile : Int
     , categorization : Maybe Categorization
@@ -52,10 +56,13 @@ type alias AccountStart =
     { amount : Int, year : Int, month : Int }
 
 
-rawEntry : Int -> Int -> String -> RawEntry
-rawEntry accountId profileId line =
+rawEntry : Int -> Int -> String -> Date -> Int -> String -> RawEntry
+rawEntry accountId profileId line date amount description =
     { id = sha1 line
     , line = line
+    , date = date
+    , amount = amount
+    , description = description
     , accountId = accountId
     , importProfile = profileId
     , categorization = Nothing
@@ -167,10 +174,19 @@ rawEntryCodec =
     S.record RawEntry
         |> S.field .id S.string
         |> S.field .line S.string
+        |> S.field .date dateCodec
+        |> S.field .amount S.int
+        |> S.field .description S.string
         |> S.field .accountId S.int
         |> S.field .importProfile S.int
         |> S.field .categorization (S.maybe categorizationCodec)
         |> S.finishRecord
+
+
+dateCodec : S.Codec e Date
+dateCodec =
+    S.triple S.int S.int S.int
+        |> S.map Date.fromTuple Date.toTuple
 
 
 accountCodec : S.Codec e Account
