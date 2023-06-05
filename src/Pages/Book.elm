@@ -5,10 +5,12 @@ import Components.Icons exposing (checkMark, triangleDown, triangleUp, warnTrian
 import Components.Layout as Layout exposing (color, formatDate, formatEuro, formatEuroStr, size, style, tooltip)
 import Dict exposing (Dict)
 import Dict.Extra
-import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, shrink, spacing, text, width)
+import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, shrink, spacing, table, text, width)
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelHidden)
+import Element.Keyed
+import Element.Lazy as Element
 import Page
 import Parser
 import Persistence.Data exposing (Account, Category, Data, RawEntry)
@@ -209,28 +211,29 @@ summary entries =
 
 
 dataTable model entries =
-    indexedTable [ spacing size.tiny ]
+    Element.lazy2 indexedTable
+        [ spacing size.tiny ]
         { data = entries
         , columns =
             [ { header = header (OrderBy dateAsc) (OrderBy dateDesc) "Date"
               , width = shrink
-              , view = \i e -> row i <| text <| formatDate e.date
+              , view = \i e -> row i e.id <| text <| formatDate e.date
               }
             , { header = header (OrderBy (asc .amount)) (OrderBy (desc .amount)) "Amount"
               , width = shrink
-              , view = \i e -> row i <| formatEuro [] e.amount
+              , view = \i e -> row i e.id <| formatEuro [] e.amount
               }
             , { header = header (OrderBy (asc <| .categorization >> categorizationString Full)) (OrderBy (desc <| .categorization >> categorizationString Full)) "Category"
               , width = shrink
-              , view = \i e -> row i <| categoryCell model e
+              , view = \i e -> row i e.id <| categoryCell model e
               }
             , { header = header (OrderBy (asc .description)) (OrderBy (desc .description)) "Description"
               , width = shrink
-              , view = \i e -> row i <| text e.description
+              , view = \i e -> row i e.id <| text e.description
               }
             , { header = header (OrderBy (asc accountName)) (OrderBy (desc accountName)) "Account"
               , width = shrink
-              , view = \i e -> row i <| text e.account.name
+              , view = \i e -> row i e.id <| text e.account.name
               }
             ]
         }
@@ -344,9 +347,11 @@ header up down s =
         ]
 
 
-row : Int -> Element msg -> Element msg
-row i e =
-    el (style.row i) e
+row : Int -> String -> Element msg -> Element msg
+row i id element =
+    Element.Keyed.el
+        (style.row i)
+        ( id, element )
 
 
 parseCategorization : Data -> Int -> String -> CatAttempt
