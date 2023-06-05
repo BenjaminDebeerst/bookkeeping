@@ -1,11 +1,8 @@
 module Pages.ImportProfiles exposing (Model, Msg, page)
 
-import Components.Layout as Layout exposing (color, formatDate, formatEuroStr, size, style)
+import Components.Layout as Layout exposing (color, formatDate, formatEuroStr, size, style, updateOrRedirectOnError, viewDataOnly)
 import Dict
-import Dropdown
 import Element exposing (Element, IndexedColumn, column, el, indexedTable, none, padding, paddingXY, row, shrink, spacing, text)
-import Element.Background as Background
-import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelLeft, placeholder)
 import Gen.Params.Accounts exposing (Params)
@@ -15,15 +12,16 @@ import Persistence.Data exposing (Account, Category, Data, DateFormat(..), Impor
 import Persistence.Storage as Storage
 import Processing.CsvParser as CsvParser
 import Request
+import Shared
 import View exposing (View)
 
 
-page : Data -> Request.With Params -> Page.With Model Msg
-page data req =
+page : Shared.Model -> Request.With Params -> Page.With Model Msg
+page shared req =
     Page.element
         { init = init
-        , update = update data
-        , view = view data
+        , update = updateOrRedirectOnError shared req update
+        , view = viewDataOnly shared view
         , subscriptions = \_ -> Sub.none
         }
 

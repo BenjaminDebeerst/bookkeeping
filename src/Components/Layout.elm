@@ -1,10 +1,25 @@
-module Components.Layout exposing (color, formatDate, formatEuro, formatEuroStr, page, size, style, tooltip)
+module Components.Layout exposing
+    ( color
+    , formatDate
+    , formatEuro
+    , formatEuroStr
+    , page
+    , size
+    , style
+    , tooltip
+    , updateOrRedirectOnError
+    , viewDataOnly
+    )
 
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
+import Gen.Route as Route
 import Html.Attributes
+import Persistence.Data exposing (Data)
+import Request
+import Shared exposing (Model(..))
 import Time.Date as Date exposing (Date)
 import View exposing (View)
 
@@ -186,3 +201,37 @@ visibleWhitespace string =
         |> String.replace "\t" "→"
         |> String.replace " " "␣"
         |> String.replace "\u{000D}" "¶"
+
+
+type alias ViewFn model msg =
+    model -> View msg
+
+
+viewDataOnly : Shared.Model -> (Data -> ViewFn a b) -> ViewFn a b
+viewDataOnly shared view_ =
+    case shared of
+        Loaded data ->
+            view_ data
+
+        Problem _ ->
+            \_ ->
+                { title = "Error"
+                , body = [ Element.layout [] <| Element.text "Error" ]
+                }
+
+
+type alias UpdateFn msg model =
+    msg -> model -> ( model, Cmd msg )
+
+
+updateOrRedirectOnError : Shared.Model -> Request.With params -> (Data -> UpdateFn a b) -> UpdateFn a b
+updateOrRedirectOnError shared req update_ =
+    case shared of
+        Loaded data ->
+            update_ data
+
+        Problem _ ->
+            \_ model ->
+                ( model
+                , Request.pushRoute Route.Home_ req
+                )

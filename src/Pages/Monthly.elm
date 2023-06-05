@@ -1,7 +1,7 @@
 module Pages.Monthly exposing (Model, Msg, page)
 
 import Components.Filter as Filter
-import Components.Layout as Layout exposing (formatEuro, size, style)
+import Components.Layout as Layout exposing (formatEuro, size, style, updateOrRedirectOnError, viewDataOnly)
 import Dict exposing (Dict)
 import Element exposing (Element, IndexedColumn, column, el, indexedTable, shrink, spacing, text)
 import Gen.Params.Monthly exposing (Params)
@@ -11,16 +11,24 @@ import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate)
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (dateAsc)
 import Request
-import Shared
+import Shared exposing (Model(..))
 import View exposing (View)
 
 
 page : Shared.Model -> Request.With Params -> Page.With Model Msg
 page shared req =
     Page.element
-        { init = init shared
-        , update = update shared
-        , view = view shared
+        { init =
+            init
+                (case shared of
+                    Loaded data ->
+                        Dict.values data.accounts
+
+                    Problem _ ->
+                        []
+                )
+        , update = updateOrRedirectOnError shared req update
+        , view = viewDataOnly shared view
         , subscriptions = \_ -> Sub.none
         }
 
@@ -34,9 +42,9 @@ type alias Model =
     }
 
 
-init : Data -> ( Model, Cmd Msg )
-init data =
-    ( { filters = Filter.init (Dict.values data.accounts) }, Cmd.none )
+init : List Account -> ( Model, Cmd Msg )
+init accounts =
+    ( { filters = Filter.init accounts }, Cmd.none )
 
 
 

@@ -17,6 +17,7 @@ port module Persistence.Storage exposing
 
 import Dict exposing (Dict)
 import Persistence.Data exposing (Account, Category, Data, ImportProfile, RawEntry, decode, empty, encode)
+import Serialize exposing (Error)
 
 
 port save : String -> Cmd msg
@@ -30,7 +31,7 @@ store =
     encode >> save
 
 
-onChange : (Data -> msg) -> Sub msg
+onChange : (Result (Error String) Data -> msg) -> Sub msg
 onChange fromStorage =
     load (\s -> decode s |> fromStorage)
 

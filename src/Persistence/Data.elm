@@ -16,7 +16,7 @@ module Persistence.Data exposing
 
 import Dict exposing (Dict)
 import SHA1
-import Serialize as S
+import Serialize as S exposing (Error)
 import Time.Date as Date exposing (Date)
 
 
@@ -122,14 +122,9 @@ encode storage =
     S.encodeToString dataCodec storage
 
 
-decode : String -> Data
+decode : String -> Result (Error String) Data
 decode value =
-    case S.decodeFromString dataCodec (String.trim value) of
-        Ok data ->
-            data
-
-        Err _ ->
-            empty
+    S.decodeFromString dataCodec (String.trim value)
 
 
 
@@ -140,7 +135,7 @@ type StorageVersions
     = V0 DataV0
 
 
-dataCodec : S.Codec e Data
+dataCodec : S.Codec String Data
 dataCodec =
     S.customType
         (\v0Encoder value ->
@@ -159,7 +154,7 @@ dataCodec =
             V0
 
 
-v0Codec : S.Codec e Data
+v0Codec : S.Codec String Data
 v0Codec =
     S.record DataV0
         |> S.field .rawEntries (S.dict S.string rawEntryCodec)
@@ -183,13 +178,13 @@ rawEntryCodec =
         |> S.finishRecord
 
 
-dateCodec : S.Codec e Date
+dateCodec : S.Codec String Date
 dateCodec =
     S.triple S.int S.int S.int
         |> S.map Date.fromTuple Date.toTuple
 
 
-accountCodec : S.Codec e Account
+accountCodec : S.Codec String Account
 accountCodec =
     S.record Account
         |> S.field .id S.int
@@ -198,7 +193,7 @@ accountCodec =
         |> S.finishRecord
 
 
-accountStartCodec : S.Codec e AccountStart
+accountStartCodec : S.Codec String AccountStart
 accountStartCodec =
     S.record AccountStart
         |> S.field .amount S.int
@@ -207,7 +202,7 @@ accountStartCodec =
         |> S.finishRecord
 
 
-categoryCodec : S.Codec e Category
+categoryCodec : S.Codec String Category
 categoryCodec =
     S.record Category
         |> S.field .id S.int
@@ -216,7 +211,7 @@ categoryCodec =
         |> S.finishRecord
 
 
-splitCategorizationCodec : S.Codec e (List SplitCatEntry)
+splitCategorizationCodec : S.Codec String (List SplitCatEntry)
 splitCategorizationCodec =
     S.list
         (S.record SplitCatEntry
@@ -226,7 +221,7 @@ splitCategorizationCodec =
         )
 
 
-categorizationCodec : S.Codec e Categorization
+categorizationCodec : S.Codec String Categorization
 categorizationCodec =
     S.customType
         (\singleEncoder splitEncoder value ->
@@ -242,7 +237,7 @@ categorizationCodec =
         |> S.finishCustomType
 
 
-profileCodec : S.Codec e ImportProfile
+profileCodec : S.Codec String ImportProfile
 profileCodec =
     S.record ImportProfile
         |> S.field .id S.int
@@ -256,7 +251,7 @@ profileCodec =
         |> S.finishRecord
 
 
-dateFormatCodec : S.Codec e DateFormat
+dateFormatCodec : S.Codec String DateFormat
 dateFormatCodec =
     S.customType
         (\a b value ->
@@ -274,6 +269,6 @@ dateFormatCodec =
 
 {-| Just store the char as 1-character string. The default value when decoding doesn't matter.
 -}
-charCodec : S.Codec e Char
+charCodec : S.Codec String Char
 charCodec =
     S.string |> S.map (\s -> s |> String.toList |> List.head |> Maybe.withDefault '?') String.fromChar

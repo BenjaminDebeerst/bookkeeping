@@ -1,6 +1,6 @@
 module Pages.Categories exposing (Model, Msg, page)
 
-import Components.Layout as Layout exposing (color, size, style)
+import Components.Layout as Layout exposing (color, size, style, updateOrRedirectOnError, viewDataOnly)
 import Dict
 import Element exposing (Element, column, el, indexedTable, paddingXY, row, shrink, spacing, text)
 import Element.Font as Font
@@ -24,8 +24,8 @@ page : Shared.Model -> Request.With Params -> Page.With Model Msg
 page shared req =
     Page.element
         { init = init
-        , update = update shared
-        , view = view shared
+        , update = updateOrRedirectOnError shared req update
+        , view = viewDataOnly shared view
         , subscriptions = \_ -> Sub.none
         }
 

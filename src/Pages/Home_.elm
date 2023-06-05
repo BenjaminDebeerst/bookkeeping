@@ -9,7 +9,8 @@ import Page
 import Persistence.Data exposing (Data, encode)
 import Persistence.Storage as Storage
 import Request exposing (Request)
-import Shared
+import Serialize exposing (Error(..))
+import Shared exposing (Model(..))
 import View exposing (View)
 
 
@@ -49,8 +50,8 @@ type Msg
     | SaveData
 
 
-update : Data -> Msg -> Model -> ( Model, Cmd Msg )
-update data msg model =
+update : Shared.Model -> Msg -> Model -> ( Model, Cmd Msg )
+update sharedModel msg model =
     case msg of
         TextInput s ->
             ( { model | textinput = s }
@@ -66,39 +67,53 @@ update data msg model =
             ( emptyModel, Storage.truncate )
 
         SaveData ->
-            ( { model | dbString = Just (encode data) }, Cmd.none )
+            case sharedModel of
+                Loaded data ->
+                    ( { model | dbString = Just (encode data) }, Cmd.none )
+
+                Problem _ ->
+                    ( { model | dbString = Nothing }, Cmd.none )
 
 
 
 -- VIEW
 
 
-view : Data -> Model -> View Msg
-view data model =
+view : Shared.Model -> Model -> View Msg
+view sharedModel model =
     Layout.page "Home" <|
-        ([ el [] <| text ("Currently, the DB has " ++ (String.fromInt <| Dict.size <| data.rawEntries) ++ " entries. You can start over or load a database.")
-         , Input.multiline [ width <| maximum 600 fill, height <| maximum 400 <| px 200 ]
-            { onChange = TextInput
-            , text = model.textinput
-            , placeholder = Just (placeholder [] (text "Database string"))
-            , label = labelAbove [] (text "Database to load")
-            , spellcheck = False
-            }
-         , Input.button Layout.style.button
-            { onPress = Just LoadData
-            , label = text "Load"
-            }
-         , Input.button Layout.style.button
-            { onPress = Just StartFromScratch
-            , label = text "Start with a clean slate (delete the current DB)"
-            }
-         , Input.button Layout.style.button
-            { onPress = Just SaveData
-            , label = text "Save DB"
-            }
-         ]
-            ++ showSave model
-        )
+        case sharedModel of
+            Loaded data ->
+                showDataSummary data model
+
+            Problem e ->
+                showDataIssues e
+
+
+showDataSummary : Data -> Model -> List (Element Msg)
+showDataSummary data model =
+    [ el [] <| text ("Currently, the DB has " ++ (String.fromInt <| Dict.size <| data.rawEntries) ++ " entries. You can start over or load a database.")
+    , Input.multiline [ width <| maximum 600 fill, height <| maximum 400 <| px 200 ]
+        { onChange = TextInput
+        , text = model.textinput
+        , placeholder = Just (placeholder [] (text "Database string"))
+        , label = labelAbove [] (text "Database to load")
+        , spellcheck = False
+        }
+    , Input.button Layout.style.button
+        { onPress = Just LoadData
+        , label = text "Load"
+        }
+    , Input.button Layout.style.button
+        { onPress = Just StartFromScratch
+        , label = text "Start with a clean slate (delete the current DB)"
+        }
+    , Input.button Layout.style.button
+        { onPress = Just SaveData
+        , label = text "Save DB"
+        }
+    ]
+        ++ showSave model
 
 
 showSave : Model -> List (Element msg)
@@ -111,3 +126,21 @@ showSave model =
             [ el [] (text "Save the follwing string in a file to store the DB:")
             , el [ Font.size Layout.size.s ] (text s)
             ]
+
+
+showDataIssues : Error String -> List (Element Msg)
+showDataIssues error =
+    [ el [] <| text "There was an issue loading the data from the DB!"
+    , el [] <|
+        text
+            (case error of
+                CustomError e ->
+                    e
+
+                DataCorrupted ->
+                    "Data is corrupt. Did you introduce a breaking codec change?"
+
+                SerializerOutOfDate ->
+                    "Serializer out of date."
+            )
+    ]

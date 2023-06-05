@@ -2,7 +2,7 @@ module Pages.Book exposing (Model, Msg, page)
 
 import Components.Filter as Filter
 import Components.Icons exposing (checkMark, triangleDown, triangleUp, warnTriangle)
-import Components.Layout as Layout exposing (color, formatDate, formatEuro, formatEuroStr, size, style, tooltip)
+import Components.Layout as Layout exposing (color, formatDate, formatEuro, formatEuroStr, size, style, tooltip, updateOrRedirectOnError, viewDataOnly)
 import Dict exposing (Dict)
 import Dict.Extra
 import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, shrink, spacing, table, text, width)
@@ -22,16 +22,24 @@ import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
 import Request exposing (Request)
 import Result.Extra
 import Set
-import Shared
+import Shared exposing (Model(..))
 import View exposing (View)
 
 
 page : Shared.Model -> Request -> Page.With Model Msg
-page shared _ =
+page shared req =
     Page.element
-        { init = init shared
-        , update = update shared
-        , view = view shared
+        { init =
+            init
+                (case shared of
+                    Loaded data ->
+                        Dict.values data.accounts
+
+                    Problem _ ->
+                        []
+                )
+        , update = updateOrRedirectOnError shared req update
+        , view = viewDataOnly shared view
         , subscriptions = \_ -> Sub.none
         }
 
@@ -49,12 +57,12 @@ type CatAttempt
     | Known String Categorization
 
 
-init : Data -> ( Model, Cmd Msg )
-init data =
+init : List Account -> ( Model, Cmd Msg )
+init accounts =
     ( { ordering = dateAsc
       , editCategories = False
       , categoryEdits = Dict.empty
-      , filters = Filter.init <| Dict.values data.accounts
+      , filters = Filter.init accounts
       }
     , Cmd.none
     )

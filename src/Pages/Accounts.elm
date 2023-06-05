@@ -1,6 +1,6 @@
 module Pages.Accounts exposing (Model, Msg, page)
 
-import Components.Layout as Layout exposing (color, formatEuro, size, style)
+import Components.Layout as Layout exposing (color, formatEuro, size, style, updateOrRedirectOnError, viewDataOnly)
 import Dict
 import Element exposing (Element, column, el, shrink, spacing, table, text)
 import Element.Font as Font
@@ -10,7 +10,7 @@ import Page
 import Persistence.Data exposing (Account, Data)
 import Persistence.Storage as Storage
 import Request
-import Shared
+import Shared exposing (Model(..))
 import View exposing (View)
 
 
@@ -18,8 +18,8 @@ page : Shared.Model -> Request.With Params -> Page.With Model Msg
 page shared req =
     Page.element
         { init = init
-        , update = update shared
-        , view = view shared
+        , update = updateOrRedirectOnError shared req update
+        , view = viewDataOnly shared view
         , subscriptions = \_ -> Sub.none
         }
 
