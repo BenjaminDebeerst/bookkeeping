@@ -1,11 +1,12 @@
 module Pages.Monthly exposing (Model, Msg, page)
 
+import Components.Filter as Filter
+import Components.Layout as Layout exposing (formatEuro, size, style)
 import Dict exposing (Dict)
-import Element exposing (IndexedColumn, el, indexedTable, shrink, spacing, text)
+import Element exposing (Element, IndexedColumn, column, el, indexedTable, shrink, spacing, text)
 import Gen.Params.Monthly exposing (Params)
-import Layout exposing (formatEuro, size, style)
 import Page
-import Persistence.Data exposing (Category, Data)
+import Persistence.Data exposing (Account, Category, Data)
 import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate)
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (dateAsc)
@@ -17,8 +18,8 @@ import View exposing (View)
 page : Shared.Model -> Request.With Params -> Page.With Model Msg
 page shared req =
     Page.element
-        { init = init
-        , update = update
+        { init = init shared
+        , update = update shared
         , view = view shared
         , subscriptions = \_ -> Sub.none
         }
@@ -29,12 +30,13 @@ page shared req =
 
 
 type alias Model =
-    {}
+    { filters : Filter.Model
+    }
 
 
-init : ( Model, Cmd Msg )
-init =
-    ( {}, Cmd.none )
+init : Data -> ( Model, Cmd Msg )
+init data =
+    ( { filters = Filter.init (Dict.values data.accounts) }, Cmd.none )
 
 
 
@@ -42,12 +44,14 @@ init =
 
 
 type Msg
-    = None
+    = Filter Filter.Msg
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
-    ( model, Cmd.none )
+update : Data -> Msg -> Model -> ( Model, Cmd Msg )
+update data msg model =
+    case msg of
+        Filter filterMsg ->
+            ( { model | filters = Filter.update filterMsg model.filters }, Cmd.none )
 
 
 
@@ -55,42 +59,44 @@ update msg model =
 
 
 view : Data -> Model -> View Msg
-view data _ =
+view data model =
     let
-        entries =
-            getEntries data [] dateAsc
+        filter =
+            Filter.toFilter (Dict.values data.categories) model.filters
 
-        accounts =
-            Dict.values data.accounts
-
-        aggregatedData : List Aggregate
         aggregatedData =
-            accounts
-                |> List.map (aggregate entries)
+            aggregate <| getEntries data filter dateAsc
     in
     Layout.page "Monthly" <|
-        (aggregatedData
-            |> List.map
-                (\aggregate ->
-                    [ el style.h2 <| text <| aggregate.account.name
-                    , indexedTable [ spacing size.tiny ]
-                        { data = aggregate.rows
-                        , columns =
-                            [ { header = el style.header <| text "Month"
-                              , width = shrink
-                              , view = \i e -> el (style.row i) <| text e.month
-                              }
-                            , { header = el style.header <| text "Balance"
-                              , width = shrink
-                              , view = \i e -> el (style.row i) <| formatEuro [] e.balance
-                              }
-                            ]
-                                ++ categoryColumns data.categories
-                        }
-                    ]
-                )
-            |> List.concat
-        )
+        [ showFilters model <| Dict.values data.accounts
+        , showData data aggregatedData
+        ]
+
+
+showFilters : Model -> List Account -> Element Msg
+showFilters model accounts =
+    column [ spacing size.s ]
+        [ el style.h2 <| text "Filters"
+        , Filter.accountFilter accounts model.filters Filter
+        ]
+
+
+showData : Data -> Aggregate -> Element msg
+showData data aggregate =
+    indexedTable [ spacing size.tiny ]
+        { data = aggregate.rows
+        , columns =
+            [ { header = el style.header <| text "Month"
+              , width = shrink
+              , view = \i e -> el (style.row i) <| text e.month
+              }
+            , { header = el style.header <| text "Balance"
+              , width = shrink
+              , view = \i e -> el (style.row i) <| formatEuro [] e.balance
+              }
+            ]
+                ++ categoryColumns data.categories
+        }
 
 
 categoryColumns : Dict Int Category -> List (IndexedColumn MonthAggregate msg)

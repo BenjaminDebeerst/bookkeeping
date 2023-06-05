@@ -1,9 +1,9 @@
 module Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate)
 
 import Dict exposing (Dict)
+import List.Extra
 import Persistence.Data exposing (Account, AccountStart, Category, Data, RawEntry)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit)
-import Processing.Filter exposing (Filter, filterAccount)
 import Time.Date as Date exposing (Date, date)
 
 
@@ -15,27 +15,40 @@ type alias MonthAggregate =
 
 
 type alias Aggregate =
-    { account : Account
+    { accounts : List Account
     , rows : List MonthAggregate
     }
 
 
-{-| Book entries need to be given in date ascending order
+{-| Book entries MUST be given in date ascending order. Otherwise the aggregation may not terminate.
 -}
-aggregate : List BookEntry -> Account -> Aggregate
-aggregate bookEntries account =
+aggregate : List BookEntry -> Aggregate
+aggregate bookEntries =
     let
-        startMonth =
-            date account.start.year account.start.month 1
-
-        accEntries =
+        accounts =
             bookEntries
-                |> List.filter (filterAccount account)
+                |> List.map .account
+                |> List.Extra.unique
 
-        monthAggregates =
-            aggHelper startMonth ( Dict.empty, account.start.amount ) accEntries []
+        startMonth =
+            accounts
+                |> List.map (.start >> (\s -> Date.date s.year s.month 1))
+                |> List.sortBy Date.toTuple
+                |> List.head
+
+        -- There's a subtle detail here, namely that this sum ignores the start date of all accounts, adding their
+        -- start balance to the very beginning of what is currently filtered. It only affects the running monthly
+        -- balance though.
+        -- Otherwise there would need to be some kind of "phantom book entry" for the addition of an account.
+        startBalance =
+            accounts |> List.map (.start >> .amount) |> List.sum
     in
-    Aggregate account monthAggregates
+    case startMonth of
+        Just date ->
+            Aggregate accounts (aggHelper date ( Dict.empty, startBalance ) bookEntries [])
+
+        Nothing ->
+            Aggregate accounts []
 
 
 aggHelper : Date -> ( Dict Int Int, Int ) -> List BookEntry -> List MonthAggregate -> List MonthAggregate
@@ -45,7 +58,6 @@ aggHelper currentMonth ( monthEntries, balance ) remainingBookEntries aggregated
             aggregatedMonths ++ [ MonthAggregate (monthString currentMonth) balance monthEntries ]
 
         be :: tail ->
-            -- FIXME Ensure this is tail recursive. Otherwise the stack will explode.
             if equalMonths currentMonth be then
                 aggHelper
                     currentMonth

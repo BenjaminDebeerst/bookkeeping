@@ -1,4 +1,4 @@
-module Icons exposing (checkMark, triangleDown, triangleUp, warnTriangle)
+module Components.Icons exposing (checkMark, triangleDown, triangleUp, warnTriangle)
 
 import Element exposing (el)
 import FeatherIcons

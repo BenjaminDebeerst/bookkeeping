@@ -14,6 +14,11 @@ all l =
     \e -> List.all (\f -> f e) l
 
 
+any : List Filter -> Filter
+any l =
+    \e -> List.any (\f -> f e) l
+
+
 filterMonth : Int -> BookEntry -> Bool
 filterMonth i e =
     Date.month e.date == i

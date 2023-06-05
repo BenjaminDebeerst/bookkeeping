@@ -1,11 +1,11 @@
 module Pages.Categories exposing (Model, Msg, page)
 
+import Components.Layout as Layout exposing (color, size, style)
 import Dict
 import Element exposing (Element, column, el, indexedTable, paddingXY, row, shrink, spacing, text)
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelLeft, placeholder)
 import Gen.Params.Accounts exposing (Params)
-import Layout exposing (color, size, style)
 import Maybe.Extra
 import Page
 import Parser exposing (DeadEnd)
@@ -148,7 +148,7 @@ validateCategory data m =
          else if String.length m.short >= String.length m.name then
             Err "Short name for account is longer than name o.O!"
 
-         else if Maybe.Extra.isJust (getCategoryByShort data m.short) then
+         else if Maybe.Extra.isJust (getCategoryByShort (Dict.values data.categories) m.short) then
             Err "Short name already used!"
 
          else

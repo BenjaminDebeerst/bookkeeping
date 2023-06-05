@@ -1,5 +1,6 @@
 module Pages.ImportProfiles exposing (Model, Msg, page)
 
+import Components.Layout as Layout exposing (color, size, style)
 import Dict
 import Dropdown
 import Element exposing (Element, IndexedColumn, column, el, indexedTable, none, padding, paddingXY, row, shrink, spacing, text)
@@ -8,7 +9,6 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelLeft, placeholder)
 import Gen.Params.Accounts exposing (Params)
-import Layout exposing (color, size, style)
 import Maybe.Extra
 import Page
 import Persistence.Data exposing (Account, Category, Data, DateFormat(..), ImportProfile)

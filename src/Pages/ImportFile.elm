@@ -1,5 +1,6 @@
 module Pages.ImportFile exposing (Model, Msg, page)
 
+import Components.Layout as Layout exposing (formatDate, formatEuro, size, style)
 import Csv.Decode as Decode
 import Dict exposing (Dict)
 import Element exposing (Attribute, Element, centerX, centerY, el, fill, height, indexedTable, paddingXY, shrink, spacing, table, text, width)
@@ -11,7 +12,6 @@ import File.Select as Select
 import Gen.Params.ImportFile exposing (Params)
 import Html.Events exposing (preventDefaultOn)
 import Json.Decode as D
-import Layout exposing (formatDate, formatEuro, size, style)
 import Page
 import Persistence.Data exposing (Account, Data, ImportProfile, RawEntry, rawEntry)
 import Persistence.Storage as Storage

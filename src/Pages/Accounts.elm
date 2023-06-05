@@ -1,11 +1,11 @@
 module Pages.Accounts exposing (Model, Msg, page)
 
+import Components.Layout as Layout exposing (color, formatEuro, size, style)
 import Dict
 import Element exposing (Element, column, el, shrink, spacing, table, text)
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, placeholder)
 import Gen.Params.Accounts exposing (Params)
-import Layout exposing (color, formatEuro, size, style)
 import Page
 import Persistence.Data exposing (Account, Data)
 import Persistence.Storage as Storage

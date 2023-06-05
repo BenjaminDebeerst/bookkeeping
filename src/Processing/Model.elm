@@ -84,8 +84,8 @@ liftSplitEntry data se =
     Dict.get se.id data.categories |> Maybe.map (\c -> EntrySplit c se.amount)
 
 
-getCategoryByShort : Data -> String -> Maybe Category
-getCategoryByShort data string =
-    Dict.values data.categories
+getCategoryByShort : List Category -> String -> Maybe Category
+getCategoryByShort categories string =
+    categories
         |> List.filter (\c -> c.short == string)
         |> List.head

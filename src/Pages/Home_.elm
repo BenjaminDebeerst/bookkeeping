@@ -1,10 +1,10 @@
 module Pages.Home_ exposing (Model, Msg, page)
 
+import Components.Layout as Layout
 import Dict
-import Element exposing (Element, column, el, fill, height, maximum, px, spacing, text, width)
+import Element exposing (Element, el, fill, height, maximum, px, text, width)
 import Element.Font as Font
 import Element.Input as Input exposing (labelAbove, placeholder)
-import Layout exposing (style)
 import Page
 import Persistence.Data exposing (Data, encode)
 import Persistence.Storage as Storage

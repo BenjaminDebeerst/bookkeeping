@@ -1,21 +1,20 @@
 module Pages.Book exposing (Model, Msg, page)
 
+import Components.Filter as Filter
+import Components.Icons exposing (checkMark, triangleDown, triangleUp, warnTriangle)
+import Components.Layout as Layout exposing (color, formatDate, formatEuro, formatEuroStr, size, style, tooltip)
 import Dict exposing (Dict)
 import Dict.Extra
-import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, paddingXY, shrink, spacing, text, width)
+import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, shrink, spacing, text, width)
 import Element.Events exposing (onClick)
 import Element.Font as Font
-import Element.Input as Input exposing (labelHidden, labelLeft, placeholder)
-import Icons exposing (checkMark, triangleDown, triangleUp, warnTriangle)
-import Layout exposing (color, formatDate, formatEuro, formatEuroStr, size, style, tooltip)
-import Maybe.Extra
+import Element.Input as Input exposing (labelHidden)
 import Page
 import Parser
 import Persistence.Data exposing (Account, Category, Data, RawEntry)
 import Persistence.Storage as Storage exposing (addEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
 import Processing.CategoryParser as Parser exposing (categorizationParser)
-import Processing.Filter exposing (Filter, filterCategory, filterDescription, filterMonth, filterYear)
 import Processing.Model exposing (getCategoryByShort, getEntriesAndErrors)
 import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
 import Request exposing (Request)
@@ -28,7 +27,7 @@ import View exposing (View)
 page : Shared.Model -> Request -> Page.With Model Msg
 page shared _ =
     Page.element
-        { init = init
+        { init = init shared
         , update = update shared
         , view = view shared
         , subscriptions = \_ -> Sub.none
@@ -36,14 +35,10 @@ page shared _ =
 
 
 type alias Model =
-    { year : String
-    , month : String
-    , descr : String
-    , categoryFilter : String
-    , ordering : Ordering BookEntry
+    { ordering : Ordering BookEntry
     , editCategories : Bool
     , categoryEdits : Dict String CatAttempt
-    , onlyUncategorized : Bool
+    , filters : Filter.Model
     }
 
 
@@ -52,16 +47,12 @@ type CatAttempt
     | Known String Categorization
 
 
-init : ( Model, Cmd Msg )
-init =
-    ( { year = ""
-      , month = ""
-      , descr = ""
-      , categoryFilter = ""
-      , ordering = dateAsc
+init : Data -> ( Model, Cmd Msg )
+init data =
+    ( { ordering = dateAsc
       , editCategories = False
       , categoryEdits = Dict.empty
-      , onlyUncategorized = False
+      , filters = Filter.init <| Dict.values data.accounts
       }
     , Cmd.none
     )
@@ -72,11 +63,7 @@ init =
 
 
 type Msg
-    = FilterYear String
-    | FilterMonth String
-    | FilterDescr String
-    | FilterCategory String
-    | OnlyUncategorized Bool
+    = Filter Filter.Msg
     | OrderBy (Ordering BookEntry)
     | Categorize
     | EditCategory String Int String
@@ -87,20 +74,8 @@ type Msg
 update : Data -> Msg -> Model -> ( Model, Cmd Msg )
 update data msg model =
     case msg of
-        FilterYear year ->
-            ( { model | year = year }, Cmd.none )
-
-        FilterMonth month ->
-            ( { model | month = month }, Cmd.none )
-
-        FilterDescr descr ->
-            ( { model | descr = descr }, Cmd.none )
-
-        FilterCategory cat ->
-            ( { model | categoryFilter = cat }, Cmd.none )
-
-        OnlyUncategorized b ->
-            ( { model | onlyUncategorized = b }, Cmd.none )
+        Filter filterMsg ->
+            ( { model | filters = Filter.update filterMsg model.filters }, Cmd.none )
 
         OrderBy ordering ->
             ( { model | ordering = ordering }, Cmd.none )
@@ -149,58 +124,29 @@ view : Data -> Model -> View Msg
 view data model =
     let
         filters =
-            []
-                ++ (model.year |> String.toInt |> Maybe.map filterYear |> Maybe.Extra.toList)
-                ++ (model.month |> String.toInt |> Maybe.map filterMonth |> Maybe.Extra.toList)
-                ++ [ model.descr |> String.trim |> filterDescription ]
-                ++ (getCategoryByShort data model.categoryFilter |> Maybe.map (\c -> [ filterCategory c ]) |> Maybe.withDefault [])
-                ++ [ \bookEntry -> not model.onlyUncategorized || bookEntry.categorization == None ]
+            Filter.toFilter (Dict.values data.categories) model.filters
 
         ( entries, errors ) =
             getEntriesAndErrors data filters model.ordering
     in
     Layout.page "Book" <|
-        [ showFilters model data.accounts
+        [ showFilters model.filters <| Dict.values data.accounts
         , showActions model
         , showData model entries
         , showErrors errors
         ]
 
 
-showFilters : Model -> Dict Int Account -> Element Msg
-showFilters model _ =
+showFilters : Filter.Model -> List Account -> Element Msg
+showFilters model accounts =
     column [ spacing size.s ]
         [ el style.h2 <| text "Filters"
-        , Input.text []
-            { onChange = FilterYear
-            , text = model.year
-            , placeholder = Just <| placeholder [] <| text "Year"
-            , label = labelLeft [ paddingXY size.m 0 ] <| text "Year"
-            }
-        , Input.text []
-            { onChange = FilterMonth
-            , text = model.month
-            , placeholder = Just <| placeholder [] <| text "Month"
-            , label = labelLeft [ paddingXY size.m 0 ] <| text "Month"
-            }
-        , Input.text []
-            { onChange = FilterDescr
-            , text = model.descr
-            , placeholder = Just <| placeholder [] <| text "Description"
-            , label = labelLeft [ paddingXY size.m 0 ] <| text "Description"
-            }
-        , Input.text []
-            { onChange = FilterCategory
-            , text = model.categoryFilter
-            , placeholder = Just <| placeholder [] <| text "Category"
-            , label = labelLeft [ paddingXY size.m 0 ] <| text "Category"
-            }
-        , Input.checkbox []
-            { onChange = OnlyUncategorized
-            , icon = Input.defaultCheckbox
-            , checked = model.onlyUncategorized
-            , label = labelLeft [ paddingXY size.m size.xs ] <| text "Show uncategorized only"
-            }
+        , Filter.yearFilter model Filter
+        , Filter.monthFilter model Filter
+        , Filter.descriptionFilter model Filter
+        , Filter.categoryFilter model Filter
+        , Filter.accountFilter accounts model Filter
+        , Filter.uncategorizedFilter model Filter
         ]
 
 
@@ -410,14 +356,14 @@ parseCategorization data targetAmount string =
             Known string None
 
         Ok (Parser.One shortName) ->
-            getCategoryByShort data shortName
+            getCategoryByShort (Dict.values data.categories) shortName
                 |> Maybe.map (Known string << Single)
                 |> Maybe.withDefault (Unknown string ("Unknown category " ++ shortName))
 
         Ok (Parser.Multiple list) ->
             case
                 list
-                    |> List.map (categoryForTuple data)
+                    |> List.map (categoryForTuple (Dict.values data.categories))
                     |> Result.Extra.partition
             of
                 ( categories, [] ) ->
@@ -449,8 +395,8 @@ parseCategorization data targetAmount string =
             Unknown string "Unrecognized format"
 
 
-categoryForTuple : Data -> ( String, Int ) -> Result String EntrySplit
-categoryForTuple data ( string, int ) =
-    getCategoryByShort data string
+categoryForTuple : List Category -> ( String, Int ) -> Result String EntrySplit
+categoryForTuple categories ( string, int ) =
+    getCategoryByShort categories string
         |> Maybe.map (\c -> Ok <| EntrySplit c int)
         |> Maybe.withDefault (Err string)
