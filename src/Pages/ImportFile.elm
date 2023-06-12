@@ -286,7 +286,7 @@ viewFileData model csvFileContent =
                     { data = rows
                     , columns =
                         [ T.textColumn "Date" (.date >> formatDate)
-                        , T.styledColumn "Amount" (.amount >> formatEuro [])
+                        , T.styledColumn "Amount" (.amount >> formatEuro)
                         , T.textColumn "Description" .description
                         ]
                     }

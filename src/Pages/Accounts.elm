@@ -191,7 +191,7 @@ showData data _ =
                   }
                 , { header = text "Starting Balance"
                   , width = shrink
-                  , view = \a -> formatEuro [] a.start.amount
+                  , view = \a -> formatEuro a.start.amount
                   }
                 ]
             }

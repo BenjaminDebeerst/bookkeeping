@@ -100,7 +100,7 @@ showData data aggregate =
               }
             , { header = el style.header <| text "Balance"
               , width = shrink
-              , view = \i e -> el (style.row i) <| formatEuro [] e.balance
+              , view = \i e -> el (style.row i) <| formatEuro e.balance
               }
             ]
                 ++ categoryColumns data.categories
@@ -114,6 +114,6 @@ categoryColumns categories =
             (\cat ->
                 { header = el style.header <| text cat.name
                 , width = shrink
-                , view = \i aggregate -> el (style.row i) <| (Dict.get cat.id aggregate.entries |> Maybe.withDefault 0 |> formatEuro [])
+                , view = \i aggregate -> el (style.row i) <| (Dict.get cat.id aggregate.entries |> Maybe.withDefault 0 |> formatEuro)
                 }
             )

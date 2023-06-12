@@ -149,20 +149,20 @@ formatEuroStr cents =
     sign ++ eur ++ "." ++ ct ++ " €"
 
 
-formatEuro : List (Attribute msg) -> Int -> Element msg
-formatEuro attrs cents =
+formatEuro : Int -> Element msg
+formatEuro cents =
     let
         formatted =
             formatEuroStr cents
 
-        fontColor =
+        styleAttrs =
             if cents < 0 then
-                [ Font.color color.red ]
+                [ alignRight, Font.color color.red ]
 
             else
-                []
+                [ alignRight ]
     in
-    el ([ width fill ] ++ attrs) <| el ([ alignRight ] ++ fontColor) (text formatted)
+    el styleAttrs (text formatted)
 
 
 formatDate : Date -> String

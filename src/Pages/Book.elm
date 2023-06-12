@@ -229,7 +229,7 @@ dataTable model entries =
               }
             , { header = header (OrderBy (asc .amount)) (OrderBy (desc .amount)) "Amount"
               , width = shrink
-              , view = \i e -> row i e.id <| formatEuro [] e.amount
+              , view = \i e -> row i e.id <| formatEuro e.amount
               }
             , { header = header (OrderBy (asc <| .categorization >> categorizationString Full)) (OrderBy (desc <| .categorization >> categorizationString Full)) "Category"
               , width = shrink
