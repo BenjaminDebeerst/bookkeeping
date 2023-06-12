@@ -193,6 +193,10 @@ showErrors strings =
         el [] (text <| "There were " ++ (List.length strings |> String.fromInt) ++ " book entries in the DB that could not be parsed. Something is wrong.")
 
 
+bookDisplayCap =
+    250
+
+
 summary entries =
     let
         n =
@@ -203,24 +207,25 @@ summary entries =
 
         avg =
             sum // n
+
+        capNotice =
+            if n > bookDisplayCap then
+                [ "Only showing the first", String.fromInt bookDisplayCap, "entries." ]
+
+            else
+                []
     in
-    el [] <|
-        text <|
-            String.join " "
-                [ "Showing"
-                , n |> String.fromInt
-                , "entries. Sum:"
-                , sum |> formatEuroStr
-                , ". Average amount:"
-                , formatEuroStr avg
-                , "."
-                ]
+    String.join " "
+        ([ "Found", n |> String.fromInt, "entries. Sum:", formatEuroStr sum, ". Average amount:", formatEuroStr avg, "." ]
+            ++ capNotice
+        )
+        |> text
 
 
 dataTable model entries =
     indexedTable
         [ spacing size.tiny ]
-        { data = entries
+        { data = List.take bookDisplayCap entries
         , columns =
             [ T.fullStyledColumn
                 (header (OrderBy dateAsc) (OrderBy dateDesc) "Date")
