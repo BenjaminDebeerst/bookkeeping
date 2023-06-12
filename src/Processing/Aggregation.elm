@@ -20,7 +20,7 @@ type alias Aggregate =
     }
 
 
-{-| Book entries MUST be given in date ascending order. Otherwise the aggregation may not terminate.
+{-| Book entries MUST be given in date ascending order. Entries showing up out of date order may be ignored in the computation.
 -}
 aggregate : List BookEntry -> Aggregate
 aggregate bookEntries =
@@ -58,19 +58,29 @@ aggHelper currentMonth ( monthEntries, balance ) remainingBookEntries aggregated
             aggregatedMonths ++ [ MonthAggregate (monthString currentMonth) balance monthEntries ]
 
         be :: tail ->
-            if equalMonths currentMonth be then
-                aggHelper
-                    currentMonth
-                    ( addCategorizedAmount be monthEntries, balance + be.amount )
-                    tail
-                    aggregatedMonths
+            case compare currentMonth be of
+                GT ->
+                    -- This is a book entry before the start of the accounts or the data was not ordered.
+                    -- Skip the value and carry on
+                    aggHelper
+                        currentMonth
+                        ( monthEntries, balance )
+                        tail
+                        aggregatedMonths
 
-            else
-                aggHelper
-                    (Date.addMonths 1 currentMonth)
-                    ( Dict.empty, balance )
-                    remainingBookEntries
-                    (aggregatedMonths ++ [ MonthAggregate (monthString currentMonth) balance monthEntries ])
+                EQ ->
+                    aggHelper
+                        currentMonth
+                        ( addCategorizedAmount be monthEntries, balance + be.amount )
+                        tail
+                        aggregatedMonths
+
+                LT ->
+                    aggHelper
+                        (Date.addMonths 1 currentMonth)
+                        ( Dict.empty, balance )
+                        remainingBookEntries
+                        (aggregatedMonths ++ [ MonthAggregate (monthString currentMonth) balance monthEntries ])
 
 
 monthString : Date -> String
@@ -151,9 +161,11 @@ addToAmounts id amount amounts =
         amounts
 
 
-equalMonths : Date -> BookEntry -> Bool
-equalMonths date bookEntry =
-    Date.year date
-        == Date.year bookEntry.date
-        && Date.month date
-        == Date.month bookEntry.date
+yearMonth : Date -> Int
+yearMonth date =
+    Date.year date * 100 + Date.month date
+
+
+compare : Date -> BookEntry -> Basics.Order
+compare date bookEntry =
+    Basics.compare (yearMonth date) (yearMonth bookEntry.date)
