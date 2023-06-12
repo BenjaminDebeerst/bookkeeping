@@ -1,8 +1,9 @@
 module Pages.Categories exposing (Model, Msg, page)
 
 import Components.Layout as Layout exposing (color, size, style, updateOrRedirectOnError, viewDataOnly)
+import Components.Table as T
 import Dict
-import Element exposing (Element, column, el, indexedTable, paddingXY, row, shrink, spacing, text)
+import Element exposing (Element, column, el, indexedTable, paddingXY, row, spacing, text)
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelLeft, placeholder)
 import Gen.Params.Accounts exposing (Params)
@@ -223,25 +224,17 @@ showData data _ =
         text "There are no categories defined yet"
 
     else
-        indexedTable [ spacing size.tiny ]
+        indexedTable T.tableStyle
             { data = Dict.values data.categories
             , columns =
-                [ { header = el style.header <| text "Actions"
-                  , width = shrink
-                  , view =
-                        \i a ->
-                            row (style.row i ++ [ spacing size.xs ])
-                                [ Input.button style.button { onPress = Just (EditExisting a), label = text "Edit" }
-                                , Input.button style.button { onPress = Just (Delete a), label = text "Delete" }
-                                ]
-                  }
-                , { header = el style.header <| text "Name"
-                  , width = shrink
-                  , view = \i a -> el (style.row i) <| text a.name
-                  }
-                , { header = el style.header <| text "Short"
-                  , width = shrink
-                  , view = \i a -> el (style.row i) <| text a.short
-                  }
+                [ T.styledColumn "Actions"
+                    (\a ->
+                        row [ spacing size.xs ]
+                            [ Input.button style.button { onPress = Just (EditExisting a), label = text "Edit" }
+                            , Input.button style.button { onPress = Just (Delete a), label = text "Delete" }
+                            ]
+                    )
+                , T.textColumn "Name" .name
+                , T.textColumn "Short" .short
                 ]
             }

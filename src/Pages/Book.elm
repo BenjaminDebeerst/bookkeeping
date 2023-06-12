@@ -3,14 +3,13 @@ module Pages.Book exposing (Model, Msg, page)
 import Components.Filter as Filter
 import Components.Icons exposing (checkMark, triangleDown, triangleUp, warnTriangle)
 import Components.Layout as Layout exposing (color, formatDate, formatEuro, formatEuroStr, size, style, tooltip, updateOrRedirectOnError, viewDataOnly)
+import Components.Table as T
 import Dict exposing (Dict)
 import Dict.Extra
-import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, shrink, spacing, table, text, width)
+import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, shrink, spacing, text, width)
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelHidden)
-import Element.Keyed
-import Element.Lazy as Element
 import Page
 import Parser
 import Persistence.Data exposing (Account, Category, Data, RawEntry)
@@ -219,30 +218,25 @@ summary entries =
 
 
 dataTable model entries =
-    Element.lazy2 indexedTable
+    indexedTable
         [ spacing size.tiny ]
         { data = entries
         , columns =
-            [ { header = header (OrderBy dateAsc) (OrderBy dateDesc) "Date"
-              , width = shrink
-              , view = \i e -> row i e.id <| text <| formatDate e.date
-              }
-            , { header = header (OrderBy (asc .amount)) (OrderBy (desc .amount)) "Amount"
-              , width = shrink
-              , view = \i e -> row i e.id <| formatEuro e.amount
-              }
-            , { header = header (OrderBy (asc <| .categorization >> categorizationString Full)) (OrderBy (desc <| .categorization >> categorizationString Full)) "Category"
-              , width = shrink
-              , view = \i e -> row i e.id <| categoryCell model e
-              }
-            , { header = header (OrderBy (asc .description)) (OrderBy (desc .description)) "Description"
-              , width = shrink
-              , view = \i e -> row i e.id <| text e.description
-              }
-            , { header = header (OrderBy (asc accountName)) (OrderBy (desc accountName)) "Account"
-              , width = shrink
-              , view = \i e -> row i e.id <| text e.account.name
-              }
+            [ T.fullStyledColumn
+                (header (OrderBy dateAsc) (OrderBy dateDesc) "Date")
+                (.date >> formatDate >> text)
+            , T.fullStyledColumn
+                (header (OrderBy (asc .amount)) (OrderBy (desc .amount)) "Amount")
+                (.amount >> formatEuro)
+            , T.fullStyledColumn
+                (header (OrderBy (asc <| .categorization >> categorizationString Full)) (OrderBy (desc <| .categorization >> categorizationString Full)) "Category")
+                (categoryCell model)
+            , T.fullStyledColumn
+                (header (OrderBy (asc .description)) (OrderBy (desc .description)) "Description")
+                (.description >> text)
+            , T.fullStyledColumn
+                (header (OrderBy (asc accountName)) (OrderBy (desc accountName)) "Account")
+                (.account >> .name >> text)
             ]
         }
 
@@ -353,13 +347,6 @@ header up down s =
             , triangleDown [ onClick down ] size.s
             ]
         ]
-
-
-row : Int -> String -> Element msg -> Element msg
-row i id element =
-    Element.Keyed.el
-        (style.row i)
-        ( id, element )
 
 
 parseCategorization : Data -> Int -> String -> CatAttempt

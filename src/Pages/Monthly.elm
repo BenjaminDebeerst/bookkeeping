@@ -2,8 +2,9 @@ module Pages.Monthly exposing (Model, Msg, page)
 
 import Components.Filter as Filter
 import Components.Layout as Layout exposing (formatEuro, size, style, updateOrRedirectOnError, viewDataOnly)
+import Components.Table as T
 import Dict exposing (Dict)
-import Element exposing (Element, IndexedColumn, column, el, indexedTable, shrink, spacing, text)
+import Element exposing (Element, IndexedColumn, column, el, indexedTable, spacing, text)
 import Gen.Params.Monthly exposing (Params)
 import Page
 import Persistence.Data exposing (Account, Category, Data)
@@ -91,17 +92,11 @@ showFilters model accounts =
 
 showData : Data -> Aggregate -> Element msg
 showData data aggregate =
-    indexedTable [ spacing size.tiny ]
+    indexedTable T.tableStyle
         { data = aggregate.rows
         , columns =
-            [ { header = el style.header <| text "Month"
-              , width = shrink
-              , view = \i e -> el (style.row i) <| text e.month
-              }
-            , { header = el style.header <| text "Balance"
-              , width = shrink
-              , view = \i e -> el (style.row i) <| formatEuro e.balance
-              }
+            [ T.textColumn "Month" .month
+            , T.styledColumn "Balance" (.balance >> formatEuro)
             ]
                 ++ categoryColumns data.categories
         }
@@ -112,8 +107,5 @@ categoryColumns categories =
     Dict.values categories
         |> List.map
             (\cat ->
-                { header = el style.header <| text cat.name
-                , width = shrink
-                , view = \i aggregate -> el (style.row i) <| (Dict.get cat.id aggregate.entries |> Maybe.withDefault 0 |> formatEuro)
-                }
+                T.styledColumn cat.name (.entries >> Dict.get cat.id >> Maybe.withDefault 0 >> formatEuro)
             )

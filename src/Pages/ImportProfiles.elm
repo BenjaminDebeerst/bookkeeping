@@ -1,6 +1,7 @@
 module Pages.ImportProfiles exposing (Model, Msg, page)
 
 import Components.Layout as Layout exposing (color, formatDate, formatEuroStr, size, style, updateOrRedirectOnError, viewDataOnly)
+import Components.Table as T
 import Dict
 import Element exposing (Element, IndexedColumn, column, el, indexedTable, none, padding, paddingXY, row, shrink, spacing, text)
 import Element.Font as Font
@@ -184,7 +185,6 @@ validateImportProfile data model =
         |> andMap (String.toInt model.dateColumn |> Result.fromMaybe "Date column is not an integer")
         |> andMap (model.descrColumns |> String.split " " |> List.map String.trim |> List.filter (not << String.isEmpty) |> List.map String.toInt |> Maybe.Extra.combine |> Result.fromMaybe "Description columns must be integers")
         |> andMap (String.toInt model.amountColumn |> Result.fromMaybe "Amount column is not an integer")
-        -- TODO implement date formats
         |> andMap (Ok model.dateFormat)
         -- TODO implement optional category parsing
         |> andMap (Ok Nothing)
@@ -303,7 +303,7 @@ showData data _ =
         text "There are no import profiles defined yet"
 
     else
-        indexedTable [ spacing size.tiny ]
+        indexedTable T.tableStyle
             { data = Dict.values data.importProfiles
             , columns =
                 [ { header = el style.header <| text "Actions"
@@ -315,18 +315,10 @@ showData data _ =
                                 , Input.button style.button { onPress = Just (Delete a), label = text "Delete" }
                                 ]
                   }
-                , tableColumn "Name" .name
-                , tableColumn "Split Char" (.splitAt >> String.fromChar)
-                , tableColumn "Date Field" (.dateField >> String.fromInt)
-                , tableColumn "Amount Field" (.amountField >> String.fromInt)
-                , tableColumn "Description Fields" (.descrFields >> List.map String.fromInt >> String.join " ")
+                , T.textColumn "Name" .name
+                , T.textColumn "Split Char" (.splitAt >> String.fromChar)
+                , T.textColumn "Date Field" (.dateField >> String.fromInt)
+                , T.textColumn "Amount Field" (.amountField >> String.fromInt)
+                , T.textColumn "Description Fields" (.descrFields >> List.map String.fromInt >> String.join " ")
                 ]
             }
-
-
-tableColumn : String -> (record -> String) -> IndexedColumn record msg
-tableColumn title textFromRow =
-    { header = el style.header <| text title
-    , width = shrink
-    , view = \i e -> el (style.row i) <| text <| textFromRow e
-    }

@@ -1,8 +1,9 @@
 module Pages.Accounts exposing (Model, Msg, page)
 
-import Components.Layout as Layout exposing (color, formatEuro, size, style, updateOrRedirectOnError, viewDataOnly)
+import Components.Layout as Layout exposing (color, formatEuro, style, updateOrRedirectOnError, viewDataOnly)
+import Components.Table as T
 import Dict
-import Element exposing (Element, column, el, shrink, spacing, table, text)
+import Element exposing (Element, column, el, indexedTable, text)
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, placeholder)
 import Gen.Params.Accounts exposing (Params)
@@ -174,24 +175,12 @@ showData data _ =
         text "There are no accounts defined yet"
 
     else
-        table [ spacing size.s ]
+        indexedTable T.tableStyle
             { data = Dict.values data.accounts
             , columns =
-                [ { header = text "Id"
-                  , width = shrink
-                  , view = \a -> text <| String.fromInt a.id
-                  }
-                , { header = text "Name"
-                  , width = shrink
-                  , view = \a -> text <| a.name
-                  }
-                , { header = text "Starting Month"
-                  , width = shrink
-                  , view = \a -> text <| String.fromInt a.start.year ++ "/" ++ String.fromInt a.start.month
-                  }
-                , { header = text "Starting Balance"
-                  , width = shrink
-                  , view = \a -> formatEuro a.start.amount
-                  }
+                [ T.textColumn "Id" (.id >> String.fromInt)
+                , T.textColumn "Name" .name
+                , T.textColumn "Starting Month" (\a -> String.fromInt a.start.year ++ "/" ++ String.fromInt a.start.month)
+                , T.styledColumn "Starting Balance" (.start >> .amount >> formatEuro)
                 ]
             }
