@@ -13,11 +13,11 @@ import Gen.Params.ImportFile exposing (Params)
 import Html.Events exposing (preventDefaultOn)
 import Json.Decode as D
 import Page
-import Persistence.Data exposing (Account, Data, ImportProfile, RawEntry, rawEntry)
+import Persistence.Data as Shared exposing (Account, Data, ImportProfile, RawEntry, rawEntry)
 import Persistence.Storage as Storage
 import Processing.CsvParser as CsvParser
 import Request
-import Shared
+import Shared exposing (Model(..))
 import Task exposing (Task)
 import View exposing (View)
 
@@ -25,7 +25,7 @@ import View exposing (View)
 page : Shared.Model -> Request.With Params -> Page.With Model Msg
 page shared req =
     Page.element
-        { init = ( initModel, Cmd.none )
+        { init = ( initModel shared, Cmd.none )
         , update = updateOrRedirectOnError shared req update
         , view = viewDataOnly shared view
         , subscriptions = \_ -> Sub.none
@@ -52,9 +52,28 @@ type alias Model =
     }
 
 
-initModel : Model
-initModel =
-    Model Pick Nothing Nothing Nothing Nothing
+initModel : Shared.Model -> Model
+initModel shared =
+    let
+        db =
+            Shared.justData shared
+
+        acc =
+            db |> Maybe.andThen (\d -> selectIfUnique d .accounts)
+
+        profile =
+            db |> Maybe.andThen (\d -> selectIfUnique d .importProfiles)
+    in
+    Model Pick Nothing Nothing profile acc
+
+
+selectIfUnique : Shared.Data -> (Shared.Data -> Dict a b) -> Maybe b
+selectIfUnique data accessor =
+    if Dict.size (accessor data) == 1 then
+        accessor data |> Dict.values |> List.head
+
+    else
+        Nothing
 
 
 
@@ -129,8 +148,11 @@ update data msg model =
 
                 newData =
                     data |> Storage.addEntries newEntries
+
+                newModel =
+                    initModel (Loaded data)
             in
-            ( { initModel | state = Stored (List.length newEntries) }
+            ( { newModel | state = Stored (List.length newEntries) }
             , Storage.store newData
             )
 

@@ -3,6 +3,7 @@ module Shared exposing
     , Model(..)
     , Msg
     , init
+    , justData
     , subscriptions
     , update
     )
@@ -24,6 +25,16 @@ type Model
 
 type alias Msg =
     Model
+
+
+justData : Model -> Maybe Data
+justData model =
+    case model of
+        Loaded data ->
+            Just data
+
+        Problem _ ->
+            Nothing
 
 
 init : Request -> Flags -> ( Model, Cmd Msg )
