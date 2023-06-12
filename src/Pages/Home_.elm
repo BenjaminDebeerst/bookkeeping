@@ -47,6 +47,7 @@ type Msg
     = TextInput String
     | LoadData
     | StartFromScratch
+    | TruncateBook
     | SaveData
 
 
@@ -65,6 +66,14 @@ update sharedModel msg model =
 
         StartFromScratch ->
             ( emptyModel, Storage.truncate )
+
+        TruncateBook ->
+            case sharedModel of
+                Loaded data ->
+                    ( model, { data | rawEntries = Dict.empty } |> Storage.store )
+
+                Problem _ ->
+                    ( { model | dbString = Nothing }, Cmd.none )
 
         SaveData ->
             case sharedModel of
@@ -107,6 +116,10 @@ showDataSummary data model =
     , Input.button Layout.style.button
         { onPress = Just StartFromScratch
         , label = text "Start with a clean slate (delete the current DB)"
+        }
+    , Input.button Layout.style.button
+        { onPress = Just TruncateBook
+        , label = text "Delete all imported book entries (and their categorizations)"
         }
     , Input.button Layout.style.button
         { onPress = Just SaveData
