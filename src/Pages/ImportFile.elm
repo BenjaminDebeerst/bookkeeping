@@ -1,6 +1,7 @@
 module Pages.ImportFile exposing (Model, Msg, page)
 
 import Components.Layout as Layout exposing (formatDate, formatEuro, size, style, updateOrRedirectOnError, viewDataOnly)
+import Components.Table as T
 import Csv.Decode as Decode
 import Dict exposing (Dict)
 import Element exposing (Attribute, Element, centerX, centerY, el, fill, height, indexedTable, paddingEach, paddingXY, shrink, spacing, table, text, width)
@@ -182,7 +183,7 @@ viewImportSelectors data model =
     [ Input.radioRow []
         { onChange = ChooseImportProfile
         , selected = model.importProfile
-        , label = Input.labelLeft [ paddingXY size.m 0 ] <| text "Choose import profile"
+        , label = Input.labelLeft [ paddingXY size.m 0 ] <| text "Choose import profile: "
         , options =
             Dict.values data.importProfiles
                 |> List.map
@@ -193,7 +194,7 @@ viewImportSelectors data model =
     , Input.radioRow []
         { onChange = ChooseAccount
         , selected = model.account
-        , label = Input.labelLeft [ paddingXY size.m 0 ] <| text "Choose account"
+        , label = Input.labelLeft [ paddingXY size.m 0 ] <| text "Choose account: "
         , options =
             Dict.values data.accounts
                 |> List.map
@@ -210,7 +211,6 @@ viewImportSelectors data model =
 
 viewFilePicker : Data -> Model -> List (Element Msg)
 viewFilePicker data model =
-    --column [ width fill, height fill, spacing Layout.size.m ]
     showStoreConfirmation model.state
         ++ viewImportSelectors data model
         ++ [ el
@@ -280,25 +280,16 @@ viewFileData model csvFileContent =
                 []
 
             else
-                [ text <| "The following " ++ String.fromInt n ++ " rows were successfully parsed: "
-                , indexedTable [ spacing size.xs ]
+                [ Input.button style.button { onPress = Just Store, label = text "Import Data" }
+                , text <| "The following " ++ String.fromInt n ++ " rows were successfully parsed: "
+                , indexedTable T.tableStyle
                     { data = rows
                     , columns =
-                        [ { header = text "Date"
-                          , width = shrink
-                          , view = \i e -> textCell i <| formatDate e.date
-                          }
-                        , { header = text "Amount"
-                          , width = shrink
-                          , view = \i e -> formatEuro (cellstyle i) <| e.amount
-                          }
-                        , { header = text "Description"
-                          , width = shrink
-                          , view = \i e -> textCell i <| e.description
-                          }
+                        [ T.textColumn "Date" (.date >> formatDate)
+                        , T.styledColumn "Amount" (.amount >> formatEuro [])
+                        , T.textColumn "Description" .description
                         ]
                     }
-                , Input.button style.button { onPress = Just Store, label = text "Import Data" }
                 ]
 
         Just (Err errors) ->
@@ -323,23 +314,3 @@ viewFileData model csvFileContent =
                     ]
                 }
             ]
-
-
-
---unreadableData : Model -> List (Element Msg)
---unreadableData model =
---
---
---
---readableData : Model -> List (Element Msg)
---readableData model =
---
-
-
-textCell i s =
-    el (cellstyle i) <| text s
-
-
-cellstyle : Int -> List (Attribute msg)
-cellstyle _ =
-    [ paddingXY 0 size.s ]
