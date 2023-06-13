@@ -1,10 +1,11 @@
 module Pages.ImportFile exposing (Model, Msg, page)
 
-import Components.Layout as Layout exposing (formatDate, formatEuro, size, style, updateOrRedirectOnError, viewDataOnly)
+import Components.Icons exposing (copy, database, warnTriangle)
+import Components.Layout as Layout exposing (color, formatDate, formatEuro, size, style, tooltip, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
 import Csv.Decode as Decode
 import Dict exposing (Dict)
-import Element exposing (Attribute, Element, centerX, centerY, el, fill, height, indexedTable, paddingEach, paddingXY, shrink, spacing, table, text, width)
+import Element exposing (Attribute, Element, below, centerX, centerY, el, fill, height, indexedTable, padding, paddingEach, paddingXY, row, shrink, spacing, table, text, width)
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
@@ -13,10 +14,11 @@ import File.Select as Select
 import Gen.Params.ImportFile exposing (Params)
 import Html.Events exposing (preventDefaultOn)
 import Json.Decode as D
+import Maybe.Extra
 import Page
-import Persistence.Data as Shared exposing (Account, Data, ImportProfile, RawEntry, rawEntry)
+import Persistence.Data as Shared exposing (Account, Data, ImportProfile, RawEntry, rawEntry, sha1)
 import Persistence.Storage as Storage
-import Processing.CsvParser as CsvParser
+import Processing.CsvParser as CsvParser exposing (ParsedRow)
 import Request
 import Shared exposing (Model(..))
 import Task exposing (Task)
@@ -89,6 +91,7 @@ type Msg
     | GotFile String String
     | ChooseImportProfile ImportProfile
     | ChooseAccount Account
+    | Abort
     | Store
 
 
@@ -117,6 +120,9 @@ update data msg model =
 
         ChooseAccount account ->
             ( { model | account = Just account }, Cmd.none )
+
+        Abort ->
+            ( initModel (Loaded data), Cmd.none )
 
         Store ->
             let
@@ -262,55 +268,187 @@ viewFileContents : Data -> Model -> String -> List (Element Msg)
 viewFileContents data model content =
     [ el [ Font.size size.m ] <| text ("Importing file: " ++ Maybe.withDefault "None" model.fileName) ]
         ++ viewImportSelectors data model
-        ++ viewFileData model content
+        ++ viewFileData data.rawEntries model content
 
 
-viewFileData : Model -> String -> List (Element Msg)
-viewFileData model csvFileContent =
+viewFileData : Dict String RawEntry -> Model -> String -> List (Element Msg)
+viewFileData existingEntries model csvFileContent =
     case model.importProfile |> Maybe.map (\p -> CsvParser.parse p csvFileContent) of
         Nothing ->
             [ text "Choose an import profile" ]
 
         Just (Ok rows) ->
-            let
-                n =
-                    List.length rows
-            in
-            if n == 0 then
+            showParsingSuccess rows existingEntries
+
+        Just (Err errors) ->
+            showParsingErrors csvFileContent errors
+
+
+showParsingErrors csvFileContent errors =
+    let
+        rows =
+            csvFileContent
+                |> String.split "\n"
+                |> List.map String.trim
+                |> List.take 5
+    in
+    [ errors
+        |> Decode.errorToString
+        |> text
+    , text "This is how the first few rows in the CSV look like:"
+    , table [ spacing size.xs ]
+        { data = rows
+        , columns =
+            [ { header = Element.none
+              , width = shrink
+              , view = \line -> el [ Font.size Layout.size.m ] <| text line
+              }
+            ]
+        }
+    ]
+
+
+showParsingSuccess : List ParsedRow -> Dict String RawEntry -> List (Element Msg)
+showParsingSuccess rows existing =
+    let
+        n =
+            List.length rows
+
+        duplicates =
+            findDuplicateRows rows
+
+        ( annotatedRows, overlap ) =
+            annotateRows rows duplicates existing
+
+        existingEntriesWarning =
+            if overlap == 0 then
                 []
 
             else
-                [ Input.button style.button { onPress = Just Store, label = text "Import Data" }
-                , text <| "The following " ++ String.fromInt n ++ " rows were successfully parsed: "
-                , indexedTable T.tableStyle
-                    { data = rows
-                    , columns =
-                        [ T.textColumn "Date" (.date >> formatDate)
-                        , T.styledColumn "Amount" (.amount >> formatEuro)
-                        , T.textColumn "Description" .description
-                        ]
-                    }
+                [ row []
+                    [ warnTriangle [ padding size.xs, Font.color color.red ] size.l
+                    , text <| "This CSV contains " ++ String.fromInt overlap ++ " rows that have already been imported."
+                    ]
                 ]
 
-        Just (Err errors) ->
-            let
-                rows =
-                    csvFileContent
-                        |> String.split "\n"
-                        |> List.map String.trim
-                        |> List.take 5
-            in
-            [ errors
-                |> Decode.errorToString
-                |> text
-            , text "This is how the first few rows in the CSV look like:"
-            , table [ spacing size.xs ]
-                { data = rows
-                , columns =
-                    [ { header = Element.none
-                      , width = shrink
-                      , view = \line -> el [ Font.size Layout.size.m ] <| text line
-                      }
+        duplicatesWarning =
+            if Dict.size duplicates == 0 then
+                []
+
+            else
+                [ row []
+                    [ warnTriangle [ padding size.xs, Font.color color.red ] size.l
+                    , text <| "This CSV contains " ++ (String.fromInt <| Dict.size duplicates) ++ " distinct duplicated rows. Duplicate rows will be imported only once. Does your CSV really contain duplicates? Or are individual bank statements not sufficiently distinct?"
                     ]
-                }
+                ]
+    in
+    if n == 0 then
+        [ text "The CSV file was empty. There's nothing to do." ]
+
+    else
+        existingEntriesWarning
+            ++ duplicatesWarning
+            ++ [ row [ spacing size.s ]
+                    [ Input.button style.button { onPress = Just Abort, label = text "Abort" }
+                    , Input.button style.button { onPress = Just Store, label = text "Import Data" }
+                    ]
+               , text <| "Parsed " ++ String.fromInt n ++ " rows. "
+               , indexedTable T.tableStyle
+                    { data = annotatedRows
+                    , columns =
+                        [ T.styledColumn "Info" <| annotations
+                        , T.textColumn "Date" (.parsedRow >> .date >> formatDate)
+                        , T.styledColumn "Amount" (.parsedRow >> .amount >> formatEuro)
+                        , T.textColumn "Description" (.parsedRow >> .description)
+                        ]
+                    }
+               ]
+
+
+annotations : AnnotatedRow -> Element msg
+annotations annotatedRow =
+    let
+        ants =
+            [ if annotatedRow.duplicates > 1 then
+                Just <|
+                    copy
+                        [ Font.color color.black
+                        , tooltip below ("This row was found " ++ String.fromInt annotatedRow.duplicates ++ " times.")
+                        ]
+                        size.m
+
+              else
+                Nothing
+            , if annotatedRow.alreadyImported then
+                Just
+                    (database
+                        [ Font.color color.black
+                        , tooltip below "This row is already present in the DB."
+                        ]
+                        size.m
+                    )
+
+              else
+                Nothing
             ]
+                |> Maybe.Extra.values
+    in
+    row [] ants
+
+
+type alias AnnotatedRow =
+    { parsedRow : ParsedRow
+    , duplicates : Int
+    , alreadyImported : Bool
+    }
+
+
+annotateRows : List ParsedRow -> Dict String Int -> Dict String RawEntry -> ( List AnnotatedRow, Int )
+annotateRows parsedRows duplicates dbEntries =
+    let
+        ( annotatedRows, existingN ) =
+            List.foldr
+                (\row ( rows, n ) ->
+                    let
+                        rowId =
+                            sha1 row.rawLine
+
+                        exists =
+                            Dict.member rowId dbEntries
+
+                        m =
+                            if exists then
+                                n + 1
+
+                            else
+                                n
+
+                        dups =
+                            Dict.get rowId duplicates |> Maybe.withDefault 1
+                    in
+                    ( AnnotatedRow row dups exists :: rows, m )
+                )
+                ( [], 0 )
+                parsedRows
+    in
+    ( annotatedRows, existingN )
+
+
+findDuplicateRows : List ParsedRow -> Dict String Int
+findDuplicateRows parsedRows =
+    parsedRows
+        |> List.foldl
+            (\row dict ->
+                Dict.update (sha1 row.rawLine)
+                    (\val ->
+                        case val of
+                            Just i ->
+                                Just (i + 1)
+
+                            Nothing ->
+                                Just 1
+                    )
+                    dict
+            )
+            Dict.empty
+        |> Dict.filter (\_ v -> v > 1)
