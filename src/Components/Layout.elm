@@ -179,17 +179,20 @@ tooltip usher tooltipContent =
             , transparent True
             , mouseOver [ transparent False ]
             , (usher << Element.map never) <|
-                el
-                    [ htmlAttribute (Html.Attributes.style "pointerEvents" "none")
-                    , Background.color color.black
-                    , Font.color color.white
-                    , padding size.s
-                    , Border.rounded size.xs
-                    , Font.size size.m
-                    , Border.shadow
-                        { offset = ( 0, size.xs ), blur = size.s, size = 0, color = rgba 0 0 0 0.32 }
+                column []
+                    [ el [ padding size.xxs ] Element.none -- a little spacer so the tooltip doesn't stick directly to the element
+                    , el
+                        [ htmlAttribute (Html.Attributes.style "pointerEvents" "none")
+                        , Background.color color.black
+                        , Font.color color.white
+                        , padding size.s
+                        , Border.rounded size.xs
+                        , Font.size size.m
+                        , Border.shadow
+                            { offset = ( 0, size.xs ), blur = size.s, size = 0, color = rgba 0 0 0 0.32 }
+                        ]
+                        (text tooltipContent)
                     ]
-                    (text tooltipContent)
             ]
             none
 
