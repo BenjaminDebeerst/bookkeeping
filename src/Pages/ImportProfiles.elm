@@ -59,15 +59,6 @@ init =
 
 
 -- UPDATE
---{ id : Int
---, name : String
---, splitAt : Char
---, dateField : Int
---, descrFields : List Int
---, amountField : Int
---, dateFormat : String
---, categoryField : Maybe Int
---}
 
 
 type Msg
@@ -129,6 +120,7 @@ update data msg model =
                 , dateFormat = p.dateFormat
                 , descrColumns = p.descrFields |> List.map String.fromInt |> String.join " "
                 , amountColumn = String.fromInt p.amountField
+                , categoryColumn = p.categoryField |> Maybe.map String.fromInt |> Maybe.withDefault ""
               }
             , Cmd.none
             )
@@ -186,8 +178,13 @@ validateImportProfile data model =
         |> andMap (model.descrColumns |> String.split " " |> List.map String.trim |> List.filter (not << String.isEmpty) |> List.map String.toInt |> Maybe.Extra.combine |> Result.fromMaybe "Description columns must be integers")
         |> andMap (String.toInt model.amountColumn |> Result.fromMaybe "Amount column is not an integer")
         |> andMap (Ok model.dateFormat)
-        -- TODO implement optional category parsing
-        |> andMap (Ok Nothing)
+        |> andMap
+            (if String.isEmpty <| String.trim model.categoryColumn then
+                Ok Nothing
+
+             else
+                String.toInt model.categoryColumn |> Result.fromMaybe "Category column is not an integer" |> Result.map Just
+            )
 
 
 
@@ -256,6 +253,7 @@ form data model =
         }
     , textInput EditAmountColumn model.amountColumn "Amount Column"
     , textInput EditDescrColumns model.descrColumns "Description Columns"
+    , textInput EditCategoryColumn model.categoryColumn "Category Column (optional)"
     ]
 
 
@@ -274,7 +272,13 @@ testArea data model =
         in
         case result of
             Ok a ->
-                text (String.join ", " [ formatDate a.date, formatEuroStr a.amount, a.description ])
+                column [ paddingXY size.m 0, spacing size.m ]
+                    [ text "Parsing result:"
+                    , text <| "Date: " ++ formatDate a.date
+                    , text <| "Amount: " ++ formatEuroStr a.amount
+                    , text <| "Description: " ++ a.description
+                    , text <| "Category: " ++ (a.category |> Maybe.withDefault "none")
+                    ]
 
             Err message ->
                 el [ paddingXY size.m 0, Font.color color.red ] (text message)
@@ -320,5 +324,6 @@ showData data _ =
                 , T.textColumn "Date Field" (.dateField >> String.fromInt)
                 , T.textColumn "Amount Field" (.amountField >> String.fromInt)
                 , T.textColumn "Description Fields" (.descrFields >> List.map String.fromInt >> String.join " ")
+                , T.textColumn "Category Field" (.categoryField >> Maybe.map String.fromInt >> Maybe.withDefault "none")
                 ]
             }
