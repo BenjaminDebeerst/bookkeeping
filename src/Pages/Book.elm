@@ -96,7 +96,7 @@ update data msg model =
             ( { model | editCategories = False }, Cmd.none )
 
         EditCategory id amount cat ->
-            ( { model | categoryEdits = Dict.insert id (parseCategorization data amount cat) model.categoryEdits }, Cmd.none )
+            ( { model | categoryEdits = Dict.insert id (parseCategorization data amount (String.toUpper cat)) model.categoryEdits }, Cmd.none )
 
         SaveCategories ->
             let

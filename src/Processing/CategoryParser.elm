@@ -64,8 +64,8 @@ tupleParserHelper tuples =
 categoryShortName : Parser String
 categoryShortName =
     Parser.variable
-        { start = Char.isAlpha
-        , inner = Char.isAlphaNum
+        { start = Char.isUpper
+        , inner = \c -> Char.isUpper c || Char.isDigit c
         , reserved = Set.empty
         }
 

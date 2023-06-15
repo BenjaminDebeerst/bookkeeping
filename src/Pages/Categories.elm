@@ -82,7 +82,7 @@ update data msg model =
             ( { model | name = name }, Cmd.none )
 
         EditShort short ->
-            ( { model | short = short }, Cmd.none )
+            ( { model | short = String.toUpper short }, Cmd.none )
 
         EditExisting cat ->
             ( { model | editing = Existing cat, short = cat.short, name = cat.name }, Cmd.none )
@@ -150,7 +150,7 @@ validateCategory data m =
 
          else
             Parser.run categoryShortNameOnly m.short
-                |> Result.mapError (\_ -> "Short name must start with a letter and be alphanumeric only")
+                |> Result.mapError (\_ -> "Short name must start with a letter and be uppercase alphanumeric only")
                 |> Result.andThen
                     (\validShort ->
                         case getCategoryByShort (Dict.values data.categories) validShort of
@@ -216,7 +216,7 @@ editArea data model =
                     { onChange = EditShort
                     , text = model.short
                     , placeholder = Just <| placeholder [] <| text "Short input name"
-                    , label = labelLeft [ paddingXY size.m 0 ] <| text "Short name"
+                    , label = labelLeft [ paddingXY size.m 0 ] <| text "Short name (uppercase alphanum)"
                     }
                 , button style.button { onPress = Just Save, label = text "Save" }
                 , button style.button { onPress = Just Abort, label = text "Abort" }
