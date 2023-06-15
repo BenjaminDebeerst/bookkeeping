@@ -57,8 +57,8 @@ type alias AccountStart =
     { amount : Int, year : Int, month : Int }
 
 
-rawEntry : Int -> Int -> String -> Date -> Int -> String -> RawEntry
-rawEntry accountId profileId line date amount description =
+rawEntry : Int -> Int -> String -> Date -> Int -> String -> Maybe Category -> RawEntry
+rawEntry accountId profileId line date amount description category =
     { id = sha1 line
     , line = line
     , date = date
@@ -66,7 +66,7 @@ rawEntry accountId profileId line date amount description =
     , description = description
     , accountId = accountId
     , importProfile = profileId
-    , categorization = Nothing
+    , categorization = Maybe.map (.id >> Single) category
     }
 
 

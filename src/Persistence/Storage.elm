@@ -1,5 +1,6 @@
 port module Persistence.Storage exposing
     ( addAccount
+    , addCategories
     , addCategory
     , addEntries
     , addImportProfile
@@ -55,6 +56,11 @@ addEntries lines data =
             List.map (\e -> ( e.id, e )) lines |> Dict.fromList
     in
     { data | rawEntries = Dict.union newEntries data.rawEntries }
+
+
+addCategories : List Category -> Data -> Data
+addCategories categories data =
+    List.foldl addCategory data categories
 
 
 addCategory : Category -> Data -> Data

@@ -1,11 +1,11 @@
 module Pages.ImportFile exposing (Model, Msg, page)
 
-import Components.Icons exposing (copy, database, warnTriangle)
+import Components.Icons exposing (checkMark, copy, database, folderPlus, warnTriangle)
 import Components.Layout as Layout exposing (color, formatDate, formatEuro, size, style, tooltip, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
 import Csv.Decode as Decode
 import Dict exposing (Dict)
-import Element exposing (Attribute, Element, below, centerX, centerY, el, fill, height, indexedTable, padding, paddingEach, paddingXY, row, shrink, spacing, table, text, width)
+import Element exposing (Attribute, Element, IndexedColumn, alignLeft, alignRight, below, centerX, centerY, el, fill, height, indexedTable, padding, paddingEach, paddingXY, row, shrink, spacing, table, text, width)
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
@@ -14,11 +14,15 @@ import File.Select as Select
 import Gen.Params.ImportFile exposing (Params)
 import Html.Events exposing (preventDefaultOn)
 import Json.Decode as D
+import List.Extra
 import Maybe.Extra
 import Page
-import Persistence.Data as Shared exposing (Account, Data, ImportProfile, RawEntry, rawEntry, sha1)
+import Parser
+import Persistence.Data as Shared exposing (Account, Category, Data, ImportProfile, RawEntry, rawEntry, sha1)
 import Persistence.Storage as Storage
+import Processing.CategoryParser exposing (categoryShortNameOnly)
 import Processing.CsvParser as CsvParser exposing (ParsedRow)
+import Processing.Model exposing (getCategoryByShort)
 import Request
 import Shared exposing (Model(..))
 import Task exposing (Task)
@@ -92,7 +96,7 @@ type Msg
     | ChooseImportProfile ImportProfile
     | ChooseAccount Account
     | Abort
-    | Store
+    | Store ImportProfile (List String) (List AnnotatedRow)
 
 
 update : Data -> Msg -> Model -> ( Model, Cmd Msg )
@@ -124,44 +128,45 @@ update data msg model =
         Abort ->
             ( initModel (Loaded data), Cmd.none )
 
-        Store ->
-            let
-                newEntries =
-                    case
-                        Maybe.map3
-                            (\acc profile content -> ( acc, profile, CsvParser.parse profile content ))
-                            model.account
-                            model.importProfile
-                            model.fileContents
-                    of
-                        Nothing ->
-                            []
+        Store profile newCats newRows ->
+            case model.account of
+                Nothing ->
+                    ( model, Cmd.none )
 
-                        Just ( _, _, Err _ ) ->
-                            []
+                Just selectedAccount ->
+                    let
+                        dataWithNewCategories =
+                            newCats
+                                |> List.map (\short -> Category 0 (short ++ " (auto)") short)
+                                |> (\cs -> Storage.addCategories cs data)
 
-                        Just ( account, profile, Ok lines ) ->
-                            lines
+                        categories =
+                            Dict.values dataWithNewCategories.categories
+
+                        newEntries =
+                            newRows
+                                |> List.map .parsedRow
                                 |> List.map
                                     (\row ->
                                         rawEntry
-                                            account.id
+                                            selectedAccount.id
                                             profile.id
                                             row.rawLine
                                             row.date
                                             row.amount
                                             row.description
+                                            (Maybe.andThen (getCategoryByShort categories) row.category)
                                     )
 
-                newData =
-                    data |> Storage.addEntries newEntries
+                        newData =
+                            dataWithNewCategories |> Storage.addEntries newEntries
 
-                newModel =
-                    initModel (Loaded data)
-            in
-            ( { newModel | state = Stored (List.length newEntries) }
-            , Storage.store newData
-            )
+                        newModel =
+                            initModel (Loaded data)
+                    in
+                    ( { newModel | state = Stored (List.length newEntries) }
+                    , Storage.store newData
+                    )
 
 
 readFile : File -> Cmd Msg
@@ -268,19 +273,27 @@ viewFileContents : Data -> Model -> String -> List (Element Msg)
 viewFileContents data model content =
     [ el [ Font.size size.m ] <| text ("Importing file: " ++ Maybe.withDefault "None" model.fileName) ]
         ++ viewImportSelectors data model
-        ++ viewFileData data.rawEntries model content
+        ++ viewFileData
+            (\s -> Dict.member s data.rawEntries)
+            (getCategoryByShort (Dict.values data.categories))
+            model.importProfile
+            content
 
 
-viewFileData : Dict String RawEntry -> Model -> String -> List (Element Msg)
-viewFileData existingEntries model csvFileContent =
-    case model.importProfile |> Maybe.map (\p -> CsvParser.parse p csvFileContent) of
+viewFileData : (String -> Bool) -> (String -> Maybe Category) -> Maybe ImportProfile -> String -> List (Element Msg)
+viewFileData entryIdExists findCategory importProfile csvFileContent =
+    case importProfile |> Maybe.map (\p -> ( p, CsvParser.parse p csvFileContent )) of
         Nothing ->
             [ text "Choose an import profile" ]
 
-        Just (Ok rows) ->
-            showParsingSuccess rows existingEntries
+        Just ( profile, Ok rows ) ->
+            showParsingSuccess
+                profile
+                rows
+                entryIdExists
+                findCategory
 
-        Just (Err errors) ->
+        Just ( _, Err errors ) ->
             showParsingErrors csvFileContent errors
 
 
@@ -296,20 +309,15 @@ showParsingErrors csvFileContent errors =
         |> Decode.errorToString
         |> text
     , text "This is how the first few rows in the CSV look like:"
-    , table [ spacing size.xs ]
+    , indexedTable T.tableStyle
         { data = rows
-        , columns =
-            [ { header = Element.none
-              , width = shrink
-              , view = \line -> el [ Font.size Layout.size.m ] <| text line
-              }
-            ]
+        , columns = [ T.fullStyledColumn Element.none (el [ Font.size Layout.size.m ] << text) ]
         }
     ]
 
 
-showParsingSuccess : List ParsedRow -> Dict String RawEntry -> List (Element Msg)
-showParsingSuccess rows existing =
+showParsingSuccess : ImportProfile -> List ParsedRow -> (String -> Bool) -> (String -> Maybe Category) -> List (Element Msg)
+showParsingSuccess profile rows entryIdExists findCategory =
     let
         n =
             List.length rows
@@ -318,7 +326,7 @@ showParsingSuccess rows existing =
             findDuplicateRows rows
 
         ( annotatedRows, overlap ) =
-            annotateRows rows duplicates existing
+            annotateRows rows duplicates entryIdExists findCategory
 
         existingEntriesWarning =
             if overlap == 0 then
@@ -341,6 +349,25 @@ showParsingSuccess rows existing =
                     , text <| "This CSV contains " ++ (String.fromInt <| Dict.size duplicates) ++ " distinct duplicated rows. Duplicate rows will be imported only once. Does your CSV really contain duplicates? Or are individual bank statements not sufficiently distinct?"
                     ]
                 ]
+
+        newCategories =
+            annotatedRows
+                |> List.Extra.uniqueBy (.parsedRow >> .category)
+                |> List.filter (.category >> Maybe.Extra.isNothing)
+                |> List.map (.parsedRow >> .category)
+                |> Maybe.Extra.values
+                |> List.sort
+
+        categoryCreationWarning =
+            if List.length newCategories == 0 then
+                []
+
+            else
+                [ row []
+                    [ warnTriangle [ padding size.xs, Font.color color.red ] size.l
+                    , text <| (String.fromInt <| List.length newCategories) ++ " yet unknown categories were found in the CSV. They shall be created upon import: " ++ String.join ", " newCategories
+                    ]
+                ]
     in
     if n == 0 then
         [ text "The CSV file was empty. There's nothing to do." ]
@@ -348,9 +375,10 @@ showParsingSuccess rows existing =
     else
         existingEntriesWarning
             ++ duplicatesWarning
+            ++ categoryCreationWarning
             ++ [ row [ spacing size.s ]
                     [ Input.button style.button { onPress = Just Abort, label = text "Abort" }
-                    , Input.button style.button { onPress = Just Store, label = text "Import Data" }
+                    , Input.button style.button { onPress = Just (Store profile newCategories annotatedRows), label = text "Import Data" }
                     ]
                , text <| "Parsed " ++ String.fromInt n ++ " rows. "
                , indexedTable T.tableStyle
@@ -359,8 +387,9 @@ showParsingSuccess rows existing =
                         [ T.styledColumn "Info" <| annotations
                         , T.textColumn "Date" (.parsedRow >> .date >> formatDate)
                         , T.styledColumn "Amount" (.parsedRow >> .amount >> formatEuro)
-                        , T.textColumn "Description" (.parsedRow >> .description)
                         ]
+                            ++ categoryColumn (Maybe.Extra.isJust profile.categoryField)
+                            ++ [ T.textColumn "Description" (.parsedRow >> .description) ]
                     }
                ]
 
@@ -400,11 +429,12 @@ type alias AnnotatedRow =
     { parsedRow : ParsedRow
     , duplicates : Int
     , alreadyImported : Bool
+    , category : Maybe Category
     }
 
 
-annotateRows : List ParsedRow -> Dict String Int -> Dict String RawEntry -> ( List AnnotatedRow, Int )
-annotateRows parsedRows duplicates dbEntries =
+annotateRows : List ParsedRow -> Dict String Int -> (String -> Bool) -> (String -> Maybe Category) -> ( List AnnotatedRow, Int )
+annotateRows parsedRows duplicates entryIdExists categoryLookup =
     let
         ( annotatedRows, existingN ) =
             List.foldr
@@ -414,7 +444,7 @@ annotateRows parsedRows duplicates dbEntries =
                             sha1 row.rawLine
 
                         exists =
-                            Dict.member rowId dbEntries
+                            entryIdExists rowId
 
                         m =
                             if exists then
@@ -425,8 +455,13 @@ annotateRows parsedRows duplicates dbEntries =
 
                         dups =
                             Dict.get rowId duplicates |> Maybe.withDefault 1
+
+                        cat =
+                            row.category
+                                |> Maybe.map String.trim
+                                |> Maybe.andThen categoryLookup
                     in
-                    ( AnnotatedRow row dups exists :: rows, m )
+                    ( AnnotatedRow row dups exists cat :: rows, m )
                 )
                 ( [], 0 )
                 parsedRows
@@ -452,3 +487,44 @@ findDuplicateRows parsedRows =
             )
             Dict.empty
         |> Dict.filter (\_ v -> v > 1)
+
+
+categoryColumn : Bool -> List (IndexedColumn AnnotatedRow msg)
+categoryColumn show =
+    if not show then
+        []
+
+    else
+        [ T.styledColumn "Category"
+            (\annotatedRow ->
+                case annotatedRow.category of
+                    Nothing ->
+                        case annotatedRow.parsedRow.category of
+                            Nothing ->
+                                Element.none
+
+                            Just newCat ->
+                                if String.trim newCat == "" then
+                                    Element.none
+
+                                else
+                                    case Parser.run categoryShortNameOnly newCat of
+                                        Ok validShortName ->
+                                            row [ width fill ]
+                                                [ el [ alignLeft ] <| text validShortName
+                                                , folderPlus [ padding 0, Font.color color.darkAccent, alignRight, tooltip below "New category, will be created upon import" ] size.m
+                                                ]
+
+                                        Err _ ->
+                                            row [ width fill ]
+                                                [ el [ alignLeft ] <| text newCat
+                                                , warnTriangle [ padding 0, Font.color color.red, alignRight, tooltip below <| "Cannot create category, invalid category shortname." ] size.m
+                                                ]
+
+                    Just c ->
+                        row [ width fill ]
+                            [ el [ alignLeft ] <| text c.name
+                            , checkMark [ padding 0, Font.color color.darkAccent, alignRight, tooltip below "Known Category" ] size.m
+                            ]
+            )
+        ]
