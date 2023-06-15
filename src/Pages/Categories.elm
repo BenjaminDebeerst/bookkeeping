@@ -7,12 +7,11 @@ import Element exposing (Element, column, el, indexedTable, paddingXY, row, spac
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelLeft, placeholder)
 import Gen.Params.Accounts exposing (Params)
-import Maybe.Extra
 import Page
 import Parser exposing (DeadEnd)
 import Persistence.Data exposing (Category, Data)
 import Persistence.Storage as Storage
-import Processing.CategoryParser exposing (categoryShortName)
+import Processing.CategoryParser exposing (categoryShortNameOnly)
 import Processing.Filter exposing (filterCategory)
 import Processing.Model exposing (getCategoryByShort, getEntries)
 import Processing.Ordering exposing (dateAsc)
@@ -146,15 +145,21 @@ validateCategory data m =
         (if String.isEmpty m.short then
             Err "Short name for category is empty!"
 
-         else if String.length m.short > String.length m.name then
+         else if String.length (String.trim m.short) > String.length m.name then
             Err "Short name for category is longer than name o.O!"
 
-         else if Maybe.Extra.isJust (getCategoryByShort (Dict.values data.categories) m.short) then
-            Err "Short name already used!"
-
          else
-            Parser.run categoryShortName m.short
+            Parser.run categoryShortNameOnly m.short
                 |> Result.mapError (\_ -> "Short name must start with a letter and be alphanumeric only")
+                |> Result.andThen
+                    (\validShort ->
+                        case getCategoryByShort (Dict.values data.categories) validShort of
+                            Just _ ->
+                                Err "Short name already used!"
+
+                            Nothing ->
+                                Ok validShort
+                    )
         )
 
 
