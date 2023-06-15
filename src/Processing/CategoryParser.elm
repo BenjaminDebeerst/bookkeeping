@@ -1,4 +1,4 @@
-module Processing.CategoryParser exposing (Categorization(..), categorizationParser, categoryShortNameOnly)
+module Processing.CategoryParser exposing (Categorization(..), categorizationParser, categoryShortNameOnly, categoryShortNameOrEmpty)
 
 import Parser exposing (..)
 import Set
@@ -77,3 +77,24 @@ categoryShortNameOnly =
         |= categoryShortName
         |. Parser.spaces
         |. Parser.end
+
+
+categoryShortNameOrEmpty : Parser (Maybe String)
+categoryShortNameOrEmpty =
+    Parser.oneOf
+        [ emptyParser
+        , singleParser
+        ]
+        |> Parser.map
+            (\cat ->
+                case cat of
+                    Empty ->
+                        Nothing
+
+                    One c ->
+                        Just c
+
+                    -- the parsers above never return Multiple, but the match needs to be exhaustive
+                    Multiple _ ->
+                        Nothing
+            )
