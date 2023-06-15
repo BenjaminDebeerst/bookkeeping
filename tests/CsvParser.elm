@@ -36,6 +36,7 @@ expectedRow =
     { date = Date.date 1970 7 31
     , description = "this\nis the;\ndescription"
     , amount = 123456
+    , category = Nothing
     , rawLine = oneCsvLine
     }
 
