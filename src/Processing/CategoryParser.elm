@@ -1,4 +1,4 @@
-module Processing.CategoryParser exposing (Categorization(..), categorizationParser, categoryShortName)
+module Processing.CategoryParser exposing (Categorization(..), categorizationParser, categoryShortNameOnly)
 
 import Parser exposing (..)
 import Set
@@ -68,3 +68,12 @@ categoryShortName =
         , inner = Char.isAlphaNum
         , reserved = Set.empty
         }
+
+
+categoryShortNameOnly : Parser String
+categoryShortNameOnly =
+    Parser.succeed identity
+        |. Parser.spaces
+        |= categoryShortName
+        |. Parser.spaces
+        |. Parser.end
