@@ -154,8 +154,12 @@ validateCategory data m =
                 |> Result.andThen
                     (\validShort ->
                         case getCategoryByShort (Dict.values data.categories) validShort of
-                            Just _ ->
-                                Err "Short name already used!"
+                            Just c ->
+                                if c.id /= id then
+                                    Err "Short name already used!"
+
+                                else
+                                    Ok validShort
 
                             Nothing ->
                                 Ok validShort
