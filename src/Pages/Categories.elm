@@ -3,13 +3,13 @@ module Pages.Categories exposing (Model, Msg, page)
 import Components.Layout as Layout exposing (color, size, style, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
 import Dict
-import Element exposing (Element, column, el, indexedTable, paddingXY, row, spacing, text)
+import Element exposing (Element, column, el, indexedTable, padding, paddingXY, row, spacing, text)
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelLeft, placeholder)
 import Gen.Params.Accounts exposing (Params)
 import Page
-import Parser exposing (DeadEnd)
-import Persistence.Category exposing (Category, category)
+import Parser
+import Persistence.Category exposing (Category, CategoryGroup(..), category)
 import Persistence.Data exposing (Data)
 import Persistence.Storage as Storage
 import Processing.CategoryParser exposing (categoryShortNameOnly)
@@ -47,12 +47,13 @@ type alias Model =
     , editing : Editing
     , name : String
     , short : String
+    , group : Maybe CategoryGroup
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model Nothing Off "" "", Cmd.none )
+    ( Model Nothing Off "" "" Nothing, Cmd.none )
 
 
 
@@ -63,6 +64,7 @@ type Msg
     = Add
     | EditName String
     | EditShort String
+    | EditGroup CategoryGroup
     | Save
     | Abort
     | Delete Category
@@ -77,7 +79,7 @@ update data msg model =
             ( { model | editing = NewCategory, error = Nothing }, Cmd.none )
 
         Abort ->
-            ( { model | editing = Off, error = Nothing, name = "", short = "" }, Cmd.none )
+            ( { model | editing = Off, error = Nothing, name = "", short = "", group = Nothing }, Cmd.none )
 
         EditName name ->
             ( { model | name = name }, Cmd.none )
@@ -85,8 +87,11 @@ update data msg model =
         EditShort short ->
             ( { model | short = String.toUpper short }, Cmd.none )
 
+        EditGroup group ->
+            ( { model | group = Just group }, Cmd.none )
+
         EditExisting cat ->
-            ( { model | editing = Existing cat, short = cat.short, name = cat.name }, Cmd.none )
+            ( { model | editing = Existing cat, short = cat.short, name = cat.name, group = Just cat.group }, Cmd.none )
 
         Save ->
             let
@@ -135,7 +140,7 @@ validateCategory data m =
                 _ ->
                     -1
     in
-    Result.map3 category
+    Result.map4 category
         (Ok id)
         (if String.isEmpty m.name then
             Err "Category name is empty!"
@@ -166,6 +171,7 @@ validateCategory data m =
                                 Ok validShort
                     )
         )
+        (m.group |> Result.fromMaybe "A category group needs to be selected.")
 
 
 
@@ -218,6 +224,16 @@ editArea data model =
                     , placeholder = Just <| placeholder [] <| text "Short input name"
                     , label = labelLeft [ paddingXY size.m 0 ] <| text "Short name (uppercase alphanum)"
                     }
+                , Input.radioRow [ padding size.m, spacing size.m ]
+                    { onChange = EditGroup
+                    , selected = model.group
+                    , label = labelLeft [ paddingXY size.m 0 ] (text "Category group")
+                    , options =
+                        [ Input.option Income (text "Income")
+                        , Input.option Expense (text "Expense")
+                        , Input.option Internal (text "Internal")
+                        ]
+                    }
                 , button style.button { onPress = Just Save, label = text "Save" }
                 , button style.button { onPress = Just Abort, label = text "Abort" }
                 ]
@@ -241,5 +257,6 @@ showData data _ =
                     )
                 , T.textColumn "Name" .name
                 , T.textColumn "Short" .short
+                , T.textColumn "Group" (.group >> Debug.toString)
                 ]
             }
