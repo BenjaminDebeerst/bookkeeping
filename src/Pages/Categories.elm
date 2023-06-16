@@ -9,7 +9,8 @@ import Element.Input as Input exposing (button, labelLeft, placeholder)
 import Gen.Params.Accounts exposing (Params)
 import Page
 import Parser exposing (DeadEnd)
-import Persistence.Data exposing (Category, Data)
+import Persistence.Category exposing (Category)
+import Persistence.Data exposing (Data)
 import Persistence.Storage as Storage
 import Processing.CategoryParser exposing (categoryShortNameOnly)
 import Processing.Filter exposing (filterCategory)

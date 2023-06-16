@@ -19,13 +19,16 @@ import List.Extra
 import Maybe.Extra
 import Page
 import Parser
-import Persistence.Data as Shared exposing (Account, Category, Data, ImportProfile, RawEntry, rawEntry, sha1)
+import Persistence.Account exposing (Account)
+import Persistence.Category exposing (Category)
+import Persistence.Data exposing (Data)
+import Persistence.ImportProfile exposing (ImportProfile)
+import Persistence.RawEntry exposing (rawEntry, sha1)
 import Persistence.Storage as Storage
 import Processing.CategoryParser as CategoryParser
 import Processing.CsvParser as CsvParser exposing (ParsedRow)
 import Processing.Model exposing (getCategoryByShort)
 import Request
-import Result.Extra
 import Shared exposing (Model(..))
 import Task exposing (Task)
 import View exposing (View)

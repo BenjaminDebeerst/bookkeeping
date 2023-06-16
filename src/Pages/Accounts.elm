@@ -8,7 +8,8 @@ import Element.Font as Font
 import Element.Input exposing (button, labelHidden, placeholder)
 import Gen.Params.Accounts exposing (Params)
 import Page
-import Persistence.Data exposing (Account, Data)
+import Persistence.Account exposing (Account, AccountStart)
+import Persistence.Data exposing (Data)
 import Persistence.Storage as Storage
 import Request
 import Shared exposing (Model(..))
@@ -107,7 +108,7 @@ validateAccount m =
 
 makeAccount : String -> Int -> Int -> Int -> Account
 makeAccount n a y m =
-    Account 0 n (Persistence.Data.AccountStart a y m)
+    Account 0 n (AccountStart a y m)
 
 
 

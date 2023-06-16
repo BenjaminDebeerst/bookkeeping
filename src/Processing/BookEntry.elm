@@ -1,6 +1,8 @@
 module Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
 
-import Persistence.Data as Data exposing (Account, Category)
+import Persistence.Account exposing (Account)
+import Persistence.Category exposing (Category)
+import Persistence.RawEntry as RawEntry
 import Time.Date exposing (Date)
 
 
@@ -26,14 +28,14 @@ type alias EntrySplit =
     }
 
 
-toPersistence : Categorization -> Maybe Data.Categorization
+toPersistence : Categorization -> Maybe RawEntry.Categorization
 toPersistence cat =
     case cat of
         None ->
             Nothing
 
         Single c ->
-            Just (Data.Single c.id)
+            Just (RawEntry.Single c.id)
 
         Split list ->
-            list |> List.map (\se -> Data.SplitCatEntry se.category.id se.amount) |> Data.Split |> Just
+            list |> List.map (\se -> RawEntry.SplitCatEntry se.category.id se.amount) |> RawEntry.Split |> Just

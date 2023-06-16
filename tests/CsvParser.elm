@@ -1,7 +1,7 @@
 module CsvParser exposing (..)
 
 import Expect
-import Persistence.Data exposing (DateFormat(..))
+import Persistence.ImportProfile exposing (DateFormat(..))
 import Processing.CsvParser as Csv
 import Test exposing (Test, describe, test)
 import Time.Date as Date

@@ -1,6 +1,7 @@
 module Processing.Filter exposing (..)
 
-import Persistence.Data exposing (Account, Category)
+import Persistence.Account exposing (Account)
+import Persistence.Category exposing (Category)
 import Processing.BookEntry exposing (BookEntry)
 import Time.Date as Date
 
