@@ -1,4 +1,4 @@
-module Persistence.ImportProfile exposing (DateFormat(..), ImportProfile, ImportProfiles, codec, importProfile)
+module Persistence.ImportProfile exposing (DateFormat(..), ImportProfile, ImportProfileV0, ImportProfiles, codec, importProfile, v0Codec)
 
 import Dict exposing (Dict)
 import Serialize as S
@@ -9,6 +9,10 @@ type alias ImportProfiles =
 
 
 type alias ImportProfile =
+    ImportProfileV0
+
+
+type alias ImportProfileV0 =
     { id : Int
     , name : String
     , splitAt : Char
@@ -27,7 +31,7 @@ type DateFormat
 
 importProfile : Int -> String -> Char -> Int -> List Int -> Int -> DateFormat -> Maybe Int -> ImportProfile
 importProfile =
-    ImportProfile
+    ImportProfileV0
 
 
 
@@ -39,9 +43,9 @@ codec =
     S.dict S.int profileCodec
 
 
-profileCodec : S.Codec String ImportProfile
-profileCodec =
-    S.record ImportProfile
+v0Codec : S.Codec String ImportProfileV0
+v0Codec =
+    S.record ImportProfileV0
         |> S.field .id S.int
         |> S.field .name S.string
         |> S.field .splitAt charCodec
@@ -74,3 +78,30 @@ dateFormatCodec =
 charCodec : S.Codec String Char
 charCodec =
     S.string |> S.map (\s -> s |> String.toList |> List.head |> Maybe.withDefault '?') String.fromChar
+
+
+
+-- versioning-aware encoding
+
+
+type StorageVersions
+    = V0 ImportProfileV0
+
+
+profileCodec : S.Codec String ImportProfile
+profileCodec =
+    S.customType
+        (\v0Encoder value ->
+            case value of
+                V0 record ->
+                    v0Encoder record
+        )
+        |> S.variant1 V0 v0Codec
+        |> S.finishCustomType
+        |> S.map
+            (\value ->
+                case value of
+                    V0 storage ->
+                        storage
+            )
+            V0

@@ -1,4 +1,4 @@
-module Persistence.Account exposing (Account, AccountStart, Accounts, account, codec)
+module Persistence.Account exposing (Account, AccountStart, AccountV0, Accounts, account, codec, v0Codec)
 
 import Dict exposing (Dict)
 import Serialize as S
@@ -9,6 +9,10 @@ type alias Accounts =
 
 
 type alias Account =
+    AccountV0
+
+
+type alias AccountV0 =
     { id : Int
     , name : String
     , start : AccountStart
@@ -21,7 +25,7 @@ type alias AccountStart =
 
 account : String -> Int -> Int -> Int -> Account
 account n a y m =
-    Account 0 n (AccountStart a y m)
+    AccountV0 0 n (AccountStart a y m)
 
 
 
@@ -33,9 +37,9 @@ codec =
     S.dict S.int accountCodec
 
 
-accountCodec : S.Codec String Account
-accountCodec =
-    S.record Account
+v0Codec : S.Codec String AccountV0
+v0Codec =
+    S.record AccountV0
         |> S.field .id S.int
         |> S.field .name S.string
         |> S.field .start accountStartCodec
@@ -49,3 +53,30 @@ accountStartCodec =
         |> S.field .year S.int
         |> S.field .month S.int
         |> S.finishRecord
+
+
+
+-- versioning-aware encoding
+
+
+type StorageVersions
+    = V0 AccountV0
+
+
+accountCodec : S.Codec String Account
+accountCodec =
+    S.customType
+        (\v0Encoder value ->
+            case value of
+                V0 record ->
+                    v0Encoder record
+        )
+        |> S.variant1 V0 v0Codec
+        |> S.finishCustomType
+        |> S.map
+            (\value ->
+                case value of
+                    V0 storage ->
+                        storage
+            )
+            V0

@@ -1,4 +1,4 @@
-module Persistence.RawEntry exposing (Categorization(..), RawEntries, RawEntry, SplitCatEntry, codec, rawEntry, sha1)
+module Persistence.RawEntry exposing (Categorization(..), RawEntries, RawEntry, RawEntryV0, SplitCatEntry, codec, rawEntry, sha1, v0Codec)
 
 import Dict exposing (Dict)
 import Persistence.Category exposing (Category)
@@ -12,6 +12,10 @@ type alias RawEntries =
 
 
 type alias RawEntry =
+    RawEntryV0
+
+
+type alias RawEntryV0 =
     { id : String
     , line : String
     , date : Date
@@ -34,15 +38,15 @@ type alias SplitCatEntry =
 
 rawEntry : Int -> Int -> String -> Date -> Int -> String -> Maybe Category -> RawEntry
 rawEntry accountId profileId line date amount description category =
-    { id = sha1 line
-    , line = line
-    , date = date
-    , amount = amount
-    , description = description
-    , accountId = accountId
-    , importProfile = profileId
-    , categorization = Maybe.map (.id >> Single) category
-    }
+    RawEntryV0
+        (sha1 line)
+        line
+        date
+        amount
+        description
+        accountId
+        profileId
+        (Maybe.map (.id >> Single) category)
 
 
 sha1 : String -> String
@@ -59,8 +63,8 @@ codec =
     S.dict S.string rawEntryCodec
 
 
-rawEntryCodec =
-    S.record RawEntry
+v0Codec =
+    S.record RawEntryV0
         |> S.field .id S.string
         |> S.field .line S.string
         |> S.field .date dateCodec
@@ -102,3 +106,30 @@ splitCategorizationCodec =
             |> S.field .amount S.int
             |> S.finishRecord
         )
+
+
+
+-- versioning-aware encoding
+
+
+type StorageVersions
+    = V0 RawEntryV0
+
+
+rawEntryCodec : S.Codec String RawEntry
+rawEntryCodec =
+    S.customType
+        (\v0Encoder value ->
+            case value of
+                V0 record ->
+                    v0Encoder record
+        )
+        |> S.variant1 V0 v0Codec
+        |> S.finishCustomType
+        |> S.map
+            (\value ->
+                case value of
+                    V0 storage ->
+                        storage
+            )
+            V0
