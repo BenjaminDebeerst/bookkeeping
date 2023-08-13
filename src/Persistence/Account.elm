@@ -1,6 +1,11 @@
 module Persistence.Account exposing (..)
 
+import Dict exposing (Dict)
 import Serialize as S
+
+
+type alias Accounts =
+    Dict Int Account
 
 
 type alias Account =
@@ -12,6 +17,15 @@ type alias Account =
 
 type alias AccountStart =
     { amount : Int, year : Int, month : Int }
+
+
+
+-- Codecs
+
+
+codec : S.Codec String Accounts
+codec =
+    S.dict S.int accountCodec
 
 
 accountCodec : S.Codec String Account

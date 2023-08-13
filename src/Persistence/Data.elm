@@ -6,10 +6,10 @@ module Persistence.Data exposing
     )
 
 import Dict exposing (Dict)
-import Persistence.Account exposing (Account, accountCodec)
-import Persistence.Category exposing (Category, categoryCodec)
-import Persistence.ImportProfile exposing (ImportProfile, profileCodec)
-import Persistence.RawEntry exposing (RawEntry, rawEntryCodec)
+import Persistence.Account as Account exposing (Account, Accounts)
+import Persistence.Category as Category exposing (Categories, Category)
+import Persistence.ImportProfile as ImportProfile exposing (ImportProfile, ImportProfiles)
+import Persistence.RawEntry as RawEntry exposing (RawEntries, RawEntry)
 import Serialize as S exposing (Error)
 
 
@@ -18,10 +18,10 @@ type alias Data =
 
 
 type alias DataV0 =
-    { rawEntries : Dict String RawEntry
-    , accounts : Dict Int Account
-    , categories : Dict Int Category
-    , importProfiles : Dict Int ImportProfile
+    { rawEntries : RawEntries
+    , accounts : Accounts
+    , categories : Categories
+    , importProfiles : ImportProfiles
     , autoIncrement : Int
     }
 
@@ -81,9 +81,9 @@ dataCodec =
 v0Codec : S.Codec String Data
 v0Codec =
     S.record DataV0
-        |> S.field .rawEntries (S.dict S.string rawEntryCodec)
-        |> S.field .accounts (S.dict S.int accountCodec)
-        |> S.field .categories (S.dict S.int categoryCodec)
-        |> S.field .importProfiles (S.dict S.int profileCodec)
+        |> S.field .rawEntries RawEntry.codec
+        |> S.field .accounts Account.codec
+        |> S.field .categories Category.codec
+        |> S.field .importProfiles ImportProfile.codec
         |> S.field .autoIncrement S.int
         |> S.finishRecord

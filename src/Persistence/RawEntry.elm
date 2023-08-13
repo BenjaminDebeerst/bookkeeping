@@ -1,9 +1,14 @@
 module Persistence.RawEntry exposing (..)
 
+import Dict exposing (Dict)
 import Persistence.Category exposing (Category)
 import SHA1
 import Serialize as S
 import Time.Date as Date exposing (Date)
+
+
+type alias RawEntries =
+    Dict String RawEntry
 
 
 type alias RawEntry =
@@ -43,6 +48,15 @@ rawEntry accountId profileId line date amount description category =
 sha1 : String -> String
 sha1 s =
     SHA1.fromString s |> SHA1.toHex
+
+
+
+-- Codecs
+
+
+codec : S.Codec String RawEntries
+codec =
+    S.dict S.string rawEntryCodec
 
 
 rawEntryCodec =

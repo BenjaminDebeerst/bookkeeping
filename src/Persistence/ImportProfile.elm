@@ -1,6 +1,11 @@
 module Persistence.ImportProfile exposing (..)
 
+import Dict exposing (Dict)
 import Serialize as S
+
+
+type alias ImportProfiles =
+    Dict Int ImportProfile
 
 
 type alias ImportProfile =
@@ -18,6 +23,15 @@ type alias ImportProfile =
 type DateFormat
     = YYYYMMDD Char
     | DDMMYYYY Char
+
+
+
+-- Codecs
+
+
+codec : S.Codec String ImportProfiles
+codec =
+    S.dict S.int profileCodec
 
 
 profileCodec : S.Codec String ImportProfile
