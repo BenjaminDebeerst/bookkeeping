@@ -58,6 +58,10 @@ liftSplitEntry data se =
 
 getCategoryByShort : List Category -> String -> Maybe Category
 getCategoryByShort categories string =
+    let
+        searchShort =
+            String.toUpper string
+    in
     categories
-        |> List.filter (\c -> c.short == string)
+        |> List.filter (\c -> c.short == searchShort)
         |> List.head
