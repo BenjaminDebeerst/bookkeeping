@@ -2,11 +2,11 @@ module Pages.ImportFile exposing (Model, Msg, page)
 
 import Components.Layout as Layout exposing (formatDate, formatEuro, size, style, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
-import Csv.Decode as Decode
+import Csv.Decode as Decode exposing (Error(..))
+import Csv.Parser as Parser
 import Dict exposing (Dict)
 import Element exposing (Attribute, Element, centerX, centerY, el, fill, height, indexedTable, paddingEach, paddingXY, shrink, spacing, table, text, width)
 import Element.Border as Border
-import Element.Font as Font
 import Element.Input as Input
 import File exposing (File)
 import File.Select as Select
@@ -18,6 +18,7 @@ import Persistence.Data as Shared exposing (Account, Data, ImportProfile, RawEnt
 import Persistence.Storage as Storage
 import Processing.CsvParser as CsvParser
 import Request
+import Result.Extra
 import Shared exposing (Model(..))
 import Task exposing (Task)
 import View exposing (View)
@@ -210,10 +211,10 @@ viewImportSelectors data model =
 
 
 viewFilePicker : Data -> Model -> List (Element Msg)
-viewFilePicker data model =
+viewFilePicker _ model =
     showStoreConfirmation model.state
-        ++ viewImportSelectors data model
-        ++ [ el
+        ++ [ text "Import a CSV file"
+           , el
                 [ width fill
                 , height fill
                 , Border.dashed
@@ -260,8 +261,7 @@ showStoreConfirmation s =
 
 viewFileContents : Data -> Model -> String -> List (Element Msg)
 viewFileContents data model content =
-    [ el [ Font.size size.m ] <| text ("Importing file: " ++ Maybe.withDefault "None" model.fileName) ]
-        ++ viewImportSelectors data model
+    viewImportSelectors data model
         ++ viewFileData model content
 
 
@@ -269,7 +269,9 @@ viewFileData : Model -> String -> List (Element Msg)
 viewFileData model csvFileContent =
     case model.importProfile |> Maybe.map (\p -> CsvParser.parse p csvFileContent) of
         Nothing ->
-            [ text "Choose an import profile" ]
+            [ text <| "Loaded rows from " ++ Maybe.withDefault "None" model.fileName ++ ". Data preview:"
+            , previewData csvFileContent
+            ]
 
         Just (Ok rows) ->
             let
@@ -300,17 +302,52 @@ viewFileData model csvFileContent =
                         |> List.map String.trim
                         |> List.take 5
             in
-            [ errors
-                |> Decode.errorToString
-                |> text
-            , text "This is how the first few rows in the CSV look like:"
-            , table [ spacing size.xs ]
-                { data = rows
-                , columns =
-                    [ { header = Element.none
-                      , width = shrink
-                      , view = \line -> el [ Font.size Layout.size.m ] <| text line
-                      }
-                    ]
-                }
+            [ errorToString errors |> text
+            , previewData csvFileContent
             ]
+
+
+errorToString : Error -> String
+errorToString error =
+    case error of
+        DecodingErrors list ->
+            let
+                n =
+                    List.length list
+
+                prefix =
+                    String.join "" [ "There were ", String.fromInt n, " errors parsing the CSV. Showing the first few: " ]
+
+                errs =
+                    list |> List.take 10 |> List.map (\e -> DecodingErrors [ e ]) |> List.map Decode.errorToString
+            in
+            [ prefix ] ++ errs |> String.join "\n"
+
+        other ->
+            other |> Decode.errorToString
+
+
+previewData : String -> Element msg
+previewData content =
+    Parser.parse { fieldSeparator = ',' } content
+        |> Result.map previewTable
+        |> Result.mapError (\_ -> text "An error occurred parsing the CSV")
+        |> Result.Extra.merge
+
+
+previewTable : List (List String) -> Element msg
+previewTable csv =
+    let
+        headers =
+            csv |> List.head |> Maybe.withDefault []
+
+        data =
+            csv |> List.drop 1 |> List.take 5
+    in
+    indexedTable T.tableStyle
+        { data = data
+        , columns =
+            headers
+                |> List.indexedMap
+                    (\i title -> T.textColumn title (List.drop i >> List.head >> Maybe.withDefault "n/a"))
+        }
