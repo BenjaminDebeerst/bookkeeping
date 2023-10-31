@@ -124,7 +124,12 @@ encode storage =
 
 decode : String -> Result (Error String) Data
 decode value =
-    S.decodeFromString dataCodec (String.trim value)
+    case value of
+        "" ->
+            Ok empty
+
+        s ->
+            S.decodeFromString dataCodec (String.trim s)
 
 
 
