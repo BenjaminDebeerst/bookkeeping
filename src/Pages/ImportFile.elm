@@ -3,9 +3,9 @@ module Pages.ImportFile exposing (Model, Msg, page)
 import Components.Layout as Layout exposing (formatDate, formatEuro, size, style, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
 import Csv.Decode as Decode exposing (Error(..))
-import Csv.Parser as Parser
+import Csv.Parser as Parser exposing (Problem(..))
 import Dict exposing (Dict)
-import Element exposing (Attribute, Element, centerX, centerY, el, fill, height, indexedTable, paddingEach, paddingXY, shrink, spacing, table, text, width)
+import Element exposing (Attribute, Element, centerX, centerY, el, fill, height, indexedTable, paddingEach, paddingXY, text, width)
 import Element.Border as Border
 import Element.Input as Input
 import File exposing (File)
@@ -16,9 +16,8 @@ import Json.Decode as D
 import Page
 import Persistence.Data as Shared exposing (Account, Data, ImportProfile, RawEntry, rawEntry)
 import Persistence.Storage as Storage
-import Processing.CsvParser as CsvParser
+import Processing.CsvParser as CsvParser exposing (ParsedRow)
 import Request
-import Result.Extra
 import Shared exposing (Model(..))
 import Task exposing (Task)
 import View exposing (View)
@@ -27,7 +26,7 @@ import View exposing (View)
 page : Shared.Model -> Request.With Params -> Page.With Model Msg
 page shared req =
     Page.element
-        { init = ( initModel shared, Cmd.none )
+        { init = ( Pick, Cmd.none )
         , update = updateOrRedirectOnError shared req update
         , view = viewDataOnly shared view
         , subscriptions = \_ -> Sub.none
@@ -35,47 +34,14 @@ page shared req =
 
 
 
--- INIT
+-- MODEL
 
 
-type State
+type Model
     = Pick
     | PickHover
-    | Show
+    | Show String String (Maybe ImportProfile)
     | Stored Int
-
-
-type alias Model =
-    { state : State
-    , fileContents : Maybe String
-    , fileName : Maybe String
-    , importProfile : Maybe ImportProfile
-    , account : Maybe Account
-    }
-
-
-initModel : Shared.Model -> Model
-initModel shared =
-    let
-        db =
-            Shared.justData shared
-
-        acc =
-            db |> Maybe.andThen (\d -> selectIfUnique d .accounts)
-
-        profile =
-            db |> Maybe.andThen (\d -> selectIfUnique d .importProfiles)
-    in
-    Model Pick Nothing Nothing profile acc
-
-
-selectIfUnique : Shared.Data -> (Shared.Data -> Dict a b) -> Maybe b
-selectIfUnique data accessor =
-    if Dict.size (accessor data) == 1 then
-        accessor data |> Dict.values |> List.head
-
-    else
-        Nothing
 
 
 
@@ -89,18 +55,17 @@ type Msg
     | GotFileName File
     | GotFile String String
     | ChooseImportProfile ImportProfile
-    | ChooseAccount Account
-    | Store
+    | Store Account ImportProfile (List ParsedRow)
 
 
 update : Data -> Msg -> Model -> ( Model, Cmd Msg )
 update data msg model =
     case msg of
         DragEnter ->
-            ( { model | state = PickHover }, Cmd.none )
+            ( PickHover, Cmd.none )
 
         DragLeave ->
-            ( { model | state = Pick }, Cmd.none )
+            ( Pick, Cmd.none )
 
         PickFile ->
             ( model
@@ -111,50 +76,35 @@ update data msg model =
             ( model, readFile filename )
 
         GotFile name content ->
-            ( { model | state = Show, fileContents = Just content, fileName = Just name }, Cmd.none )
+            ( Show name content Nothing, Cmd.none )
 
         ChooseImportProfile profile ->
-            ( { model | importProfile = Just profile }, Cmd.none )
+            case model of
+                Show name content _ ->
+                    ( Show name content (Just profile), Cmd.none )
 
-        ChooseAccount account ->
-            ( { model | account = Just account }, Cmd.none )
+                _ ->
+                    ( model, Cmd.none )
 
-        Store ->
+        Store account profile lines ->
             let
                 newEntries =
-                    case
-                        Maybe.map3
-                            (\acc profile content -> ( acc, profile, CsvParser.parse profile content ))
-                            model.account
-                            model.importProfile
-                            model.fileContents
-                    of
-                        Nothing ->
-                            []
-
-                        Just ( _, _, Err _ ) ->
-                            []
-
-                        Just ( account, profile, Ok lines ) ->
-                            lines
-                                |> List.map
-                                    (\row ->
-                                        rawEntry
-                                            account.id
-                                            profile.id
-                                            row.rawLine
-                                            row.date
-                                            row.amount
-                                            row.description
-                                    )
+                    lines
+                        |> List.map
+                            (\row ->
+                                rawEntry
+                                    account.id
+                                    profile.id
+                                    row.rawLine
+                                    row.date
+                                    row.amount
+                                    row.description
+                            )
 
                 newData =
                     data |> Storage.addEntries newEntries
-
-                newModel =
-                    initModel (Loaded data)
             in
-            ( { newModel | state = Stored (List.length newEntries) }
+            ( Stored (List.length lines)
             , Storage.store newData
             )
 
@@ -170,40 +120,13 @@ readFile file =
 
 view : Data -> Model -> View Msg
 view data model =
-    Layout.page "Import File" <|
-        case model.fileContents of
-            Nothing ->
+    Layout.page "Import CSV File" <|
+        case model of
+            Show fileName content profile ->
+                viewFileContents data profile fileName content
+
+            _ ->
                 viewFilePicker data model
-
-            Just content ->
-                viewFileContents data model content
-
-
-viewImportSelectors : Data -> Model -> List (Element Msg)
-viewImportSelectors data model =
-    [ Input.radioRow []
-        { onChange = ChooseImportProfile
-        , selected = model.importProfile
-        , label = Input.labelLeft [ paddingXY size.m 0 ] <| text "Choose import profile: "
-        , options =
-            Dict.values data.importProfiles
-                |> List.map
-                    (\p ->
-                        Input.option p (el [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text p.name)
-                    )
-        }
-    , Input.radioRow []
-        { onChange = ChooseAccount
-        , selected = model.account
-        , label = Input.labelLeft [ paddingXY size.m 0 ] <| text "Choose account: "
-        , options =
-            Dict.values data.accounts
-                |> List.map
-                    (\a ->
-                        Input.option a (el [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text a.name)
-                    )
-        }
-    ]
 
 
 
@@ -212,14 +135,13 @@ viewImportSelectors data model =
 
 viewFilePicker : Data -> Model -> List (Element Msg)
 viewFilePicker _ model =
-    showStoreConfirmation model.state
-        ++ [ text "Import a CSV file"
-           , el
+    showStoreConfirmation model
+        ++ [ el
                 [ width fill
                 , height fill
                 , Border.dashed
                 , Border.color <|
-                    if model.state == PickHover then
+                    if model == PickHover then
                         Layout.color.brightAccent
 
                     else
@@ -245,7 +167,7 @@ onEvent event decoder =
     preventDefaultOn event (D.map (\msg -> ( msg, True )) decoder) |> Element.htmlAttribute
 
 
-showStoreConfirmation : State -> List (Element msg)
+showStoreConfirmation : Model -> List (Element msg)
 showStoreConfirmation s =
     case s of
         Stored n ->
@@ -259,21 +181,24 @@ showStoreConfirmation s =
 -- CSV Importer
 
 
-viewFileContents : Data -> Model -> String -> List (Element Msg)
-viewFileContents data model content =
-    viewImportSelectors data model
-        ++ viewFileData model content
-
-
-viewFileData : Model -> String -> List (Element Msg)
-viewFileData model csvFileContent =
-    case model.importProfile |> Maybe.map (\p -> CsvParser.parse p csvFileContent) of
+viewFileContents : Data -> Maybe ImportProfile -> String -> String -> List (Element Msg)
+viewFileContents data profile filename content =
+    case profile of
         Nothing ->
-            [ text <| "Loaded rows from " ++ Maybe.withDefault "None" model.fileName ++ ". Data preview:"
-            , previewData csvFileContent
-            ]
+            preview data Nothing filename content
 
-        Just (Ok rows) ->
+        Just p ->
+            preview data (Just p) filename content
+                ++ parseFile data p content
+
+
+parseFile : Data -> ImportProfile -> String -> List (Element Msg)
+parseFile data profile csvFileContent =
+    case CsvParser.parse profile csvFileContent of
+        Err error ->
+            [ text "Could not parse the given file with the selected profile.", text (errorToString error) ]
+
+        Ok rows ->
             let
                 n =
                     List.length rows
@@ -282,29 +207,21 @@ viewFileData model csvFileContent =
                 []
 
             else
-                [ Input.button style.button { onPress = Just Store, label = text "Import Data" }
-                , text <| "The following " ++ String.fromInt n ++ " rows were successfully parsed: "
-                , indexedTable T.tableStyle
-                    { data = rows
-                    , columns =
-                        [ T.textColumn "Date" (.date >> formatDate)
-                        , T.styledColumn "Amount" (.amount >> formatEuro)
-                        , T.textColumn "Description" .description
-                        ]
-                    }
-                ]
-
-        Just (Err errors) ->
-            let
-                rows =
-                    csvFileContent
-                        |> String.split "\n"
-                        |> List.map String.trim
-                        |> List.take 5
-            in
-            [ errorToString errors |> text
-            , previewData csvFileContent
-            ]
+                [ text "Import to account: " ]
+                    ++ (Dict.values
+                            data.accounts
+                            |> List.map (\a -> Input.button style.button { onPress = Just (Store a profile rows), label = text a.name })
+                       )
+                    ++ [ text <| "Successfully parsed " ++ String.fromInt n ++ " rows:"
+                       , indexedTable T.tableStyle
+                            { data = rows
+                            , columns =
+                                [ T.textColumn "Date" (.date >> formatDate)
+                                , T.styledColumn "Amount" (.amount >> formatEuro)
+                                , T.textColumn "Description" .description
+                                ]
+                            }
+                       ]
 
 
 errorToString : Error -> String
@@ -327,12 +244,32 @@ errorToString error =
             other |> Decode.errorToString
 
 
-previewData : String -> Element msg
-previewData content =
-    Parser.parse { fieldSeparator = ',' } content
-        |> Result.map previewTable
-        |> Result.mapError (\_ -> text "An error occurred parsing the CSV")
-        |> Result.Extra.merge
+preview : Data -> Maybe ImportProfile -> String -> String -> List (Element Msg)
+preview data selectedProfile filename contents =
+    case Parser.parse { fieldSeparator = ',' } contents of
+        Ok csv ->
+            [ text <| "Loaded " ++ (csv |> List.length |> String.fromInt) ++ " rows from " ++ filename ++ ". This is how the raw data looks like:"
+            , previewTable csv
+            , Input.radioRow []
+                { onChange = ChooseImportProfile
+                , selected = selectedProfile
+                , label = Input.labelLeft [ paddingXY size.m 0 ] <| text "Choose import profile: "
+                , options =
+                    Dict.values data.importProfiles
+                        |> List.map
+                            (\p ->
+                                Input.option p (el [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text p.name)
+                            )
+                }
+            ]
+
+        Err problem ->
+            case problem of
+                SourceEndedWithoutClosingQuote _ ->
+                    [ text "Problem parsing CSV file: Unclosed quoted text field." ]
+
+                AdditionalCharactersAfterClosingQuote _ ->
+                    [ text "Problem parsing CSV file: Unexpected text after quoted string before filed separator." ]
 
 
 previewTable : List (List String) -> Element msg
