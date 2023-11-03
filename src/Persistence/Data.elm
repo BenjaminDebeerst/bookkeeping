@@ -12,6 +12,7 @@ module Persistence.Data exposing
     , empty
     , encode
     , rawEntry
+    , sha1
     )
 
 import Dict exposing (Dict)
