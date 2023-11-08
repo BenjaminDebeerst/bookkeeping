@@ -8,7 +8,8 @@ import Element.Font as Font
 import Element.Input exposing (button, labelHidden, placeholder)
 import Gen.Params.Accounts exposing (Params)
 import Page
-import Persistence.Data exposing (Account, Data)
+import Persistence.Account exposing (Account, AccountStart, account)
+import Persistence.Data exposing (Data)
 import Persistence.Storage as Storage
 import Request
 import Shared exposing (Model(..))
@@ -98,16 +99,11 @@ update data msg model =
 
 validateAccount : Model -> Result String Account
 validateAccount m =
-    Result.map4 makeAccount
+    Result.map4 account
         (Ok m.name)
         (String.toInt m.balance |> Result.fromMaybe "Could not parse the amount")
         (String.toInt m.year |> Result.fromMaybe "Could not parse the year")
         (String.toInt m.month |> Result.fromMaybe "Could not parse the month")
-
-
-makeAccount : String -> Int -> Int -> Int -> Account
-makeAccount n a y m =
-    Account 0 n (Persistence.Data.AccountStart a y m)
 
 
 

@@ -2,7 +2,8 @@ module Aggregation exposing (..)
 
 import Dict
 import Expect exposing (Expectation)
-import Persistence.Data exposing (Category)
+import Persistence.Account exposing (Account, AccountStart)
+import Persistence.Category exposing (Category)
 import Processing.Aggregation exposing (MonthAggregate, aggregate)
 import Processing.BookEntry exposing (BookEntry, Categorization(..))
 import Test exposing (..)
@@ -23,11 +24,11 @@ categories =
 
 
 account1 =
-    Persistence.Data.Account 1 "Account Name" <| Persistence.Data.AccountStart 10 2023 3
+    Account 1 "Account Name" <| AccountStart 10 2023 3
 
 
 account2 =
-    Persistence.Data.Account 2 "Account Name 2" <| Persistence.Data.AccountStart 20 2023 4
+    Account 2 "Account Name 2" <| AccountStart 20 2023 4
 
 
 entries : List BookEntry

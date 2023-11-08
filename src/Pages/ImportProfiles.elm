@@ -9,7 +9,8 @@ import Element.Input as Input exposing (button, labelLeft, placeholder)
 import Gen.Params.Accounts exposing (Params)
 import Maybe.Extra
 import Page
-import Persistence.Data exposing (Account, Category, Data, DateFormat(..), ImportProfile)
+import Persistence.Data exposing (Data)
+import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile, importProfile)
 import Persistence.Storage as Storage
 import Processing.CsvParser as CsvParser
 import Request
@@ -164,7 +165,7 @@ validateImportProfile data model =
                 _ ->
                     -1
     in
-    Ok ImportProfile
+    Ok importProfile
         |> andMap (Ok id)
         |> andMap
             (if String.isEmpty model.name then
