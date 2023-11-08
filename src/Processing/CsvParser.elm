@@ -10,6 +10,7 @@ type alias ParsedRow =
     { date : Date
     , description : String
     , amount : Int
+    , category : Maybe String
     , rawLine : String
     }
 
@@ -76,9 +77,28 @@ rowDecoder profile =
         |> Decode.pipeline (column profile.dateField <| dateDecoder profile.dateFormat)
         |> Decode.pipeline (combinedTextColumns profile.descrFields)
         |> Decode.pipeline (column profile.amountField twoDigitFloatToIntDecoder)
+        |> Decode.pipeline (maybeColumn profile.categoryField)
         -- Since Csv.Decode provides no way to lay hands on the entire row in a generic way,
         -- the CSV is parsed in raw format separately in order to populate this field.
         |> Decode.pipeline (Decode.succeed "")
+
+
+maybeColumn : Maybe Int -> Decoder (Maybe String)
+maybeColumn column =
+    case column of
+        Nothing ->
+            Decode.succeed Nothing
+
+        Just i ->
+            Decode.column i Decode.string
+                |> Decode.map
+                    (\s ->
+                        if String.trim s == "" then
+                            Nothing
+
+                        else
+                            Just s
+                    )
 
 
 dateDecoder : DateFormat -> Decoder Date
