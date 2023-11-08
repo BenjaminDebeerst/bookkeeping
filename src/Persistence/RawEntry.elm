@@ -1,4 +1,4 @@
-module Persistence.RawEntry exposing (..)
+module Persistence.RawEntry exposing (Categorization(..), RawEntries, RawEntry, SplitCatEntry, codec, rawEntry, sha1)
 
 import Dict exposing (Dict)
 import Persistence.Category exposing (Category)

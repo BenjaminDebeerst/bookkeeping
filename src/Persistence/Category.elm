@@ -1,4 +1,4 @@
-module Persistence.Category exposing (..)
+module Persistence.Category exposing (Categories, Category, category, codec)
 
 import Dict exposing (Dict)
 import Serialize as S
@@ -13,6 +13,11 @@ type alias Category =
     , name : String
     , short : String
     }
+
+
+category : Int -> String -> String -> Category
+category i s1 s2 =
+    Category i s1 s2
 
 
 

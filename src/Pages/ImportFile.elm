@@ -20,7 +20,7 @@ import Maybe.Extra
 import Page
 import Parser
 import Persistence.Account exposing (Account)
-import Persistence.Category exposing (Category)
+import Persistence.Category exposing (Category, category)
 import Persistence.Data exposing (Data)
 import Persistence.ImportProfile exposing (ImportProfile)
 import Persistence.RawEntry exposing (rawEntry, sha1)
@@ -105,7 +105,7 @@ update data msg model =
             let
                 dataWithNewCategories =
                     newCats
-                        |> List.map (\name -> Category 0 (name ++ " (auto)") name)
+                        |> List.map (\name -> category 0 (name ++ " (auto)") name)
                         |> (\cs -> Storage.addCategories cs data)
 
                 categories =
