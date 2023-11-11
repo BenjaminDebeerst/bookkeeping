@@ -12,11 +12,6 @@ type alias Category =
     CategoryV0
 
 
-fromV0 : Dict Int CategoryV0 -> Categories
-fromV0 dict =
-    dict
-
-
 type alias CategoryV0 =
     { id : Int
     , name : String
@@ -29,30 +24,18 @@ category i s1 s2 =
     CategoryV0 i s1 s2
 
 
-
--- Codecs
-
-
-codec : S.Codec String Categories
-codec =
-    S.dict S.int categoryCodec
-
-
-v0Codec : S.Codec String CategoryV0
-v0Codec =
-    S.record CategoryV0
-        |> S.field .id S.int
-        |> S.field .name S.string
-        |> S.field .short S.string
-        |> S.finishRecord
+fromV0 : Dict Int CategoryV0 -> Categories
+fromV0 dict =
+    dict
 
 
 
 -- versioning-aware encoding
 
 
-type StorageVersions
-    = V0 CategoryV0
+codec : S.Codec String Categories
+codec =
+    S.dict S.int categoryCodec
 
 
 categoryCodec : S.Codec String Category
@@ -72,3 +55,16 @@ categoryCodec =
                         storage
             )
             V0
+
+
+type StorageVersions
+    = V0 CategoryV0
+
+
+v0Codec : S.Codec String CategoryV0
+v0Codec =
+    S.record CategoryV0
+        |> S.field .id S.int
+        |> S.field .name S.string
+        |> S.field .short S.string
+        |> S.finishRecord

@@ -35,6 +35,16 @@ type alias DataV0 =
     }
 
 
+v0v1 : DataV0 -> DataV1
+v0v1 v0 =
+    DataV1
+        (RawEntry.fromV0 v0.rawEntries)
+        (Account.fromV0 v0.accounts)
+        (Category.fromV0 v0.categories)
+        (ImportProfile.fromV0 v0.importProfiles)
+        v0.autoIncrement
+
+
 empty : Data
 empty =
     { rawEntries = Dict.empty
@@ -87,27 +97,12 @@ dataCodec =
             (\value ->
                 case value of
                     V0 storage ->
-                        v0toV1 storage
+                        v0v1 storage
 
                     V1 storage ->
                         storage
             )
             V1
-
-
-
--- DataV0 has too intrinsic knowledge about the individual modules
--- Define per-module forward adaptor path once
-
-
-v0toV1 : DataV0 -> DataV1
-v0toV1 v0 =
-    DataV1
-        (RawEntry.fromV0 v0.rawEntries)
-        (Account.fromV0 v0.accounts)
-        (Category.fromV0 v0.categories)
-        (ImportProfile.fromV0 v0.importProfiles)
-        v0.autoIncrement
 
 
 v1Codec : S.Codec String DataV1

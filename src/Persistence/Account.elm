@@ -12,11 +12,6 @@ type alias Account =
     AccountV0
 
 
-fromV0 : Dict Int AccountV0 -> Accounts
-fromV0 dict =
-    dict
-
-
 type alias AccountV0 =
     { id : Int
     , name : String
@@ -33,39 +28,18 @@ account n a y m =
     AccountV0 0 n (AccountStart a y m)
 
 
-
--- Codecs
-
-
-codec : S.Codec String Accounts
-codec =
-    S.dict S.int accountCodec
-
-
-v0Codec : S.Codec String AccountV0
-v0Codec =
-    S.record AccountV0
-        |> S.field .id S.int
-        |> S.field .name S.string
-        |> S.field .start accountStartCodec
-        |> S.finishRecord
-
-
-accountStartCodec : S.Codec String AccountStart
-accountStartCodec =
-    S.record AccountStart
-        |> S.field .amount S.int
-        |> S.field .year S.int
-        |> S.field .month S.int
-        |> S.finishRecord
+fromV0 : Dict Int AccountV0 -> Accounts
+fromV0 dict =
+    dict
 
 
 
 -- versioning-aware encoding
 
 
-type StorageVersions
-    = V0 AccountV0
+codec : S.Codec String Accounts
+codec =
+    S.dict S.int accountCodec
 
 
 accountCodec : S.Codec String Account
@@ -85,3 +59,25 @@ accountCodec =
                         storage
             )
             V0
+
+
+type StorageVersions
+    = V0 AccountV0
+
+
+v0Codec : S.Codec String AccountV0
+v0Codec =
+    S.record AccountV0
+        |> S.field .id S.int
+        |> S.field .name S.string
+        |> S.field .start accountStartCodec
+        |> S.finishRecord
+
+
+accountStartCodec : S.Codec String AccountStart
+accountStartCodec =
+    S.record AccountStart
+        |> S.field .amount S.int
+        |> S.field .year S.int
+        |> S.field .month S.int
+        |> S.finishRecord

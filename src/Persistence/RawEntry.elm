@@ -15,11 +15,6 @@ type alias RawEntry =
     RawEntryV0
 
 
-fromV0 : Dict String RawEntryV0 -> RawEntries
-fromV0 dict =
-    dict
-
-
 type alias RawEntryV0 =
     { id : String
     , line : String
@@ -59,13 +54,41 @@ sha1 s =
     SHA1.fromString s |> SHA1.toHex
 
 
+fromV0 : Dict String RawEntryV0 -> RawEntries
+fromV0 dict =
+    dict
 
--- Codecs
+
+
+-- versioning-aware encoding
 
 
 codec : S.Codec String RawEntries
 codec =
     S.dict S.string rawEntryCodec
+
+
+rawEntryCodec : S.Codec String RawEntry
+rawEntryCodec =
+    S.customType
+        (\v0Encoder value ->
+            case value of
+                V0 record ->
+                    v0Encoder record
+        )
+        |> S.variant1 V0 v0Codec
+        |> S.finishCustomType
+        |> S.map
+            (\value ->
+                case value of
+                    V0 storage ->
+                        storage
+            )
+            V0
+
+
+type StorageVersions
+    = V0 RawEntryV0
 
 
 v0Codec =
@@ -111,30 +134,3 @@ splitCategorizationCodec =
             |> S.field .amount S.int
             |> S.finishRecord
         )
-
-
-
--- versioning-aware encoding
-
-
-type StorageVersions
-    = V0 RawEntryV0
-
-
-rawEntryCodec : S.Codec String RawEntry
-rawEntryCodec =
-    S.customType
-        (\v0Encoder value ->
-            case value of
-                V0 record ->
-                    v0Encoder record
-        )
-        |> S.variant1 V0 v0Codec
-        |> S.finishCustomType
-        |> S.map
-            (\value ->
-                case value of
-                    V0 storage ->
-                        storage
-            )
-            V0

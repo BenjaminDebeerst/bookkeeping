@@ -12,11 +12,6 @@ type alias ImportProfile =
     ImportProfileV0
 
 
-fromV0 : Dict Int ImportProfileV0 -> ImportProfiles
-fromV0 dict =
-    dict
-
-
 type alias ImportProfileV0 =
     { id : Int
     , name : String
@@ -39,13 +34,41 @@ importProfile =
     ImportProfileV0
 
 
+fromV0 : Dict Int ImportProfileV0 -> ImportProfiles
+fromV0 dict =
+    dict
 
--- Codecs
+
+
+-- versioning-aware encoding
 
 
 codec : S.Codec String ImportProfiles
 codec =
     S.dict S.int profileCodec
+
+
+profileCodec : S.Codec String ImportProfile
+profileCodec =
+    S.customType
+        (\v0Encoder value ->
+            case value of
+                V0 record ->
+                    v0Encoder record
+        )
+        |> S.variant1 V0 v0Codec
+        |> S.finishCustomType
+        |> S.map
+            (\value ->
+                case value of
+                    V0 storage ->
+                        storage
+            )
+            V0
+
+
+type StorageVersions
+    = V0 ImportProfileV0
 
 
 v0Codec : S.Codec String ImportProfileV0
@@ -83,30 +106,3 @@ dateFormatCodec =
 charCodec : S.Codec String Char
 charCodec =
     S.string |> S.map (\s -> s |> String.toList |> List.head |> Maybe.withDefault '?') String.fromChar
-
-
-
--- versioning-aware encoding
-
-
-type StorageVersions
-    = V0 ImportProfileV0
-
-
-profileCodec : S.Codec String ImportProfile
-profileCodec =
-    S.customType
-        (\v0Encoder value ->
-            case value of
-                V0 record ->
-                    v0Encoder record
-        )
-        |> S.variant1 V0 v0Codec
-        |> S.finishCustomType
-        |> S.map
-            (\value ->
-                case value of
-                    V0 storage ->
-                        storage
-            )
-            V0
