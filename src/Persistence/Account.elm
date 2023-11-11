@@ -1,4 +1,4 @@
-module Persistence.Account exposing (Account, AccountStart, AccountV0, Accounts, account, codec, v0Codec)
+module Persistence.Account exposing (Account, AccountStart, AccountV0, Accounts, account, codec, fromV0, v0Codec)
 
 import Dict exposing (Dict)
 import Serialize as S
@@ -10,6 +10,11 @@ type alias Accounts =
 
 type alias Account =
     AccountV0
+
+
+fromV0 : Dict Int AccountV0 -> Accounts
+fromV0 dict =
+    dict
 
 
 type alias AccountV0 =

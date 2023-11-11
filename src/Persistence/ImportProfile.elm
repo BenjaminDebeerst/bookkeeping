@@ -1,4 +1,4 @@
-module Persistence.ImportProfile exposing (DateFormat(..), ImportProfile, ImportProfileV0, ImportProfiles, codec, importProfile, v0Codec)
+module Persistence.ImportProfile exposing (DateFormat(..), ImportProfile, ImportProfileV0, ImportProfiles, codec, fromV0, importProfile, v0Codec)
 
 import Dict exposing (Dict)
 import Serialize as S
@@ -10,6 +10,11 @@ type alias ImportProfiles =
 
 type alias ImportProfile =
     ImportProfileV0
+
+
+fromV0 : Dict Int ImportProfileV0 -> ImportProfiles
+fromV0 dict =
+    dict
 
 
 type alias ImportProfileV0 =

@@ -1,4 +1,4 @@
-module Persistence.Category exposing (Categories, Category, CategoryV0, category, codec, v0Codec)
+module Persistence.Category exposing (Categories, Category, CategoryV0, category, codec, fromV0, v0Codec)
 
 import Dict exposing (Dict)
 import Serialize as S
@@ -10,6 +10,11 @@ type alias Categories =
 
 type alias Category =
     CategoryV0
+
+
+fromV0 : Dict Int CategoryV0 -> Categories
+fromV0 dict =
+    dict
 
 
 type alias CategoryV0 =
