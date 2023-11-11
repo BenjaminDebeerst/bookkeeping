@@ -2,7 +2,7 @@ module Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate)
 
 import Dict exposing (Dict)
 import List.Extra
-import Persistence.Account exposing (Account)
+import Persistence.Data exposing (Account, AccountStart, Category, Data, RawEntry)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit)
 import Time.Date as Date exposing (Date, date)
 

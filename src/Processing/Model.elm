@@ -2,9 +2,7 @@ module Processing.Model exposing (getCategoryByShort, getEntries, getEntriesAndE
 
 import Dict exposing (Dict)
 import Maybe.Extra
-import Persistence.Category exposing (Category)
-import Persistence.Data exposing (Data)
-import Persistence.RawEntry as RawEntry exposing (RawEntry)
+import Persistence.Data as Data exposing (Account, AccountStart, Category, Data, RawEntry)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit)
 import Processing.Filter exposing (Filter, all)
 import Processing.Ordering exposing (Ordering)
@@ -37,23 +35,23 @@ enrichRow data entry =
         |> andMap (liftCategorization data entry.categorization |> Result.fromMaybe "Category not found")
 
 
-liftCategorization : Data -> Maybe RawEntry.Categorization -> Maybe Categorization
+liftCategorization : Data -> Maybe Data.Categorization -> Maybe Categorization
 liftCategorization data cat =
     case cat of
         Nothing ->
             Just None
 
-        Just (RawEntry.Single id) ->
+        Just (Data.Single id) ->
             Dict.get id data.categories |> Maybe.map Single
 
-        Just (RawEntry.Split list) ->
+        Just (Data.Split list) ->
             list
                 |> List.map (liftSplitEntry data)
                 |> Maybe.Extra.combine
                 |> Maybe.map Split
 
 
-liftSplitEntry : Data -> RawEntry.SplitCatEntry -> Maybe EntrySplit
+liftSplitEntry : Data -> Data.SplitCatEntry -> Maybe EntrySplit
 liftSplitEntry data se =
     Dict.get se.id data.categories |> Maybe.map (\c -> EntrySplit c se.amount)
 

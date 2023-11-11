@@ -2,7 +2,7 @@ module Processing.CsvParser exposing (ParsedRow, parse, parseCsvLine)
 
 import Csv.Decode as Decode exposing (Decoder, Error(..), column, string)
 import Csv.Parser as Parser
-import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile)
+import Persistence.Data exposing (DateFormat(..), ImportProfile)
 import Time.Date as Date exposing (Date)
 
 

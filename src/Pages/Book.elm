@@ -12,10 +12,7 @@ import Element.Font as Font
 import Element.Input as Input exposing (labelHidden)
 import Page
 import Parser
-import Persistence.Account exposing (Account)
-import Persistence.Category exposing (Category)
-import Persistence.Data exposing (Data)
-import Persistence.RawEntry exposing (RawEntry)
+import Persistence.Data exposing (Account, Category, Data, RawEntry)
 import Persistence.Storage as Storage exposing (addEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
 import Processing.CategoryParser as Parser exposing (categorizationParser)

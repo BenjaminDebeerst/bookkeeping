@@ -9,8 +9,7 @@ import Element.Input as Input exposing (button, labelLeft, placeholder)
 import Gen.Params.Accounts exposing (Params)
 import Page
 import Parser exposing (DeadEnd)
-import Persistence.Category exposing (Category, category)
-import Persistence.Data exposing (Data)
+import Persistence.Data exposing (Category, Data)
 import Persistence.Storage as Storage
 import Processing.CategoryParser exposing (categoryShortNameOnly)
 import Processing.Filter exposing (filterCategory)
@@ -135,7 +134,7 @@ validateCategory data m =
                 _ ->
                     -1
     in
-    Result.map3 category
+    Result.map3 makeCategory
         (Ok id)
         (if String.isEmpty m.name then
             Err "Category name is empty!"
@@ -166,6 +165,11 @@ validateCategory data m =
                                 Ok validShort
                     )
         )
+
+
+makeCategory : Int -> String -> String -> Category
+makeCategory id n s =
+    Category id n s
 
 
 
