@@ -1,4 +1,4 @@
-module Persistence.RawEntry exposing (Categorization(..), RawEntries, RawEntry, RawEntryV0, SplitCatEntry, codec, rawEntry, sha1, v0Codec)
+module Persistence.RawEntry exposing (Categorization(..), RawEntries, RawEntry, RawEntryV0, SplitCatEntry, codec, fromV0, rawEntry, sha1, v0Codec)
 
 import Dict exposing (Dict)
 import Persistence.Category exposing (Category)
@@ -13,6 +13,11 @@ type alias RawEntries =
 
 type alias RawEntry =
     RawEntryV0
+
+
+fromV0 : Dict String RawEntryV0 -> RawEntries
+fromV0 dict =
+    dict
 
 
 type alias RawEntryV0 =

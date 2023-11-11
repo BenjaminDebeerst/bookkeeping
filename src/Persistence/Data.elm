@@ -87,17 +87,32 @@ dataCodec =
             (\value ->
                 case value of
                     V0 storage ->
-                        storage
+                        v0toV1 storage
 
                     V1 storage ->
                         storage
             )
-            V0
+            V1
+
+
+
+-- DataV0 has too intrinsic knowledge about the individual modules
+-- Define per-module forward adaptor path once
+
+
+v0toV1 : DataV0 -> DataV1
+v0toV1 v0 =
+    DataV1
+        (RawEntry.fromV0 v0.rawEntries)
+        (Account.fromV0 v0.accounts)
+        (Category.fromV0 v0.categories)
+        (ImportProfile.fromV0 v0.importProfiles)
+        v0.autoIncrement
 
 
 v1Codec : S.Codec String DataV1
 v1Codec =
-    S.record DataV0
+    S.record DataV1
         |> S.field .rawEntries RawEntry.codec
         |> S.field .accounts Account.codec
         |> S.field .categories Category.codec
