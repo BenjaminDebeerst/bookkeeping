@@ -59,7 +59,6 @@ codec =
 
 
 categoryCodec : S.Codec String Category
-categoryCodec : S.Codec String CategoryV1
 categoryCodec =
     S.customType
         (\v0Encoder v1Encoder value ->
