@@ -9,12 +9,20 @@ type alias Accounts =
 
 
 type alias Account =
-    AccountV0
+    AccountV1
 
 
 fromV0 : Dict Int AccountV0 -> Accounts
 fromV0 dict =
-    dict
+    Dict.map (\_ -> v0v1) dict
+
+
+type alias AccountV1 =
+    { id : Int
+    , name : String
+    , start : AccountStart
+    , comment : String
+    }
 
 
 type alias AccountV0 =
@@ -28,9 +36,9 @@ type alias AccountStart =
     { amount : Int, year : Int, month : Int }
 
 
-account : String -> Int -> Int -> Int -> Account
-account n a y m =
-    AccountV0 0 n (AccountStart a y m)
+account : String -> Int -> Int -> Int -> String -> Account
+account n a y m c =
+    AccountV1 0 n (AccountStart a y m) c
 
 
 
@@ -40,6 +48,16 @@ account n a y m =
 codec : S.Codec String Accounts
 codec =
     S.dict S.int accountCodec
+
+
+v1Codec : S.Codec String AccountV1
+v1Codec =
+    S.record AccountV1
+        |> S.field .id S.int
+        |> S.field .name S.string
+        |> S.field .start accountStartCodec
+        |> S.field .comment S.string
+        |> S.finishRecord
 
 
 v0Codec : S.Codec String AccountV0
@@ -66,22 +84,35 @@ accountStartCodec =
 
 type StorageVersions
     = V0 AccountV0
+    | V1 AccountV1
 
 
 accountCodec : S.Codec String Account
 accountCodec =
     S.customType
-        (\v0Encoder value ->
+        (\v0Encoder v1Encoder value ->
             case value of
                 V0 record ->
                     v0Encoder record
+
+                V1 record ->
+                    v1Encoder record
         )
         |> S.variant1 V0 v0Codec
+        |> S.variant1 V1 v1Codec
         |> S.finishCustomType
         |> S.map
             (\value ->
                 case value of
                     V0 storage ->
+                        v0v1 storage
+
+                    V1 storage ->
                         storage
             )
-            V0
+            V1
+
+
+v0v1 : AccountV0 -> AccountV1
+v0v1 v0 =
+    AccountV1 v0.id v0.name v0.start ""

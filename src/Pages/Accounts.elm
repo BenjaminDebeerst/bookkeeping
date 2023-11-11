@@ -99,11 +99,12 @@ update data msg model =
 
 validateAccount : Model -> Result String Account
 validateAccount m =
-    Result.map4 account
+    Result.map5 account
         (Ok m.name)
         (String.toInt m.balance |> Result.fromMaybe "Could not parse the amount")
         (String.toInt m.year |> Result.fromMaybe "Could not parse the year")
         (String.toInt m.month |> Result.fromMaybe "Could not parse the month")
+        (Ok "")
 
 
 
