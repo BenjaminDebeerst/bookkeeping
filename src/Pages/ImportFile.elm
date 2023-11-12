@@ -6,10 +6,10 @@ import Components.Table as T
 import Csv.Decode as Decode exposing (Error(..))
 import Csv.Parser as Parser exposing (Problem(..))
 import Dict exposing (Dict)
-import Element exposing (Attribute, Color, Element, IndexedColumn, centerX, centerY, el, fill, height, indexedTable, onRight, padding, paddingEach, paddingXY, row, spacing, text, width)
+import Element exposing (Attribute, Color, Element, IndexedColumn, centerX, centerY, el, fill, height, indexedTable, onRight, padding, paddingEach, paddingXY, px, row, spacing, text, width)
 import Element.Border as Border
 import Element.Font as Font
-import Element.Input as Input
+import Element.Input as Input exposing (labelHidden, labelLeft, labelRight, placeholder)
 import File exposing (File)
 import File.Select as Select
 import Gen.Params.ImportFile exposing (Params)
@@ -22,15 +22,16 @@ import Parser
 import Persistence.Account exposing (Account)
 import Persistence.Category as Category exposing (Category, category)
 import Persistence.Data exposing (Data)
-import Persistence.ImportProfile exposing (ImportProfile)
+import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile)
 import Persistence.RawEntry exposing (rawEntry, sha1)
 import Persistence.Storage as Storage
 import Processing.CategoryParser as CategoryParser
-import Processing.CsvParser as CsvParser exposing (ParsedRow)
+import Processing.CsvParser as CsvParser exposing (ParsedRow, toDate)
 import Processing.Model exposing (getCategoryByShort)
 import Request
 import Shared exposing (Model(..))
 import Task exposing (Task)
+import Time.Date exposing (Date)
 import View exposing (View)
 
 
@@ -51,8 +52,28 @@ page shared req =
 type Model
     = Pick
     | PickHover
-    | Show String String (Maybe ImportProfile)
+    | Show ShowOptions
     | Stored Int
+
+
+type alias ShowOptions =
+    { fileName : String
+    , fileContent : String
+    , importProfile : Maybe ImportProfile
+    , filter : ImportFilter
+    }
+
+
+type alias ImportFilter =
+    { doFilter : Bool
+    , minDate : String
+    , maxDate : String
+    }
+
+
+show : String -> String -> Model
+show file content =
+    Show <| ShowOptions file content Nothing <| ImportFilter False "" ""
 
 
 
@@ -66,6 +87,7 @@ type Msg
     | GotFileName File
     | GotFile String String
     | ChooseImportProfile ImportProfile
+    | Filter Bool String String
     | Abort
     | Store Account ImportProfile (List String) (List ParsedRow)
 
@@ -88,12 +110,20 @@ update data msg model =
             ( model, readFile filename )
 
         GotFile name content ->
-            ( Show name content Nothing, Cmd.none )
+            ( show name content, Cmd.none )
 
         ChooseImportProfile profile ->
             case model of
-                Show name content _ ->
-                    ( Show name content (Just profile), Cmd.none )
+                Show options ->
+                    ( Show { options | importProfile = Just profile }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        Filter on start end ->
+            case model of
+                Show options ->
+                    ( Show { options | filter = ImportFilter on start end }, Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
@@ -146,8 +176,8 @@ view : Data -> Model -> View Msg
 view data model =
     Layout.page "Import CSV File" <|
         case model of
-            Show fileName content profile ->
-                viewFileContents data profile fileName content
+            Show options ->
+                viewFileContents data options
 
             _ ->
                 viewFilePicker data model
@@ -205,24 +235,24 @@ showStoreConfirmation s =
 -- CSV Importer
 
 
-viewFileContents : Data -> Maybe ImportProfile -> String -> String -> List (Element Msg)
-viewFileContents data profile filename content =
-    case profile of
+viewFileContents : Data -> ShowOptions -> List (Element Msg)
+viewFileContents data options =
+    case options.importProfile of
         Nothing ->
-            preview data Nothing filename content
+            preview data Nothing options.fileName options.fileContent
 
         Just p ->
-            preview data (Just p) filename content
-                ++ parseFile data p content
+            preview data (Just p) options.fileName options.fileContent
+                ++ parseFile data p options
 
 
 
 -- parsed CSV view
 
 
-parseFile : Data -> ImportProfile -> String -> List (Element Msg)
-parseFile data profile csvFileContent =
-    case CsvParser.parse profile csvFileContent of
+parseFile : Data -> ImportProfile -> ShowOptions -> List (Element Msg)
+parseFile data profile options =
+    case CsvParser.parse profile options.fileContent of
         Err error ->
             [ text "Could not parse the given file with the selected profile.", text (errorToString error) ]
 
@@ -235,20 +265,27 @@ parseFile data profile csvFileContent =
                 (\s -> Dict.member s data.rawEntries)
                 (getCategoryByShort (Dict.values data.categories))
                 profile
+                options.filter
                 rows
 
 
-viewParsedRows : List Account -> (String -> Bool) -> (String -> Maybe Category) -> ImportProfile -> List ParsedRow -> List (Element Msg)
-viewParsedRows accounts entryIdExists findCategory profile rows =
+viewParsedRows : List Account -> (String -> Bool) -> (String -> Maybe Category) -> ImportProfile -> ImportFilter -> List ParsedRow -> List (Element Msg)
+viewParsedRows accounts entryIdExists findCategory profile filter rows =
     let
         csvSize =
             List.length rows |> String.fromInt
 
+        filteredRows =
+            filterRows filter rows
+
+        nExcluded =
+            List.length rows - List.length filteredRows
+
         duplicates =
-            findDuplicateRows rows
+            findDuplicateRows filteredRows
 
         ( annotatedRows, overlap ) =
-            annotateRows rows duplicates entryIdExists findCategory
+            annotateRows filteredRows duplicates entryIdExists findCategory
 
         annotatedRowsToStore =
             annotatedRows
@@ -280,10 +317,13 @@ viewParsedRows accounts entryIdExists findCategory profile rows =
                 |> List.sort
     in
     if storeSize == 0 then
-        [ text "Every row in this CSV has already been imported. There's nothing to do." ]
+        showFilter filter
+            ++ [ text "Every row in this CSV has already been imported. There's nothing to do." ]
 
     else
-        warning overlap (\n -> n ++ " of " ++ csvSize ++ " rows in this CSV have already been imported. They shall be skipped.")
+        showFilter filter
+            ++ warning nExcluded (\n -> n ++ " rows are excluded by the date filter.")
+            ++ warning overlap (\n -> n ++ " of " ++ csvSize ++ " rows in this CSV have already been imported. They shall be skipped.")
             ++ warning (Dict.size duplicates) (\_ -> "This CSV has " ++ csvSize ++ " rows, but only " ++ String.fromInt storeSize ++ " distinct duplicated rows. Duplicate rows will be imported only once. Are your rows sufficiently distinct?")
             ++ warning (List.length newCategories) (\n -> n ++ " yet unknown categories were found in the CSV. They shall be created upon import: " ++ String.join ", " newCategories)
             ++ [ text <| "Import to account: " ]
@@ -307,6 +347,41 @@ viewParsedRows accounts entryIdExists findCategory profile rows =
                             ++ [ T.textColumn "Description" (.parsedRow >> .description) ]
                     }
                ]
+
+
+showFilter : ImportFilter -> List (Element Msg)
+showFilter filter =
+    [ Input.checkbox []
+        { onChange =
+            \on ->
+                if on then
+                    Filter True filter.minDate filter.maxDate
+
+                else
+                    Filter False filter.minDate filter.maxDate
+        , icon = Input.defaultCheckbox
+        , checked = filter.doFilter
+        , label = labelRight [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text <| "Filter rows by date before import"
+        }
+    ]
+        ++ (if filter.doFilter then
+                [ Input.text [ width <| px 300 ]
+                    { onChange = \s -> Filter True s filter.maxDate
+                    , text = filter.minDate
+                    , placeholder = Just <| placeholder [] <| text "YYYY-MM-DD"
+                    , label = labelLeft [ paddingXY size.m 0 ] <| text "min. date"
+                    }
+                , Input.text [ width <| px 300 ]
+                    { onChange = Filter True filter.minDate
+                    , text = filter.maxDate
+                    , placeholder = Just <| placeholder [] <| text "YYYY-MM-DD"
+                    , label = labelLeft [ paddingXY size.m 0 ] <| text "max. date (excl.)"
+                    }
+                ]
+
+            else
+                []
+           )
 
 
 categoryCell : AnnotatedRow -> Element msg
@@ -385,6 +460,35 @@ errorToString error =
 
 
 -- CSV parsing and annotations
+
+
+filterRows : ImportFilter -> List ParsedRow -> List ParsedRow
+filterRows filter rows =
+    if filter.doFilter then
+        rows |> List.filter (makeDateFilter filter)
+
+    else
+        rows
+
+
+makeDateFilter : ImportFilter -> (ParsedRow -> Bool)
+makeDateFilter filter =
+    let
+        minFn =
+            filter.minDate
+                |> toDate (YYYYMMDD '-')
+                |> Result.toMaybe
+                |> Maybe.map (\min -> \d -> not <| Time.Date.compare min d == GT)
+                |> Maybe.withDefault (\_ -> True)
+
+        maxFn =
+            filter.maxDate
+                |> toDate (YYYYMMDD '-')
+                |> Result.toMaybe
+                |> Maybe.map (\max -> \d -> Time.Date.compare d max == LT)
+                |> Maybe.withDefault (\_ -> True)
+    in
+    \row -> minFn row.date && maxFn row.date
 
 
 type alias AnnotatedRow =

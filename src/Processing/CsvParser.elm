@@ -1,4 +1,4 @@
-module Processing.CsvParser exposing (ParsedRow, parse, parseCsvLine)
+module Processing.CsvParser exposing (ParsedRow, parse, parseCsvLine, toDate)
 
 import Csv.Decode as Decode exposing (Decoder, Error(..), column, string)
 import Csv.Parser as Parser
