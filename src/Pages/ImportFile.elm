@@ -9,7 +9,7 @@ import Dict exposing (Dict)
 import Element exposing (Attribute, Color, Element, IndexedColumn, centerX, centerY, el, fill, height, indexedTable, onRight, padding, paddingEach, paddingXY, px, row, spacing, text, width)
 import Element.Border as Border
 import Element.Font as Font
-import Element.Input as Input exposing (labelHidden, labelLeft, labelRight, placeholder)
+import Element.Input as Input exposing (labelLeft, labelRight, placeholder)
 import File exposing (File)
 import File.Select as Select
 import Gen.Params.ImportFile exposing (Params)
@@ -52,15 +52,21 @@ page shared req =
 type Model
     = Pick
     | PickHover
-    | Show ShowOptions
+    | Show RawCsv (Maybe ParsedFile)
     | Stored Int
 
 
-type alias ShowOptions =
-    { fileName : String
-    , fileContent : String
-    , importProfile : Maybe ImportProfile
-    , filter : ImportFilter
+type alias RawCsv =
+    { name : String
+    , content : String
+    , parsed : Result Problem (List (List String))
+    }
+
+
+type alias ParsedFile =
+    { importProfile : ImportProfile
+    , parsedRows : Result Error (List ParsedRow)
+    , importFilter : ImportFilter
     }
 
 
@@ -71,9 +77,13 @@ type alias ImportFilter =
     }
 
 
+emptyFilter =
+    ImportFilter False "" ""
+
+
 show : String -> String -> Model
 show file content =
-    Show <| ShowOptions file content Nothing <| ImportFilter False "" ""
+    Show (RawCsv file content (Parser.parse { fieldSeparator = ',' } content)) Nothing
 
 
 
@@ -114,16 +124,25 @@ update data msg model =
 
         ChooseImportProfile profile ->
             case model of
-                Show options ->
-                    ( Show { options | importProfile = Just profile }, Cmd.none )
+                Show csv parsed ->
+                    ( Show csv
+                        (Just
+                            (ParsedFile
+                                profile
+                                (CsvParser.parse profile csv.content)
+                                (parsed |> Maybe.map .importFilter |> Maybe.withDefault emptyFilter)
+                            )
+                        )
+                    , Cmd.none
+                    )
 
                 _ ->
                     ( model, Cmd.none )
 
         Filter on start end ->
             case model of
-                Show options ->
-                    ( Show { options | filter = ImportFilter on start end }, Cmd.none )
+                Show csv (Just parsed) ->
+                    ( Show csv (Just { parsed | importFilter = ImportFilter on start end }), Cmd.none )
 
                 _ ->
                     ( model, Cmd.none )
@@ -176,8 +195,8 @@ view : Data -> Model -> View Msg
 view data model =
     Layout.page "Import CSV File" <|
         case model of
-            Show options ->
-                viewFileContents data options
+            Show csv parsed ->
+                viewFileContents data csv parsed
 
             _ ->
                 viewFilePicker data model
@@ -235,24 +254,22 @@ showStoreConfirmation s =
 -- CSV Importer
 
 
-viewFileContents : Data -> ShowOptions -> List (Element Msg)
-viewFileContents data options =
-    case options.importProfile of
-        Nothing ->
-            preview data Nothing options.fileName options.fileContent
-
-        Just p ->
-            preview data (Just p) options.fileName options.fileContent
-                ++ parseFile data p options
-
-
-
--- parsed CSV view
+viewFileContents : Data -> RawCsv -> Maybe ParsedFile -> List (Element Msg)
+viewFileContents data csv parsed =
+    preview csv
+        ++ (csv.parsed
+                |> Result.map (\_ -> viewProfileSelector data (parsed |> Maybe.map .importProfile))
+                |> Result.withDefault []
+           )
+        ++ (parsed
+                |> Maybe.map (\file -> showFile data file)
+                |> Maybe.withDefault []
+           )
 
 
-parseFile : Data -> ImportProfile -> ShowOptions -> List (Element Msg)
-parseFile data profile options =
-    case CsvParser.parse profile options.fileContent of
+showFile : Data -> ParsedFile -> List (Element Msg)
+showFile data parsedFile =
+    case parsedFile.parsedRows of
         Err error ->
             [ text "Could not parse the given file with the selected profile.", text (errorToString error) ]
 
@@ -264,8 +281,8 @@ parseFile data profile options =
                 (Dict.values data.accounts)
                 (\s -> Dict.member s data.rawEntries)
                 (getCategoryByShort (Dict.values data.categories))
-                profile
-                options.filter
+                parsedFile.importProfile
+                parsedFile.importFilter
                 rows
 
 
@@ -581,23 +598,12 @@ findDuplicateRows parsedRows =
 -- raw CSV (pre)view
 
 
-preview : Data -> Maybe ImportProfile -> String -> String -> List (Element Msg)
-preview data selectedProfile filename contents =
-    case Parser.parse { fieldSeparator = ',' } contents of
-        Ok csv ->
-            [ text <| "Loaded header and " ++ (csv |> List.length |> (\i -> i - 1) |> String.fromInt) ++ " rows from " ++ filename ++ ". This is how the raw data looks like:"
-            , previewTable csv
-            , Input.radioRow []
-                { onChange = ChooseImportProfile
-                , selected = selectedProfile
-                , label = Input.labelLeft [ paddingXY size.m 0 ] <| text "Choose import profile: "
-                , options =
-                    Dict.values data.importProfiles
-                        |> List.map
-                            (\p ->
-                                Input.option p (el [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text p.name)
-                            )
-                }
+preview : RawCsv -> List (Element Msg)
+preview csv =
+    case csv.parsed of
+        Ok rows ->
+            [ text <| "Loaded header and " ++ (rows |> List.length |> (\i -> i - 1) |> String.fromInt) ++ " rows from " ++ csv.name ++ ". This is how the raw data looks like:"
+            , previewTable rows
             ]
 
         Err problem ->
@@ -625,3 +631,23 @@ previewTable csv =
                 |> List.indexedMap
                     (\i title -> T.textColumn title (List.drop i >> List.head >> Maybe.withDefault "n/a"))
         }
+
+
+
+-- profile selector
+
+
+viewProfileSelector : Data -> Maybe ImportProfile -> List (Element Msg)
+viewProfileSelector data profile =
+    [ Input.radioRow []
+        { onChange = ChooseImportProfile
+        , selected = profile
+        , label = Input.labelLeft [ paddingXY size.m 0 ] <| text "Choose import profile: "
+        , options =
+            Dict.values data.importProfiles
+                |> List.map
+                    (\p ->
+                        Input.option p (el [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text p.name)
+                    )
+        }
+    ]
