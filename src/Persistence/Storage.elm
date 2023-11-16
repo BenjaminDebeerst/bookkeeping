@@ -21,7 +21,7 @@ import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
 import Persistence.Data exposing (Data, decode, empty, encode)
 import Persistence.ImportProfile exposing (ImportProfile)
-import Persistence.RawEntry exposing (RawEntry)
+import Persistence.RawEntry exposing (RawEntry, sha1)
 import Serialize exposing (Error)
 
 
@@ -53,13 +53,32 @@ addAccount account data =
     }
 
 
-addEntries : List RawEntry -> Data -> Data
-addEntries lines data =
+addEntries : Bool -> List RawEntry -> Data -> Data
+addEntries generateIds entries data =
     let
-        newEntries =
-            List.map (\e -> ( e.id, e )) lines |> Dict.fromList
+        ( newAutoIncrement, newEntries ) =
+            entries
+                |> List.foldl
+                    (addEntryHelper generateIds)
+                    ( data.autoIncrement, [] )
     in
-    { data | rawEntries = Dict.union newEntries data.rawEntries }
+    { data
+        | rawEntries = Dict.union (Dict.fromList newEntries) data.rawEntries
+        , autoIncrement = newAutoIncrement
+    }
+
+
+addEntryHelper : Bool -> RawEntry -> ( Int, List ( String, RawEntry ) ) -> ( Int, List ( String, RawEntry ) )
+addEntryHelper generateIds entry ( i, acc ) =
+    let
+        ( j, id ) =
+            if generateIds then
+                ( i + 1, i |> String.fromInt |> sha1 )
+
+            else
+                ( i, entry.line |> sha1 )
+    in
+    ( j, [ ( id, { entry | id = id } ) ] ++ acc )
 
 
 addCategories : List Category -> Data -> Data

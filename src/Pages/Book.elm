@@ -128,7 +128,7 @@ update data msg model =
                         |> Dict.values
             in
             ( { model | editCategories = False, categoryEdits = Dict.empty }
-            , addEntries editedEntries data |> Storage.store
+            , addEntries False editedEntries data |> Storage.store
             )
 
 

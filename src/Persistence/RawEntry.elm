@@ -39,7 +39,7 @@ type alias SplitCatEntry =
 rawEntry : Int -> Int -> String -> Date -> Int -> String -> Maybe Category -> RawEntry
 rawEntry accountId profileId line date amount description category =
     RawEntryV0
-        (sha1 line)
+        "id-will-be-generated"
         line
         date
         amount

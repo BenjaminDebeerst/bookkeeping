@@ -67,6 +67,7 @@ type alias ParsedFile =
     { importProfile : ImportProfile
     , parsedRows : Result Error (List ParsedRow)
     , importFilter : ImportFilter
+    , generateIds : Bool
     }
 
 
@@ -98,8 +99,9 @@ type Msg
     | GotFile String String
     | ChooseImportProfile ImportProfile
     | Filter Bool String String
+    | GenerateIds Bool
     | Abort
-    | Store Account ImportProfile (List String) (List ParsedRow)
+    | Store Account ImportProfile (List String) (List ParsedRow) Bool
 
 
 update : Data -> Msg -> Model -> ( Model, Cmd Msg )
@@ -131,6 +133,7 @@ update data msg model =
                                 profile
                                 (CsvParser.parse profile csv.content)
                                 (parsed |> Maybe.map .importFilter |> Maybe.withDefault emptyFilter)
+                                False
                             )
                         )
                     , Cmd.none
@@ -147,10 +150,18 @@ update data msg model =
                 _ ->
                     ( model, Cmd.none )
 
+        GenerateIds on ->
+            case model of
+                Show csv (Just parsed) ->
+                    ( Show csv (Just { parsed | generateIds = on }), Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
+
         Abort ->
             ( Pick, Cmd.none )
 
-        Store account profile newCats lines ->
+        Store account profile newCats lines generateIds ->
             let
                 dataWithNewCategories =
                     newCats
@@ -175,7 +186,7 @@ update data msg model =
                             )
 
                 newData =
-                    dataWithNewCategories |> Storage.addEntries newEntries
+                    dataWithNewCategories |> Storage.addEntries generateIds newEntries
             in
             ( Stored (List.length newEntries)
             , Storage.store newData
@@ -283,11 +294,12 @@ showFile data parsedFile =
                 (getCategoryByShort (Dict.values data.categories))
                 parsedFile.importProfile
                 parsedFile.importFilter
+                parsedFile.generateIds
                 rows
 
 
-viewParsedRows : List Account -> (String -> Bool) -> (String -> Maybe Category) -> ImportProfile -> ImportFilter -> List ParsedRow -> List (Element Msg)
-viewParsedRows accounts entryIdExists findCategory profile filter rows =
+viewParsedRows : List Account -> (String -> Bool) -> (String -> Maybe Category) -> ImportProfile -> ImportFilter -> Bool -> List ParsedRow -> List (Element Msg)
+viewParsedRows accounts entryIdExists findCategory profile filter generateIds rows =
     let
         csvSize =
             List.length rows |> String.fromInt
@@ -299,15 +311,34 @@ viewParsedRows accounts entryIdExists findCategory profile filter rows =
             List.length rows - List.length filteredRows
 
         duplicates =
-            findDuplicateRows filteredRows
+            if generateIds then
+                Dict.empty
+
+            else
+                findDuplicateRows filteredRows
 
         ( annotatedRows, overlap ) =
-            annotateRows filteredRows duplicates entryIdExists findCategory
+            annotateRows
+                filteredRows
+                duplicates
+                (if generateIds then
+                    \_ -> False
+
+                 else
+                    entryIdExists
+                )
+                findCategory
 
         annotatedRowsToStore =
             annotatedRows
                 |> List.filter (\ar -> not ar.alreadyImported)
-                |> List.Extra.uniqueBy (\ar -> sha1 ar.parsedRow.rawLine)
+                |> (if generateIds then
+                        -- simply skip don't do the uniqueness filter
+                        identity
+
+                    else
+                        List.Extra.uniqueBy (\ar -> sha1 ar.parsedRow.rawLine)
+                   )
 
         rowsToStore =
             annotatedRowsToStore |> List.map .parsedRow
@@ -334,11 +365,11 @@ viewParsedRows accounts entryIdExists findCategory profile filter rows =
                 |> List.sort
     in
     if storeSize == 0 then
-        showFilter filter
+        showImportOptions filter generateIds
             ++ [ text "Every row in this CSV has already been imported. There's nothing to do." ]
 
     else
-        showFilter filter
+        showImportOptions filter generateIds
             ++ warning nExcluded (\n -> n ++ " rows are excluded by the date filter.")
             ++ warning overlap (\n -> n ++ " of " ++ csvSize ++ " rows in this CSV have already been imported. They shall be skipped.")
             ++ warning (Dict.size duplicates) (\_ -> "This CSV has " ++ csvSize ++ " rows, but only " ++ String.fromInt storeSize ++ " distinct duplicated rows. Duplicate rows will be imported only once. Are your rows sufficiently distinct?")
@@ -347,7 +378,7 @@ viewParsedRows accounts entryIdExists findCategory profile filter rows =
             ++ [ row [ spacing size.s ]
                     ([ Input.button style.button { onPress = Just Abort, label = text "Abort" } ]
                         ++ (accounts
-                                |> List.map (\a -> Input.button style.button { onPress = Just (Store a profile newCategories rowsToStore), label = text a.name })
+                                |> List.map (\a -> Input.button style.button { onPress = Just (Store a profile newCategories rowsToStore generateIds), label = text a.name })
                            )
                     )
                ]
@@ -364,6 +395,28 @@ viewParsedRows accounts entryIdExists findCategory profile filter rows =
                             ++ [ T.textColumn "Description" (.parsedRow >> .description) ]
                     }
                ]
+
+
+showImportOptions : ImportFilter -> Bool -> List (Element Msg)
+showImportOptions filter generateIds =
+    showGenerateIdsOption generateIds ++ showFilter filter
+
+
+showGenerateIdsOption : Bool -> List (Element Msg)
+showGenerateIdsOption generateIds =
+    [ Input.checkbox []
+        { onChange =
+            \on ->
+                if on then
+                    GenerateIds True
+
+                else
+                    GenerateIds False
+        , icon = Input.defaultCheckbox
+        , checked = generateIds
+        , label = labelRight [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text <| "Generate ids for rows. Do not assume content-based identity."
+        }
+    ]
 
 
 showFilter : ImportFilter -> List (Element Msg)
