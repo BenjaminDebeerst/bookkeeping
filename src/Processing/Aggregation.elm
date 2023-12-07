@@ -10,6 +10,7 @@ import Time.Date as Date exposing (Date, date)
 type alias MonthAggregate =
     { month : String
     , balance : Int
+    , diff : Int
     , entries : Dict Int Int -- Category id -> Amount
     }
 
@@ -45,17 +46,17 @@ aggregate bookEntries =
     in
     case startMonth of
         Just date ->
-            Aggregate accounts (aggHelper date ( Dict.empty, startBalance ) bookEntries [])
+            Aggregate accounts (aggHelper date ( Dict.empty, startBalance, 0 ) bookEntries [])
 
         Nothing ->
             Aggregate accounts []
 
 
-aggHelper : Date -> ( Dict Int Int, Int ) -> List BookEntry -> List MonthAggregate -> List MonthAggregate
-aggHelper currentMonth ( monthEntries, balance ) remainingBookEntries aggregatedMonths =
+aggHelper : Date -> ( Dict Int Int, Int, Int ) -> List BookEntry -> List MonthAggregate -> List MonthAggregate
+aggHelper currentMonth ( monthEntries, balance, diff ) remainingBookEntries aggregatedMonths =
     case remainingBookEntries of
         [] ->
-            aggregatedMonths ++ [ MonthAggregate (monthString currentMonth) balance monthEntries ]
+            aggregatedMonths ++ [ MonthAggregate (monthString currentMonth) balance diff monthEntries ]
 
         be :: tail ->
             case compare currentMonth be of
@@ -64,23 +65,23 @@ aggHelper currentMonth ( monthEntries, balance ) remainingBookEntries aggregated
                     -- Skip the value and carry on
                     aggHelper
                         currentMonth
-                        ( monthEntries, balance )
+                        ( monthEntries, balance, diff )
                         tail
                         aggregatedMonths
 
                 EQ ->
                     aggHelper
                         currentMonth
-                        ( addCategorizedAmount be monthEntries, balance + be.amount )
+                        ( addCategorizedAmount be monthEntries, balance + be.amount, diff + be.amount )
                         tail
                         aggregatedMonths
 
                 LT ->
                     aggHelper
                         (Date.addMonths 1 currentMonth)
-                        ( Dict.empty, balance )
+                        ( Dict.empty, balance, 0 )
                         remainingBookEntries
-                        (aggregatedMonths ++ [ MonthAggregate (monthString currentMonth) balance monthEntries ])
+                        (aggregatedMonths ++ [ MonthAggregate (monthString currentMonth) balance diff monthEntries ])
 
 
 monthString : Date -> String

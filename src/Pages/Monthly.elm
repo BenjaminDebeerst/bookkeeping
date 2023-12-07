@@ -99,6 +99,7 @@ showData data aggregate =
         , columns =
             [ T.textColumn "Month" .month
             , T.styledColumn "Balance" (.balance >> formatEuro)
+            , T.styledColumn "Diff" (.diff >> formatEuro)
             ]
                 ++ categoryColumns data.categories
         }
