@@ -8,7 +8,7 @@ import Element exposing (Element, IndexedColumn, column, el, indexedTable, spaci
 import Gen.Params.Monthly exposing (Params)
 import Page
 import Persistence.Account exposing (Account)
-import Persistence.Category exposing (Category)
+import Persistence.Category exposing (Category, CategoryGroup(..))
 import Persistence.Data exposing (Data)
 import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate)
 import Processing.Model exposing (getEntries)
@@ -108,7 +108,21 @@ showData data aggregate =
 categoryColumns : Dict Int Category -> List (IndexedColumn MonthAggregate msg)
 categoryColumns categories =
     Dict.values categories
+        |> List.sortBy categoryOrder
         |> List.map
             (\cat ->
                 T.styledColumn cat.name (.entries >> Dict.get cat.id >> Maybe.withDefault 0 >> formatEuro)
             )
+
+
+categoryOrder : Category -> String
+categoryOrder category =
+    case category.group of
+        Income ->
+            "0" ++ category.name
+
+        Expense ->
+            "1" ++ category.name
+
+        Internal ->
+            "2" ++ category.name
