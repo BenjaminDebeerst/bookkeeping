@@ -11,18 +11,21 @@ port module Persistence.Storage exposing
     , load
     , loadDatabase
     , onChange
+    , removeEntries
     , save
     , store
     , truncate
     )
 
 import Dict exposing (Dict)
+import Dict.Extra
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
 import Persistence.Data exposing (Data, decode, empty, encode)
 import Persistence.ImportProfile exposing (ImportProfile)
 import Persistence.RawEntry exposing (RawEntry, sha1)
 import Serialize exposing (Error)
+import Set
 
 
 port save : String -> Cmd msg
@@ -66,6 +69,11 @@ addEntries generateIds entries data =
         | rawEntries = Dict.union (Dict.fromList newEntries) data.rawEntries
         , autoIncrement = newAutoIncrement
     }
+
+
+removeEntries : List String -> Data -> Data
+removeEntries ids data =
+    { data | rawEntries = Dict.Extra.removeMany (Set.fromList ids) data.rawEntries }
 
 
 addEntryHelper : Bool -> RawEntry -> ( Int, List ( String, RawEntry ) ) -> ( Int, List ( String, RawEntry ) )

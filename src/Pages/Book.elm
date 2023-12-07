@@ -16,7 +16,7 @@ import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
 import Persistence.Data exposing (Data)
 import Persistence.RawEntry exposing (RawEntry)
-import Persistence.Storage as Storage exposing (addEntries)
+import Persistence.Storage as Storage exposing (addEntries, removeEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
 import Processing.CategoryParser as Parser exposing (categorizationParser)
 import Processing.Model exposing (getCategoryByShort, getEntriesAndErrors)
@@ -51,6 +51,7 @@ type alias Model =
     , editCategories : Bool
     , categoryEdits : Dict String CatAttempt
     , filters : Filter.Model
+    , toBeDeleted : List String
     }
 
 
@@ -65,6 +66,7 @@ init accounts =
       , editCategories = False
       , categoryEdits = Dict.empty
       , filters = Filter.init accounts
+      , toBeDeleted = []
       }
     , Cmd.none
     )
@@ -81,6 +83,9 @@ type Msg
     | EditCategory String Int String
     | SaveCategories
     | AbortCategorize
+    | Delete (List String)
+    | DeleteAbort
+    | DeleteConfirm (List String)
 
 
 update : Data -> Msg -> Model -> ( Model, Cmd Msg )
@@ -131,6 +136,15 @@ update data msg model =
             , addEntries False editedEntries data |> Storage.store
             )
 
+        Delete entryIds ->
+            ( { model | toBeDeleted = entryIds }, Cmd.none )
+
+        DeleteAbort ->
+            ( { model | toBeDeleted = [] }, Cmd.none )
+
+        DeleteConfirm entryIds ->
+            ( { model | toBeDeleted = [] }, removeEntries entryIds data |> Storage.store )
+
 
 view : Data -> Model -> View Msg
 view data model =
@@ -143,7 +157,7 @@ view data model =
     in
     Layout.page "Book" <|
         [ showFilters model.filters <| Dict.values data.accounts
-        , showActions model
+        , showActions model (entries |> List.map .id)
         , showData model entries
         , showErrors errors
         ]
@@ -162,20 +176,32 @@ showFilters model accounts =
         ]
 
 
-showActions : Model -> Element Msg
-showActions model =
-    Element.row [ spacing size.s ]
-        ([]
-            ++ [ Input.button style.button { onPress = Just Categorize, label = text "Edit Categories" } ]
-            ++ (if model.editCategories then
-                    [ Input.button style.button { onPress = Just SaveCategories, label = text "Save Category Edits" }
-                    , Input.button style.button { onPress = Just AbortCategorize, label = text "Abort" }
-                    ]
+showActions : Model -> List String -> Element Msg
+showActions model entryIds =
+    column [ width shrink, spacing size.m ]
+        [ Element.row [ spacing size.s ]
+            ([]
+                ++ [ Input.button style.button { onPress = Just Categorize, label = text "Edit Categories" } ]
+                ++ (if model.editCategories then
+                        [ Input.button style.button { onPress = Just SaveCategories, label = text "Save Category Edits" }
+                        , Input.button style.button { onPress = Just AbortCategorize, label = text "Abort" }
+                        ]
 
-                else
-                    []
-               )
-        )
+                    else
+                        []
+                   )
+            )
+        , Element.row [ spacing size.s ]
+            (if List.isEmpty model.toBeDeleted then
+                [ Input.button style.button { onPress = Just (Delete entryIds), label = text "Delete Entries Shown" } ]
+
+             else
+                [ text <| "You're about to delete " ++ (String.fromInt <| List.length model.toBeDeleted) ++ " book entries. Sure?"
+                , Input.button style.button { onPress = Just DeleteAbort, label = text "No! Get me out of here." }
+                , Input.button style.button { onPress = Just (DeleteConfirm entryIds), label = text "Really delete" }
+                ]
+            )
+        ]
 
 
 showData : Model -> List BookEntry -> Element Msg
