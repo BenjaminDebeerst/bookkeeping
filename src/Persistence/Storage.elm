@@ -39,7 +39,7 @@ store =
     encode >> save
 
 
-onChange : (Result (Error String) Data -> msg) -> Sub msg
+onChange : (Result (Error String) (Maybe Data) -> msg) -> Sub msg
 onChange fromStorage =
     load (\s -> decode s |> fromStorage)
 

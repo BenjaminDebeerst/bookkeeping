@@ -60,14 +60,15 @@ encode storage =
     S.encodeToString dataCodec storage
 
 
-decode : String -> Result (Error String) Data
+decode : String -> Result (Error String) (Maybe Data)
 decode value =
     case value of
         "" ->
-            Ok empty
+            Ok Nothing
 
         s ->
             S.decodeFromString dataCodec (String.trim s)
+                |> Result.map Just
 
 
 

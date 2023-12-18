@@ -24,6 +24,9 @@ page shared req =
         { init =
             init
                 (case shared of
+                    None ->
+                        []
+
                     Loaded data ->
                         Dict.values data.accounts
 

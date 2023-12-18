@@ -213,6 +213,9 @@ type alias ViewFn model msg =
 viewDataOnly : Shared.Model -> (Data -> ViewFn a b) -> ViewFn a b
 viewDataOnly shared view_ =
     case shared of
+        None ->
+            \_ -> { title = "Empty", body = [ Element.layout [] <| Element.text "There is no data loaded." ] }
+
         Loaded data ->
             view_ data
 
@@ -230,6 +233,9 @@ type alias UpdateFn msg model =
 updateOrRedirectOnError : Shared.Model -> Request.With params -> (Data -> UpdateFn a b) -> UpdateFn a b
 updateOrRedirectOnError shared req update_ =
     case shared of
+        None ->
+            \_ model -> ( model, Request.pushRoute Route.Home_ req )
+
         Loaded data ->
             update_ data
 

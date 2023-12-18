@@ -24,7 +24,7 @@ import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
 import Request exposing (Request)
 import Result.Extra
 import Set
-import Shared exposing (Model(..))
+import Shared
 import View exposing (View)
 
 
@@ -34,10 +34,13 @@ page shared req =
         { init =
             init
                 (case shared of
-                    Loaded data ->
+                    Shared.None ->
+                        []
+
+                    Shared.Loaded data ->
                         Dict.values data.accounts
 
-                    Problem _ ->
+                    Shared.Problem _ ->
                         []
                 )
         , update = updateOrRedirectOnError shared req update

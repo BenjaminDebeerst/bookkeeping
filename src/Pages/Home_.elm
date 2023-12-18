@@ -1,16 +1,21 @@
 module Pages.Home_ exposing (Model, Msg, page)
 
-import Components.Layout as Layout
+import Components.Icons exposing (copy, loader)
+import Components.Layout as Layout exposing (color, size)
 import Dict
-import Element exposing (Element, el, fill, height, maximum, px, text, width)
+import Element exposing (Element, el, fill, height, maximum, minimum, px, row, spacing, text, width)
 import Element.Font as Font
 import Element.Input as Input exposing (labelAbove, placeholder)
+import File exposing (File)
+import File.Download as Download
+import File.Select as Select
 import Page
 import Persistence.Data exposing (Data, encode)
 import Persistence.Storage as Storage
 import Request exposing (Request)
 import Serialize exposing (Error(..))
 import Shared exposing (Model(..))
+import Task
 import View exposing (View)
 
 
@@ -25,8 +30,7 @@ page shared _ =
 
 
 type alias Model =
-    { textinput : String
-    , dbString : Maybe String
+    { loading : Bool
     }
 
 
@@ -36,7 +40,7 @@ init =
 
 
 emptyModel =
-    { textinput = "", dbString = Nothing }
+    { loading = False }
 
 
 
@@ -44,44 +48,61 @@ emptyModel =
 
 
 type Msg
-    = TextInput String
-    | LoadData
-    | StartFromScratch
-    | TruncateBook
-    | SaveData
+    = InitDatabase
+    | PickFile
+    | GotFileName File
+    | GotFileContent String String
+    | SaveDataBase
 
 
 update : Shared.Model -> Msg -> Model -> ( Model, Cmd Msg )
 update sharedModel msg model =
     case msg of
-        TextInput s ->
-            ( { model | textinput = s }
-            , Cmd.none
+        PickFile ->
+            ( model
+            , Select.file [ "*" ] GotFileName
             )
 
-        LoadData ->
-            ( emptyModel
-            , Storage.loadDatabase model.textinput
-            )
+        GotFileName filename ->
+            ( { model | loading = True }, readFile filename )
 
-        StartFromScratch ->
+        GotFileContent name content ->
+            load name content
+
+        InitDatabase ->
             ( emptyModel, Storage.truncate )
 
-        TruncateBook ->
-            case sharedModel of
-                Loaded data ->
-                    ( model, { data | rawEntries = Dict.empty } |> Storage.store )
+        SaveDataBase ->
+            ( model, save sharedModel )
 
-                Problem _ ->
-                    ( { model | dbString = Nothing }, Cmd.none )
 
-        SaveData ->
-            case sharedModel of
-                Loaded data ->
-                    ( { model | dbString = Just (encode data) }, Cmd.none )
 
-                Problem _ ->
-                    ( { model | dbString = Nothing }, Cmd.none )
+-- MSG processing
+
+
+readFile : File -> Cmd Msg
+readFile file =
+    Task.perform (GotFileContent <| File.name file) <| File.toString file
+
+
+load : String -> String -> ( Model, Cmd Msg )
+load fileName content =
+    ( emptyModel
+    , Storage.loadDatabase content
+    )
+
+
+save : Shared.Model -> Cmd Msg
+save model =
+    case model of
+        None ->
+            Cmd.none
+
+        Loaded data ->
+            Download.string "bookkeeping.db" "text/plain" (encode data)
+
+        Problem _ ->
+            Cmd.none
 
 
 
@@ -92,53 +113,72 @@ view : Shared.Model -> Model -> View Msg
 view sharedModel model =
     Layout.page "Home" <|
         case sharedModel of
+            None ->
+                showStart model
+
             Loaded data ->
-                showDataSummary data model
+                showDataSummary data
 
             Problem e ->
                 showDataIssues e
 
 
-showDataSummary : Data -> Model -> List (Element Msg)
-showDataSummary data model =
-    [ el [] <| text ("Currently, the DB has " ++ (String.fromInt <| Dict.size <| data.rawEntries) ++ " entries. You can start over or load a database.")
-    , Input.multiline [ width <| maximum 600 fill, height <| maximum 400 <| px 200 ]
-        { onChange = TextInput
-        , text = model.textinput
-        , placeholder = Just (placeholder [] (text "Database string"))
-        , label = labelAbove [] (text "Database to load")
-        , spellcheck = False
-        }
-    , Input.button Layout.style.button
-        { onPress = Just LoadData
-        , label = text "Load"
-        }
-    , Input.button Layout.style.button
-        { onPress = Just StartFromScratch
-        , label = text "Start with a clean slate (delete the current DB)"
-        }
-    , Input.button Layout.style.button
-        { onPress = Just TruncateBook
-        , label = text "Delete all imported book entries (and their categorizations)"
-        }
-    , Input.button Layout.style.button
-        { onPress = Just SaveData
-        , label = text "Save DB"
-        }
+showStart : Model -> List (Element Msg)
+showStart model =
+    [ el [] <| text "Welcome to Bookkeeping. What do you want to do?"
+    , row
+        [ width <| minimum 600 fill, Font.size size.m, spacing size.s ]
+        [ Input.button Layout.style.button
+            { onPress = Just PickFile
+            , label = text "Load a DB file."
+            }
+        , Input.button Layout.style.button
+            { onPress = Just InitDatabase
+            , label = text "Initialize an empty DB."
+            }
+        ]
     ]
-        ++ showSave model
+        ++ showLoading model.loading
 
 
-showSave : Model -> List (Element msg)
-showSave model =
-    case model.dbString of
-        Nothing ->
-            []
+showLoading : Bool -> List (Element Msg)
+showLoading loading =
+    if loading then
+        [ row [ spacing size.xs ] [ loader [ Font.color color.black ] size.m, text "Loading..." ] ]
 
-        Just s ->
-            [ el [] (text "Save the follwing string in a file to store the DB:")
-            , el [ Font.size Layout.size.s ] (text s)
-            ]
+    else
+        []
+
+
+showDataSummary : Data -> List (Element Msg)
+showDataSummary data =
+    let
+        entries =
+            data.rawEntries |> Dict.size |> String.fromInt
+
+        accounts =
+            data.accounts |> Dict.size |> String.fromInt
+
+        categories =
+            data.categories |> Dict.size |> String.fromInt
+    in
+    [ el [] <| text ([ "Database loaded. ", entries, " entries, ", accounts, " accounts, ", categories, " categories." ] |> String.concat)
+    , row
+        [ width <| minimum 600 fill, Font.size size.m, spacing size.s ]
+        [ Input.button Layout.style.button
+            { onPress = Just PickFile
+            , label = text "Load another DB file"
+            }
+        , Input.button Layout.style.button
+            { onPress = Just InitDatabase
+            , label = text "Initialize an empty DB"
+            }
+        , Input.button Layout.style.button
+            { onPress = Just SaveDataBase
+            , label = text "Save DB"
+            }
+        ]
+    ]
 
 
 showDataIssues : Error String -> List (Element Msg)

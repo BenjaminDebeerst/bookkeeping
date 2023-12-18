@@ -19,7 +19,8 @@ type alias Flags =
 
 
 type Model
-    = Loaded Data
+    = None
+    | Loaded Data
     | Problem (Error String)
 
 
@@ -30,6 +31,9 @@ type alias Msg =
 justData : Model -> Maybe Data
 justData model =
     case model of
+        None ->
+            Nothing
+
         Loaded data ->
             Just data
 
@@ -54,10 +58,13 @@ update _ data _ =
     ( data, Cmd.none )
 
 
-toModel : Result (Error String) Data -> Model
+toModel : Result (Error String) (Maybe Data) -> Model
 toModel result =
     case result of
-        Ok data ->
+        Ok Nothing ->
+            None
+
+        Ok (Just data) ->
             Loaded data
 
         Err e ->
