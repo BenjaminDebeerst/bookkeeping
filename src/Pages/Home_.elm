@@ -1,11 +1,12 @@
 module Pages.Home_ exposing (Model, Msg, page)
 
-import Components.Icons exposing (copy, loader)
+import Components.Icons exposing (loader)
 import Components.Layout as Layout exposing (color, size)
+import Components.Notification as Notification exposing (Notification)
 import Dict
-import Element exposing (Element, el, fill, height, maximum, minimum, px, row, spacing, text, width)
+import Element exposing (Element, el, fill, minimum, row, spacing, text, width)
 import Element.Font as Font
-import Element.Input as Input exposing (labelAbove, placeholder)
+import Element.Input as Input
 import File exposing (File)
 import File.Download as Download
 import File.Select as Select
@@ -30,7 +31,7 @@ page shared _ =
 
 
 type alias Model =
-    { loading : Bool
+    { notification : Notification Msg
     }
 
 
@@ -40,7 +41,7 @@ init =
 
 
 emptyModel =
-    { loading = False }
+    { notification = Notification.None }
 
 
 
@@ -63,8 +64,8 @@ update sharedModel msg model =
             , Select.file [ "*" ] GotFileName
             )
 
-        GotFileName filename ->
-            ( { model | loading = True }, readFile filename )
+        GotFileName file ->
+            ( { model | notification = Notification.Info [ loader [ Font.color color.black ] size.m, text "Loading..." ] }, readFile file )
 
         GotFileContent name content ->
             load name content
@@ -87,7 +88,7 @@ readFile file =
 
 load : String -> String -> ( Model, Cmd Msg )
 load fileName content =
-    ( emptyModel
+    ( { emptyModel | notification = Notification.Info [ text <| "Loaded " ++ fileName ] }
     , Storage.loadDatabase content
     )
 
@@ -112,42 +113,24 @@ save model =
 view : Shared.Model -> Model -> View Msg
 view sharedModel model =
     Layout.page "Home" <|
-        case sharedModel of
-            None ->
-                showStart model
+        [ Notification.showNotification model.notification ]
+            ++ (case sharedModel of
+                    None ->
+                        showStart
 
-            Loaded data ->
-                showDataSummary data
+                    Loaded data ->
+                        showDataSummary data
 
-            Problem e ->
-                showDataIssues e
+                    Problem e ->
+                        showDataIssues e
+               )
 
 
-showStart : Model -> List (Element Msg)
-showStart model =
+showStart : List (Element Msg)
+showStart =
     [ el [] <| text "Welcome to Bookkeeping. What do you want to do?"
-    , row
-        [ width <| minimum 600 fill, Font.size size.m, spacing size.s ]
-        [ Input.button Layout.style.button
-            { onPress = Just PickFile
-            , label = text "Load a DB file."
-            }
-        , Input.button Layout.style.button
-            { onPress = Just InitDatabase
-            , label = text "Initialize an empty DB."
-            }
-        ]
+    , showActions [ Load, Init ]
     ]
-        ++ showLoading model.loading
-
-
-showLoading : Bool -> List (Element Msg)
-showLoading loading =
-    if loading then
-        [ row [ spacing size.xs ] [ loader [ Font.color color.black ] size.m, text "Loading..." ] ]
-
-    else
-        []
 
 
 showDataSummary : Data -> List (Element Msg)
@@ -163,27 +146,13 @@ showDataSummary data =
             data.categories |> Dict.size |> String.fromInt
     in
     [ el [] <| text ([ "Database loaded. ", entries, " entries, ", accounts, " accounts, ", categories, " categories." ] |> String.concat)
-    , row
-        [ width <| minimum 600 fill, Font.size size.m, spacing size.s ]
-        [ Input.button Layout.style.button
-            { onPress = Just PickFile
-            , label = text "Load another DB file"
-            }
-        , Input.button Layout.style.button
-            { onPress = Just InitDatabase
-            , label = text "Initialize an empty DB"
-            }
-        , Input.button Layout.style.button
-            { onPress = Just SaveDataBase
-            , label = text "Save DB"
-            }
-        ]
+    , showActions [ LoadOther, Init, Save ]
     ]
 
 
 showDataIssues : Error String -> List (Element Msg)
 showDataIssues error =
-    [ el [] <| text "There was an issue loading the data from the DB!"
+    [ Notification.showNotification <| Notification.Error [ text "There was an issue loading the data from the DB!" ]
     , el [] <|
         text
             (case error of
@@ -191,9 +160,52 @@ showDataIssues error =
                     e
 
                 DataCorrupted ->
-                    "Data is corrupt. Did you introduce a breaking codec change?"
+                    "Data is corrupt. Was this a Bookkeeping database file?"
 
                 SerializerOutOfDate ->
                     "Serializer out of date."
             )
+    , showActions [ LoadOther, Init ]
     ]
+
+
+type Action
+    = Load
+    | LoadOther
+    | Init
+    | Save
+
+
+showActions : List Action -> Element Msg
+showActions buttons =
+    row
+        [ width <| minimum 600 fill, Font.size size.m, spacing size.s ]
+        (buttons
+            |> List.map
+                (\button ->
+                    case button of
+                        Load ->
+                            Input.button Layout.style.button
+                                { onPress = Just PickFile
+                                , label = text "Load a DB file."
+                                }
+
+                        LoadOther ->
+                            Input.button Layout.style.button
+                                { onPress = Just PickFile
+                                , label = text "Load another DB file"
+                                }
+
+                        Init ->
+                            Input.button Layout.style.button
+                                { onPress = Just InitDatabase
+                                , label = text "Initialize an empty DB"
+                                }
+
+                        Save ->
+                            Input.button Layout.style.button
+                                { onPress = Just SaveDataBase
+                                , label = text "Save DB"
+                                }
+                )
+        )

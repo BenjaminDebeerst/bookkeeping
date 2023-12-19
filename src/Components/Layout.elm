@@ -78,6 +78,7 @@ color =
     , brightAccent = rgb255 0xE3 0xA7 0x2F -- yellow
     , extraBrightAccent = rgb255 0xF0 0xEC 0xC9 -- beige
     , red = rgb255 0xD5 0x4B 0x1A -- quite orange
+    , bgRed = rgba255 0xD5 0x4B 0x1A 0.2
     }
 
 
