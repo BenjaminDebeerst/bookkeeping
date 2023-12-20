@@ -145,10 +145,8 @@ showDataSummary data =
         categories =
             data.categories |> Dict.size |> String.fromInt
 
-        rules =
-            data.categorizationRules |> Dict.size |> String.fromInt
     in
-    [ el [] <| text ([ "Database loaded. ", entries, " entries, ", accounts, " accounts, ", categories, " categories.", rules, " categorization rules." ] |> String.concat)
+    [ el [] <| text ([ "Database loaded. ", entries, " entries, ", accounts, " accounts, ", categories, " categories." ] |> String.concat)
     , showActions [ LoadOther, Init, Save ]
     ]
 

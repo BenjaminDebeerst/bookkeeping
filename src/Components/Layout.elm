@@ -55,7 +55,6 @@ sidebar =
         , link [] { url = "/monthly", label = text "Monthly View" }
         , link [] { url = "/accounts", label = text "Accounts" }
         , link [] { url = "/categories", label = text "Categories" }
-        , link [] { url = "/categorization-rules", label = text "Rules" }
         , link [] { url = "/import-profiles", label = text "Import Profiles" }
         ]
 

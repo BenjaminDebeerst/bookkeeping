@@ -27,7 +27,6 @@ import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile)
 import Persistence.RawEntry exposing (rawEntry, sha1)
 import Persistence.Storage as Storage
 import Processing.CategoryParser as CategoryParser
-import Persistence.CategorizationRule as CategorizationRule exposing (CategorizationRule)
 import Processing.CsvParser as CsvParser exposing (ParsedRow, toDate)
 import Processing.Model exposing (getCategoryByShort)
 import Request
@@ -167,7 +166,7 @@ update data msg model =
             let
                 dataWithNewCategories =
                     newCats
-                        |> List.map (\name -> category 0 (name ++ " (auto)") name Category.Expense)
+                        |> List.map (\name -> category 0 (name ++ " (auto)") name Category.Expense [])
                         |> (\cs -> Storage.addCategories cs data)
 
                 categories =
@@ -280,23 +279,31 @@ viewFileContents data csv parsed =
            )
 
 
-applyCategorizationRule : Dict Int Category -> String -> CategorizationRule -> Maybe Category
-applyCategorizationRule categories desc rule =
-    case (Maybe.map (\r -> Regex.contains r desc) (Regex.fromString rule.pattern)) of
+applyCategorizationRule : Category -> String -> String -> Maybe Category
+applyCategorizationRule category desc pattern =
+    case (Maybe.map (\r -> Regex.contains r desc) (Regex.fromString pattern)) of
         Just result ->
             if result then
-                Dict.get rule.category categories
+                Just category
             else
                 Nothing
         _ -> Nothing
 
-applyCategorizationRules : Data -> String -> Maybe Category
-applyCategorizationRules data desc =
-    List.foldl (\rule found ->
+applyCategorizationRules : Category -> String -> Maybe Category
+applyCategorizationRules category desc =
+    List.foldl (\pattern found ->
                     case found of
-                        Nothing -> (applyCategorizationRule data.categories desc rule)
+                        Nothing -> (applyCategorizationRule category desc pattern)
                         Just cat -> Just cat
-                    ) Nothing (Dict.values data.categorizationRules)
+                    ) Nothing category.rules
+
+applyAllCategorizationRules : Data -> String -> Maybe Category
+applyAllCategorizationRules data desc =
+    List.foldl (\category found ->
+                    case found of
+                        Nothing -> (applyCategorizationRules category desc)
+                        Just cat -> Just cat
+                    ) Nothing (Dict.values data.categories)
 
 
 showFile : Data -> ParsedFile -> List (Element Msg)
@@ -313,7 +320,7 @@ showFile data parsedFile =
                 (Dict.values data.accounts)
                 (\s -> Dict.member s data.rawEntries)
                 (getCategoryByShort (Dict.values data.categories))
-                (applyCategorizationRules data)
+                (applyAllCategorizationRules data)
                 parsedFile.importProfile
                 parsedFile.importFilter
                 parsedFile.generateIds
@@ -680,7 +687,7 @@ findDuplicateRows parsedRows =
 getCategoryForParsedRow : Data -> List Category -> ParsedRow -> Maybe Category
 getCategoryForParsedRow data categories row =
     case Maybe.andThen (getCategoryByShort categories) row.category of
-        Nothing -> applyCategorizationRules data row.description
+        Nothing -> applyAllCategorizationRules data row.description
         Just c -> Just c
 
 -- raw CSV (pre)view

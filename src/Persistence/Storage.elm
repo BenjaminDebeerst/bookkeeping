@@ -2,14 +2,11 @@ port module Persistence.Storage exposing
     ( addAccount
     , addCategories
     , addCategory
-    , addCategorizationRule
     , addEntries
     , addImportProfile
     , deleteCategory
-    , deleteCategorizationRule
     , deleteImportProfile
     , editCategory
-    , editCategorizationRule
     , editImportProfile
     , load
     , loadDatabase
@@ -20,11 +17,10 @@ port module Persistence.Storage exposing
     , truncate
     )
 
-import Dict exposing (Dict)
+import Dict
 import Dict.Extra
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
-import Persistence.CategorizationRule exposing (CategorizationRule)
 import Persistence.Data exposing (Data, decode, empty, encode)
 import Persistence.ImportProfile exposing (ImportProfile)
 import Persistence.RawEntry exposing (RawEntry, sha1)
@@ -117,26 +113,6 @@ editCategory category data =
 deleteCategory : Category -> Data -> Data
 deleteCategory category data =
     { data | categories = Dict.remove category.id data.categories }
-
-
-addCategorizationRule : CategorizationRule -> Data -> Data
-addCategorizationRule rule data =
-    let
-        id =
-            data.autoIncrement
-    in
-    { data
-        | categorizationRules = Dict.insert id { rule | id = id } data.categorizationRules
-        , autoIncrement = id + 1
-    }
-
-editCategorizationRule : CategorizationRule -> Data -> Data
-editCategorizationRule rule data =
-    { data | categorizationRules = Dict.insert rule.id rule data.categorizationRules }
-
-deleteCategorizationRule : CategorizationRule -> Data -> Data
-deleteCategorizationRule rule data =
-    { data | categorizationRules = Dict.remove rule.id data.categorizationRules }
 
 
 addImportProfile : ImportProfile -> Data -> Data
