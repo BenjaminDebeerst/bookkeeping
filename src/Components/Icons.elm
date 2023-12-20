@@ -1,4 +1,4 @@
-module Components.Icons exposing (checkMark, copy, folderPlus, loader, triangleDown, triangleUp, warnTriangle)
+module Components.Icons exposing (checkMark, copy, folderPlus, loader, triangleDown, triangleUp, warnTriangle, infoMark)
 
 import Element exposing (Attribute, Element, el)
 import FeatherIcons exposing (Icon)
@@ -23,6 +23,10 @@ triangleDown attrs size =
 checkMark : List (Attribute msg) -> Int -> Element msg
 checkMark =
     basicIcon FeatherIcons.check
+
+infoMark : List (Attribute msg) -> Int -> Element msg
+infoMark =
+    basicIcon FeatherIcons.info
 
 
 warnTriangle : List (Attribute msg) -> Int -> Element msg

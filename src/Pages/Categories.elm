@@ -114,10 +114,12 @@ update data msg model =
             let
                 n =
                     List.length <| getEntries data [ filterCategory cat ] dateAsc
+                rules = List.any (\rule -> Dict.member rule.category data.categories) (Dict.values data.categorizationRules)
             in
             if n > 0 then
                 ( { model | error = Just ("Cannot delete the category '" ++ cat.name ++ "', it has " ++ String.fromInt n ++ " entries associated.") }, Cmd.none )
-
+            else if rules then
+                ( { model | error = Just ("Cannot delete the category '" ++ cat.name ++ "', It still has categorization rules associated.") }, Cmd.none )
             else
                 ( { model | error = Nothing, editing = Deleting cat }, Cmd.none )
 
