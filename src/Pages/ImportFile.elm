@@ -19,7 +19,6 @@ import List.Extra
 import Maybe.Extra
 import Page
 import Parser
-import Regex
 import Persistence.Account exposing (Account)
 import Persistence.Category as Category exposing (Category, category)
 import Persistence.Data exposing (Data)
@@ -29,10 +28,11 @@ import Persistence.Storage as Storage
 import Processing.CategoryParser as CategoryParser
 import Processing.CsvParser as CsvParser exposing (ParsedRow, toDate)
 import Processing.Model exposing (getCategoryByShort)
+import Processing.CategorizationRules exposing (applyAllCategorizationRules)
 import Request
 import Shared exposing (Model(..))
-import Task exposing (Task)
-import Time.Date exposing (Date)
+import Task
+import Time.Date
 import View exposing (View)
 
 
@@ -44,7 +44,6 @@ page shared req =
         , view = viewDataOnly shared view
         , subscriptions = \_ -> Sub.none
         }
-
 
 
 -- MODEL
@@ -277,33 +276,6 @@ viewFileContents data csv parsed =
                 |> Maybe.map (\file -> showFile data file)
                 |> Maybe.withDefault []
            )
-
-
-applyCategorizationRule : Category -> String -> String -> Maybe Category
-applyCategorizationRule category desc pattern =
-    case (Maybe.map (\r -> Regex.contains r desc) (Regex.fromString pattern)) of
-        Just result ->
-            if result then
-                Just category
-            else
-                Nothing
-        _ -> Nothing
-
-applyCategorizationRules : Category -> String -> Maybe Category
-applyCategorizationRules category desc =
-    List.foldl (\pattern found ->
-                    case found of
-                        Nothing -> (applyCategorizationRule category desc pattern)
-                        Just cat -> Just cat
-                    ) Nothing category.rules
-
-applyAllCategorizationRules : Data -> String -> Maybe Category
-applyAllCategorizationRules data desc =
-    List.foldl (\category found ->
-                    case found of
-                        Nothing -> (applyCategorizationRules category desc)
-                        Just cat -> Just cat
-                    ) Nothing (Dict.values data.categories)
 
 
 showFile : Data -> ParsedFile -> List (Element Msg)
