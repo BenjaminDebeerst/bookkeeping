@@ -1,6 +1,7 @@
 module Processing.CategorizationRules exposing (applyCategorizationRules, applyCategorizationRule, applyAllCategorizationRules)
 
 import Dict
+import Maybe.Extra exposing (orElseLazy)
 import Persistence.Category exposing (Category)
 import Persistence.Data exposing (Data)
 import Regex
@@ -18,16 +19,12 @@ applyCategorizationRule category desc pattern =
 
 applyCategorizationRules : Category -> String -> Maybe Category
 applyCategorizationRules category desc =
-    List.foldl (\pattern found ->
-                    case found of
-                        Nothing -> (applyCategorizationRule category desc pattern)
-                        Just cat -> Just cat
-                    ) Nothing category.rules
+    List.foldl (\pattern found -> found |> orElseLazy (\() -> (applyCategorizationRule category desc pattern)))
+                    Nothing
+                    category.rules
 
 applyAllCategorizationRules : Data -> String -> Maybe Category
 applyAllCategorizationRules data desc =
-    List.foldl (\category found ->
-                    case found of
-                        Nothing -> (applyCategorizationRules category desc)
-                        Just cat -> Just cat
-                    ) Nothing (Dict.values data.categories)
+    List.foldl (\category found -> found |> orElseLazy (\() -> (applyCategorizationRules category desc)))
+                    Nothing
+                    (Dict.values data.categories)
