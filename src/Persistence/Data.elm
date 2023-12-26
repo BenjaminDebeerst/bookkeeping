@@ -1,11 +1,15 @@
 module Persistence.Data exposing
     ( Data
     , decode
+    , decodeJson
     , empty
     , encode
+    , encodeJson
     )
 
 import Dict exposing (Dict)
+import Json.Decode
+import Json.Encode
 import Persistence.Account as Account exposing (Account, AccountV0, Accounts)
 import Persistence.Category as Category exposing (Categories, Category, CategoryV0)
 import Persistence.ImportProfile as ImportProfile exposing (ImportProfile, ImportProfileV0, ImportProfiles)
@@ -60,6 +64,12 @@ encode storage =
     S.encodeToString dataCodec storage
 
 
+encodeJson : Data -> String
+encodeJson storage =
+    S.encodeToJson dataCodec storage
+        |> Json.Encode.encode 0
+
+
 decode : String -> Result (Error String) (Maybe Data)
 decode value =
     case value of
@@ -69,6 +79,18 @@ decode value =
         s ->
             S.decodeFromString dataCodec (String.trim s)
                 |> Result.map Just
+
+
+decodeJson : String -> Result (Error String) Data
+decodeJson value =
+    case value of
+        "" ->
+            Ok empty
+
+        s ->
+            Json.Decode.decodeString Json.Decode.value s
+                |> Result.mapError (\e -> S.CustomError (Json.Decode.errorToString e))
+                |> Result.andThen (S.decodeFromJson dataCodec)
 
 
 
