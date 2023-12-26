@@ -20,6 +20,7 @@ type alias CategoryV2 =
     , rules : List String
     }
 
+
 type alias CategoryV1 =
     { id : Int
     , name : String
@@ -33,19 +34,23 @@ type CategoryGroup
     | Expense
     | Internal
 
+
 type alias CategoryV0 =
     { id : Int
     , name : String
     , short : String
     }
 
+
 category : Int -> String -> String -> CategoryGroup -> List String -> Category
 category =
     CategoryV2
 
+
 fromV0 : Dict Int CategoryV0 -> Categories
 fromV0 dict =
-    Dict.map (\_ c -> (v1v2 (v0v1 c))) dict
+    Dict.map (\_ c -> v1v2 (v0v1 c)) dict
+
 
 v1v2 : CategoryV1 -> CategoryV2
 v1v2 c =
@@ -115,6 +120,7 @@ v2Codec =
         |> S.field .group categoryGroupCodec
         |> S.field .rules (S.list S.string)
         |> S.finishRecord
+
 
 v1Codec : S.Codec String CategoryV1
 v1Codec =

@@ -144,7 +144,6 @@ showDataSummary data =
 
         categories =
             data.categories |> Dict.size |> String.fromInt
-
     in
     [ el [] <| text ([ "Database loaded. ", entries, " entries, ", accounts, " accounts, ", categories, " categories." ] |> String.concat)
     , showActions [ LoadOther, Init, Save ]

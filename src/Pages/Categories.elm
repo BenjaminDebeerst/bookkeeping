@@ -96,16 +96,24 @@ update data msg model =
             ( { model | group = Just group }, Cmd.none )
 
         EditPattern idx pattern ->
-            let patterns = model.rules
-                         |> List.indexedMap
-                            (\index item -> if index == idx then
-                                                pattern
-                                            else
-                                                item)
+            let
+                patterns =
+                    model.rules
+                        |> List.indexedMap
+                            (\index item ->
+                                if index == idx then
+                                    pattern
+
+                                else
+                                    item
+                            )
             in
-                case Regex.fromString pattern of
-                    Nothing -> ( { model | error = Just "Invalid regular expression!", rules = patterns }, Cmd.none )
-                    Just _ -> ( { model | error = Nothing, rules = patterns }, Cmd.none )
+            case Regex.fromString pattern of
+                Nothing ->
+                    ( { model | error = Just "Invalid regular expression!", rules = patterns }, Cmd.none )
+
+                Just _ ->
+                    ( { model | error = Nothing, rules = patterns }, Cmd.none )
 
         AddPatternSlot ->
             ( { model | rules = model.rules ++ [ "" ] }, Cmd.none )
@@ -135,10 +143,11 @@ update data msg model =
                 n =
                     List.length <| getEntries data [ filterCategory cat ] dateAsc
             in
-                if n > 0 then
-                    ( { model | error = Just ("Cannot delete the category '" ++ cat.name ++ "', it has " ++ String.fromInt n ++ " entries associated.") }, Cmd.none )
-                else
-                    ( { model | error = Nothing, editing = Deleting cat }, Cmd.none )
+            if n > 0 then
+                ( { model | error = Just ("Cannot delete the category '" ++ cat.name ++ "', it has " ++ String.fromInt n ++ " entries associated.") }, Cmd.none )
+
+            else
+                ( { model | error = Nothing, editing = Deleting cat }, Cmd.none )
 
         DeleteConfirm cat ->
             ( { model | error = Nothing, name = "", short = "", editing = Off }, Storage.deleteCategory cat data |> Storage.store )
@@ -191,24 +200,31 @@ validateCategory data m =
                     )
         )
         (m.group |> Result.fromMaybe "A category group needs to be selected.")
-        (
-         let
+        (let
             filtered =
                 List.filter (\r -> not (String.isEmpty r)) m.rules
          in
          if List.any invalidRegex filtered then
-             Err "Invalid Regular Expression in rules list!"
+            Err "Invalid Regular Expression in rules list!"
+
          else
-             Ok filtered
+            Ok filtered
         )
+
 
 invalidRegex : String -> Bool
 invalidRegex s =
     case Regex.fromString s of
-        Nothing -> True
-        Just _  -> False
+        Nothing ->
+            True
+
+        Just _ ->
+            False
+
+
 
 -- VIEW
+
 
 view : Data -> Model -> View Msg
 view data model =
@@ -223,8 +239,9 @@ errorNotice : Maybe String -> Element Msg
 errorNotice error =
     case error of
         Nothing ->
-            el [] Element.none -- this prevents a change in the dom structure when an errorNotice is shown, which would cause losing the focus on the current input field
+            el [] Element.none
 
+        -- this prevents a change in the dom structure when an errorNotice is shown, which would cause losing the focus on the current input field
         Just message ->
             el [ Font.color color.red ] (text message)
 
@@ -245,41 +262,47 @@ editArea data model =
         _ ->
             column [ spacing size.m ]
                 ([]
-                 ++ [ Input.text []
-                         { onChange = EditName
-                         , text = model.name
-                         , placeholder = Just <| placeholder [] <| text "Category Name"
-                         , label = labelLeft [ paddingXY size.m 0 ] <| text "Category name"
-                         }
-                   , Input.text []
-                       { onChange = EditShort
-                       , text = model.short
-                       , placeholder = Just <| placeholder [] <| text "Short input name"
-                       , label = labelLeft [ paddingXY size.m 0 ] <| text "Short name (uppercase alphanum)"
-                       }
-                   ]
-                 ++ List.indexedMap (\index rule -> Input.text[] { onChange = (\value -> EditPattern index value)
-                                                                 , text = rule
-                                                                 , placeholder = Just <| placeholder [] <| text "Regex Pattern"
-                                                                 , label = labelLeft [ paddingXY size.m 0 ] <| text "Pattern"
-                                                                 }
-                                    ) model.rules
-                 ++ [ (row [] [ button style.button { onPress = Just AddPatternSlot, label = text "Add Pattern" }
-                             , text " (leave patterns empty to delete)" ])
-                    , Input.radioRow [ padding size.m, spacing size.m ]
-                        { onChange = EditGroup
-                        , selected = model.group
-                        , label = labelLeft [ paddingXY size.m 0 ] (text "Category group")
-                        , options =
-                              [ Input.option Income (text "Income")
-                              , Input.option Expense (text "Expense")
-                              , Input.option Internal (text "Internal")
-                              ]
-                        }
-                    , button style.button { onPress = Just Save, label = text "Save" }
-                    , button style.button { onPress = Just Abort, label = text "Abort" }
-                    ])
-
+                    ++ [ Input.text []
+                            { onChange = EditName
+                            , text = model.name
+                            , placeholder = Just <| placeholder [] <| text "Category Name"
+                            , label = labelLeft [ paddingXY size.m 0 ] <| text "Category name"
+                            }
+                       , Input.text []
+                            { onChange = EditShort
+                            , text = model.short
+                            , placeholder = Just <| placeholder [] <| text "Short input name"
+                            , label = labelLeft [ paddingXY size.m 0 ] <| text "Short name (uppercase alphanum)"
+                            }
+                       ]
+                    ++ List.indexedMap
+                        (\index rule ->
+                            Input.text []
+                                { onChange = \value -> EditPattern index value
+                                , text = rule
+                                , placeholder = Just <| placeholder [] <| text "Regex Pattern"
+                                , label = labelLeft [ paddingXY size.m 0 ] <| text "Pattern"
+                                }
+                        )
+                        model.rules
+                    ++ [ row []
+                            [ button style.button { onPress = Just AddPatternSlot, label = text "Add Pattern" }
+                            , text " (leave patterns empty to delete)"
+                            ]
+                       , Input.radioRow [ padding size.m, spacing size.m ]
+                            { onChange = EditGroup
+                            , selected = model.group
+                            , label = labelLeft [ paddingXY size.m 0 ] (text "Category group")
+                            , options =
+                                [ Input.option Income (text "Income")
+                                , Input.option Expense (text "Expense")
+                                , Input.option Internal (text "Internal")
+                                ]
+                            }
+                       , button style.button { onPress = Just Save, label = text "Save" }
+                       , button style.button { onPress = Just Abort, label = text "Abort" }
+                       ]
+                )
 
 
 showData : Data -> Model -> Element Msg

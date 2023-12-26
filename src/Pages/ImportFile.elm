@@ -1,6 +1,6 @@
 module Pages.ImportFile exposing (Model, Msg, page)
 
-import Components.Icons exposing (checkMark, infoMark, copy, folderPlus, warnTriangle)
+import Components.Icons exposing (checkMark, copy, folderPlus, infoMark, warnTriangle)
 import Components.Layout as Layout exposing (color, formatDate, formatEuro, size, style, tooltip, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
 import Csv.Decode as Decode exposing (Error(..))
@@ -25,10 +25,10 @@ import Persistence.Data exposing (Data)
 import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile)
 import Persistence.RawEntry exposing (rawEntry, sha1)
 import Persistence.Storage as Storage
+import Processing.CategorizationRules exposing (applyAllCategorizationRules)
 import Processing.CategoryParser as CategoryParser
 import Processing.CsvParser as CsvParser exposing (ParsedRow, toDate)
 import Processing.Model exposing (getCategoryByShort)
-import Processing.CategorizationRules exposing (applyAllCategorizationRules)
 import Request
 import Shared exposing (Model(..))
 import Task
@@ -44,6 +44,7 @@ page shared req =
         , view = viewDataOnly shared view
         , subscriptions = \_ -> Sub.none
         }
+
 
 
 -- MODEL
@@ -395,7 +396,8 @@ viewParsedRows accounts entryIdExists findCategory categorizationByRules profile
                         , T.textColumn "Date" (.parsedRow >> .date >> formatDate)
                         , T.styledColumn "Amount" (.parsedRow >> .amount >> formatEuro)
                         , T.styledColumn "Category" categoryCell
-                        , T.textColumn "Description" (.parsedRow >> .description) ]
+                        , T.textColumn "Description" (.parsedRow >> .description)
+                        ]
                     }
                ]
 
@@ -597,11 +599,13 @@ annotateRows parsedRows duplicates entryIdExists categoryLookup categorizationBy
                     dups =
                         Dict.get rowId duplicates |> Maybe.withDefault 1
 
-                    cat = (
-                           case row.category of
-                               Just cat_str -> Just (parseCategory categoryLookup cat_str)
-                               Nothing -> categorizationByRules row.description |> matchedCategorization
-                          )
+                    cat =
+                        case row.category of
+                            Just cat_str ->
+                                Just (parseCategory categoryLookup cat_str)
+
+                            Nothing ->
+                                categorizationByRules row.description |> matchedCategorization
                 in
                 ( AnnotatedRow row dups exists cat :: rows, m )
             )
@@ -615,9 +619,11 @@ type Categorization
     | Unknown String
     | ParsingError String
 
+
 matchedCategorization : Maybe Category -> Maybe Categorization
 matchedCategorization cat =
     Maybe.map (\c -> RuleMatch c) cat
+
 
 parseCategory : (String -> Maybe Category) -> String -> Categorization
 parseCategory categoryLookup categoryName =
@@ -662,8 +668,13 @@ findDuplicateRows parsedRows =
 getCategoryForParsedRow : (String -> Maybe Category) -> List Category -> ParsedRow -> Maybe Category
 getCategoryForParsedRow categorizationRules categories row =
     case Maybe.andThen (getCategoryByShort categories) row.category of
-        Nothing -> categorizationRules row.description
-        Just c -> Just c
+        Nothing ->
+            categorizationRules row.description
+
+        Just c ->
+            Just c
+
+
 
 -- raw CSV (pre)view
 

@@ -105,6 +105,7 @@ addCategory category data =
         , autoIncrement = id + 1
     }
 
+
 editCategory : Category -> Data -> Data
 editCategory category data =
     { data | categories = Dict.insert category.id category data.categories }

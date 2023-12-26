@@ -34,6 +34,7 @@ type alias DataV0 =
     , autoIncrement : Int
     }
 
+
 v0v1 : DataV0 -> DataV1
 v0v1 v0 =
     DataV1
@@ -89,7 +90,6 @@ dataCodec =
 
                 V1 record ->
                     v1Encoder record
-
         )
         |> S.variant1 V0 v0Codec
         |> S.variant1 V1 v1Codec
