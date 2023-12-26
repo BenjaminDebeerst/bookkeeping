@@ -1,4 +1,4 @@
-module Processing.CategorizationRules exposing (applyCategorizationRules, applyCategorizationRule, applyAllCategorizationRules)
+module Processing.CategorizationRules exposing (applyAllCategorizationRules)
 
 import Dict
 import Maybe.Extra exposing (orElseLazy)
@@ -7,24 +7,28 @@ import Persistence.Data exposing (Data)
 import Regex
 
 
-applyCategorizationRule : Category -> String -> String -> Maybe Category
-applyCategorizationRule category desc pattern =
-    case (Maybe.map (\r -> Regex.contains r desc) (Regex.fromString pattern)) of
-        Just result ->
-            if result then
-                Just category
-            else
-                Nothing
-        _ -> Nothing
-
-applyCategorizationRules : Category -> String -> Maybe Category
-applyCategorizationRules category desc =
-    List.foldl (\pattern found -> found |> orElseLazy (\() -> (applyCategorizationRule category desc pattern)))
+applyCategorizationRules : List (String -> Maybe Category) -> String -> Maybe Category
+applyCategorizationRules matchers desc =
+    List.foldl (\matcher found -> found |> orElseLazy (\() -> matcher desc))
                     Nothing
-                    category.rules
+                    matchers
 
-applyAllCategorizationRules : Data -> String -> Maybe Category
-applyAllCategorizationRules data desc =
-    List.foldl (\category found -> found |> orElseLazy (\() -> (applyCategorizationRules category desc)))
-                    Nothing
-                    (Dict.values data.categories)
+
+patternToMatcher : Category -> String -> (String -> Maybe Category)
+patternToMatcher category pattern =
+    case Regex.fromString pattern of
+        Just regex -> \desc -> if (Regex.contains regex desc)
+                               then
+                                   Just category
+                               else
+                                   Nothing
+        Nothing -> (\_ -> Nothing)
+
+toCategorizationRules : Data -> List (String -> Maybe Category)
+toCategorizationRules data =
+    List.concatMap (\category -> (List.map (\pattern -> patternToMatcher category pattern) category.rules)) (Dict.values data.categories)
+
+
+applyAllCategorizationRules : Data -> (String -> Maybe Category)
+applyAllCategorizationRules data =
+    \desc -> applyCategorizationRules (toCategorizationRules data) desc

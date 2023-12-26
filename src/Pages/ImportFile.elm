@@ -171,6 +171,9 @@ update data msg model =
                 categories =
                     Dict.values dataWithNewCategories.categories
 
+                categorizationRules =
+                    applyAllCategorizationRules data
+
                 newEntries =
                     lines
                         |> List.map
@@ -182,7 +185,7 @@ update data msg model =
                                     row.date
                                     row.amount
                                     row.description
-                                    (getCategoryForParsedRow data categories row)
+                                    (getCategoryForParsedRow categorizationRules categories row)
                             )
 
                 newData =
@@ -656,10 +659,10 @@ findDuplicateRows parsedRows =
         |> Dict.filter (\_ v -> v > 1)
 
 
-getCategoryForParsedRow : Data -> List Category -> ParsedRow -> Maybe Category
-getCategoryForParsedRow data categories row =
+getCategoryForParsedRow : (String -> Maybe Category) -> List Category -> ParsedRow -> Maybe Category
+getCategoryForParsedRow categorizationRules categories row =
     case Maybe.andThen (getCategoryByShort categories) row.category of
-        Nothing -> applyAllCategorizationRules data row.description
+        Nothing -> categorizationRules row.description
         Just c -> Just c
 
 -- raw CSV (pre)view

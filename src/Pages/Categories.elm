@@ -108,7 +108,7 @@ update data msg model =
                     Just _ -> ( { model | error = Nothing, rules = patterns }, Cmd.none )
 
         AddPatternSlot ->
-            ( { model | rules = "" :: model.rules }, Cmd.none )
+            ( { model | rules = model.rules ++ [ "" ] }, Cmd.none )
 
         EditExisting cat ->
             ( { model | error = Nothing, editing = Existing cat, short = cat.short, name = cat.name, group = Just cat.group, rules = cat.rules }, Cmd.none )
