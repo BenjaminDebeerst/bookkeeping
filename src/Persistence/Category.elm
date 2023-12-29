@@ -9,7 +9,16 @@ type alias Categories =
 
 
 type alias Category =
-    CategoryV1
+    CategoryV2
+
+
+type alias CategoryV2 =
+    { id : Int
+    , name : String
+    , short : String
+    , group : CategoryGroup
+    , rules : List String
+    }
 
 
 type alias CategoryV1 =
@@ -33,14 +42,19 @@ type alias CategoryV0 =
     }
 
 
-category : Int -> String -> String -> CategoryGroup -> Category
+category : Int -> String -> String -> CategoryGroup -> List String -> Category
 category =
-    CategoryV1
+    CategoryV2
 
 
 fromV0 : Dict Int CategoryV0 -> Categories
 fromV0 dict =
-    Dict.map (\_ -> v0v1) dict
+    Dict.map (\_ c -> v1v2 (v0v1 c)) dict
+
+
+v1v2 : CategoryV1 -> CategoryV2
+v1v2 c =
+    CategoryV2 c.id c.name c.short c.group []
 
 
 v0v1 : CategoryV0 -> CategoryV1
@@ -61,32 +75,51 @@ codec =
 categoryCodec : S.Codec String Category
 categoryCodec =
     S.customType
-        (\v0Encoder v1Encoder value ->
+        (\v0Encoder v1Encoder v2Encoder value ->
             case value of
                 V0 record ->
                     v0Encoder record
 
                 V1 record ->
                     v1Encoder record
+
+                V2 record ->
+                    v2Encoder record
         )
         |> S.variant1 V0 v0Codec
         |> S.variant1 V1 v1Codec
+        |> S.variant1 V2 v2Codec
         |> S.finishCustomType
         |> S.map
             (\value ->
                 case value of
                     V0 storage ->
-                        v0v1 storage
+                        v1v2 (v0v1 storage)
 
                     V1 storage ->
+                        v1v2 storage
+
+                    V2 storage ->
                         storage
             )
-            V1
+            V2
 
 
 type StorageVersions
     = V0 CategoryV0
     | V1 CategoryV1
+    | V2 CategoryV2
+
+
+v2Codec : S.Codec String CategoryV2
+v2Codec =
+    S.record CategoryV2
+        |> S.field .id S.int
+        |> S.field .name S.string
+        |> S.field .short S.string
+        |> S.field .group categoryGroupCodec
+        |> S.field .rules (S.list S.string)
+        |> S.finishRecord
 
 
 v1Codec : S.Codec String CategoryV1

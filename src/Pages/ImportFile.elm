@@ -1,6 +1,6 @@
 module Pages.ImportFile exposing (Model, Msg, page)
 
-import Components.Icons exposing (checkMark, copy, folderPlus, warnTriangle)
+import Components.Icons exposing (checkMark, copy, folderPlus, infoMark, warnTriangle)
 import Components.Layout as Layout exposing (color, formatDate, formatEuro, size, style, tooltip, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
 import Csv.Decode as Decode exposing (Error(..))
@@ -25,13 +25,14 @@ import Persistence.Data exposing (Data)
 import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile)
 import Persistence.RawEntry exposing (rawEntry, sha1)
 import Persistence.Storage as Storage
+import Processing.CategorizationRules exposing (applyAllCategorizationRules)
 import Processing.CategoryParser as CategoryParser
 import Processing.CsvParser as CsvParser exposing (ParsedRow, toDate)
 import Processing.Model exposing (getCategoryByShort)
 import Request
 import Shared exposing (Model(..))
-import Task exposing (Task)
-import Time.Date exposing (Date)
+import Task
+import Time.Date
 import View exposing (View)
 
 
@@ -165,11 +166,14 @@ update data msg model =
             let
                 dataWithNewCategories =
                     newCats
-                        |> List.map (\name -> category 0 (name ++ " (auto)") name Category.Expense)
+                        |> List.map (\name -> category 0 (name ++ " (auto)") name Category.Expense [])
                         |> (\cs -> Storage.addCategories cs data)
 
                 categories =
                     Dict.values dataWithNewCategories.categories
+
+                categorizationRules =
+                    applyAllCategorizationRules data
 
                 newEntries =
                     lines
@@ -182,7 +186,7 @@ update data msg model =
                                     row.date
                                     row.amount
                                     row.description
-                                    (Maybe.andThen (getCategoryByShort categories) row.category)
+                                    (getCategoryForParsedRow categorizationRules categories row)
                             )
 
                 newData =
@@ -292,14 +296,15 @@ showFile data parsedFile =
                 (Dict.values data.accounts)
                 (\s -> Dict.member s data.rawEntries)
                 (getCategoryByShort (Dict.values data.categories))
+                (applyAllCategorizationRules data)
                 parsedFile.importProfile
                 parsedFile.importFilter
                 parsedFile.generateIds
                 rows
 
 
-viewParsedRows : List Account -> (String -> Bool) -> (String -> Maybe Category) -> ImportProfile -> ImportFilter -> Bool -> List ParsedRow -> List (Element Msg)
-viewParsedRows accounts entryIdExists findCategory profile filter generateIds rows =
+viewParsedRows : List Account -> (String -> Bool) -> (String -> Maybe Category) -> (String -> Maybe Category) -> ImportProfile -> ImportFilter -> Bool -> List ParsedRow -> List (Element Msg)
+viewParsedRows accounts entryIdExists findCategory categorizationByRules profile filter generateIds rows =
     let
         csvSize =
             List.length rows |> String.fromInt
@@ -328,6 +333,7 @@ viewParsedRows accounts entryIdExists findCategory profile filter generateIds ro
                     entryIdExists
                 )
                 findCategory
+                categorizationByRules
 
         annotatedRowsToStore =
             annotatedRows
@@ -386,13 +392,12 @@ viewParsedRows accounts entryIdExists findCategory profile filter generateIds ro
                , indexedTable T.tableStyle
                     { data = annotatedRowsToStore
                     , columns =
-                        []
-                            ++ [ T.styledColumn "Info" <| annotation
-                               , T.textColumn "Date" (.parsedRow >> .date >> formatDate)
-                               , T.styledColumn "Amount" (.parsedRow >> .amount >> formatEuro)
-                               ]
-                            ++ (profile.categoryField |> Maybe.map (\_ -> [ T.styledColumn "Category" categoryCell ]) |> Maybe.withDefault [])
-                            ++ [ T.textColumn "Description" (.parsedRow >> .description) ]
+                        [ T.styledColumn "Info" <| annotation
+                        , T.textColumn "Date" (.parsedRow >> .date >> formatDate)
+                        , T.styledColumn "Amount" (.parsedRow >> .amount >> formatEuro)
+                        , T.styledColumn "Category" categoryCell
+                        , T.textColumn "Description" (.parsedRow >> .description)
+                        ]
                     }
                ]
 
@@ -465,6 +470,9 @@ categoryCell annotatedRow =
 
         Just (Known c) ->
             spread (text c.name) (iconTooltip checkMark color.darkAccent "Known Category")
+
+        Just (RuleMatch c) ->
+            spread (text c.name) (iconTooltip infoMark color.darkAccent "Matched Categorization Rule")
 
         Just (Unknown name) ->
             spread (text name) (iconTooltip folderPlus color.darkAccent "New category, will be created upon import.")
@@ -569,8 +577,8 @@ type alias AnnotatedRow =
     }
 
 
-annotateRows : List ParsedRow -> Dict String Int -> (String -> Bool) -> (String -> Maybe Category) -> ( List AnnotatedRow, Int )
-annotateRows parsedRows duplicates entryIdExists categoryLookup =
+annotateRows : List ParsedRow -> Dict String Int -> (String -> Bool) -> (String -> Maybe Category) -> (String -> Maybe Category) -> ( List AnnotatedRow, Int )
+annotateRows parsedRows duplicates entryIdExists categoryLookup categorizationByRules =
     parsedRows
         |> List.foldr
             (\row ( rows, n ) ->
@@ -592,8 +600,12 @@ annotateRows parsedRows duplicates entryIdExists categoryLookup =
                         Dict.get rowId duplicates |> Maybe.withDefault 1
 
                     cat =
-                        row.category
-                            |> Maybe.map (parseCategory categoryLookup)
+                        case row.category of
+                            Just cat_str ->
+                                Just (parseCategory categoryLookup cat_str)
+
+                            Nothing ->
+                                categorizationByRules row.description |> matchedCategorization
                 in
                 ( AnnotatedRow row dups exists cat :: rows, m )
             )
@@ -603,8 +615,14 @@ annotateRows parsedRows duplicates entryIdExists categoryLookup =
 type Categorization
     = None
     | Known Category
+    | RuleMatch Category
     | Unknown String
     | ParsingError String
+
+
+matchedCategorization : Maybe Category -> Maybe Categorization
+matchedCategorization cat =
+    Maybe.map (\c -> RuleMatch c) cat
 
 
 parseCategory : (String -> Maybe Category) -> String -> Categorization
@@ -645,6 +663,16 @@ findDuplicateRows parsedRows =
             )
             Dict.empty
         |> Dict.filter (\_ v -> v > 1)
+
+
+getCategoryForParsedRow : (String -> Maybe Category) -> List Category -> ParsedRow -> Maybe Category
+getCategoryForParsedRow categorizationRules categories row =
+    case Maybe.andThen (getCategoryByShort categories) row.category of
+        Nothing ->
+            categorizationRules row.description
+
+        Just c ->
+            Just c
 
 
 

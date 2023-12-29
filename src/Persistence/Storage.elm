@@ -17,7 +17,7 @@ port module Persistence.Storage exposing
     , truncate
     )
 
-import Dict exposing (Dict)
+import Dict
 import Dict.Extra
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
