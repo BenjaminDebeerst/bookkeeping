@@ -239,9 +239,9 @@ errorNotice : Maybe String -> Element Msg
 errorNotice error =
     case error of
         Nothing ->
+            -- The nested none prevents a change in the dom structure when an errorNotice is shown, which would cause losing the focus on the current input field
             el [] Element.none
 
-        -- this prevents a change in the dom structure when an errorNotice is shown, which would cause losing the focus on the current input field
         Just message ->
             el [ Font.color color.red ] (text message)
 
