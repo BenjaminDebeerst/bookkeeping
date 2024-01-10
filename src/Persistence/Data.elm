@@ -1,10 +1,8 @@
 module Persistence.Data exposing
     ( Data
     , decode
-    , decodeJson
     , empty
     , encode
-    , encodeJson
     )
 
 import Dict exposing (Dict)
@@ -61,11 +59,6 @@ empty =
 
 encode : Data -> String
 encode storage =
-    S.encodeToString dataCodec storage
-
-
-encodeJson : Data -> String
-encodeJson storage =
     S.encodeToJson dataCodec storage
         |> Json.Encode.encode 0
 
@@ -77,20 +70,10 @@ decode value =
             Ok Nothing
 
         s ->
-            S.decodeFromString dataCodec (String.trim s)
-                |> Result.map Just
-
-
-decodeJson : String -> Result (Error String) Data
-decodeJson value =
-    case value of
-        "" ->
-            Ok empty
-
-        s ->
             Json.Decode.decodeString Json.Decode.value s
                 |> Result.mapError (\e -> S.CustomError (Json.Decode.errorToString e))
                 |> Result.andThen (S.decodeFromJson dataCodec)
+                |> Result.map Just
 
 
 

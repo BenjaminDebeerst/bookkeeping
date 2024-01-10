@@ -11,7 +11,7 @@ import File exposing (File)
 import File.Download as Download
 import File.Select as Select
 import Page
-import Persistence.Data exposing (Data, decode, decodeJson, empty, encode, encodeJson)
+import Persistence.Data exposing (Data, encode)
 import Persistence.Storage as Storage
 import Request exposing (Request)
 import Serialize exposing (Error(..))
@@ -48,99 +48,59 @@ emptyModel =
 -- UPDATE
 
 
-type FileFormat
-    = String
-    | Json
-
-
 type Msg
     = InitDatabase
-    | PickFile FileFormat
-    | GotFileName FileFormat File
-    | GotFileContent FileFormat String String
-    | SaveDataBase FileFormat
+    | PickFile
+    | GotFileName File
+    | GotFileContent String String
+    | SaveDataBase
 
 
 update : Shared.Model -> Msg -> Model -> ( Model, Cmd Msg )
 update sharedModel msg model =
     case msg of
-        PickFile format ->
+        PickFile ->
             ( model
-            , Select.file [ "*" ] (\a -> GotFileName format a)
+            , Select.file [ "*" ] GotFileName
             )
 
-        GotFileName format file ->
-            ( { model | notification = Notification.Info [ loader [ Font.color color.black ] size.m, text "Loading..." ] }, readFile format file )
+        GotFileName file ->
+            ( { model | notification = Notification.Info [ loader [ Font.color color.black ] size.m, text "Loading..." ] }, readFile file )
 
-        GotFileContent format name content ->
-            load format name content
+        GotFileContent name content ->
+            load name content
 
         InitDatabase ->
             ( emptyModel, Storage.truncate )
 
-        SaveDataBase format ->
-            ( model, save format sharedModel )
+        SaveDataBase ->
+            ( model, save sharedModel )
 
 
 
 -- MSG processing
 
 
-readFile : FileFormat -> File -> Cmd Msg
-readFile format file =
-    Task.perform (GotFileContent format <| File.name file) <| File.toString file
+readFile : File -> Cmd Msg
+readFile file =
+    Task.perform (GotFileContent <| File.name file) <| File.toString file
 
 
-load : FileFormat -> String -> String -> ( Model, Cmd Msg )
-load format fileName content =
-    case format of
-        String ->
-            ( { emptyModel | notification = Notification.Info [ text <| "Loaded " ++ fileName ] }
-            , Storage.loadDatabase content
-            )
-
-        Json ->
-            loadJson fileName content
+load : String -> String -> ( Model, Cmd Msg )
+load fileName content =
+    ( { emptyModel | notification = Notification.Info [ text <| "Loaded " ++ fileName ] }
+    , Storage.loadDatabase content
+    )
 
 
-loadJson : String -> String -> ( Model, Cmd Msg )
-loadJson fileName content =
-    let
-        reencoded =
-            content |> decodeJson |> Result.map encode
-    in
-    case reencoded of
-        Ok data ->
-            ( { emptyModel | notification = Notification.Info [ text <| "Loaded " ++ fileName ] }
-            , Storage.loadDatabase data
-            )
-
-        Err e ->
-            case e of
-                CustomError err ->
-                    ( { emptyModel | notification = Notification.Info [ text <| "Error transcoding json file: " ++ fileName ++ ": " ++ err ] }
-                    , Cmd.none
-                    )
-
-                _ ->
-                    ( { emptyModel | notification = Notification.Info [ text <| "Error transcoding json file: " ++ fileName ] }
-                    , Cmd.none
-                    )
-
-
-save : FileFormat -> Shared.Model -> Cmd Msg
-save format model =
+save : Shared.Model -> Cmd Msg
+save model =
     case model of
         None ->
             Cmd.none
 
         Loaded data ->
-            case format of
-                String ->
-                    Download.string "bookkeeping.db" "text/plain" (encode data)
-
-                Json ->
-                    Download.string "bookkeeping.json" "text/plain" (encodeJson data)
+            Download.string "bookkeeping.json" "application/json" (encode data)
 
         Problem _ ->
             Cmd.none
@@ -169,7 +129,7 @@ view sharedModel model =
 showStart : List (Element Msg)
 showStart =
     [ el [] <| text "Welcome to Bookkeeping. What do you want to do?"
-    , showActions [ Load, LoadJson, Init ]
+    , showActions [ Load, Init ]
     ]
 
 
@@ -186,7 +146,7 @@ showDataSummary data =
             data.categories |> Dict.size |> String.fromInt
     in
     [ el [] <| text ([ "Database loaded. ", entries, " entries, ", accounts, " accounts, ", categories, " categories." ] |> String.concat)
-    , showActions [ LoadOther, LoadOtherJson, Init, Save, SaveJson ]
+    , showActions [ LoadOther, Init, Save ]
     ]
 
 
@@ -205,18 +165,15 @@ showDataIssues error =
                 SerializerOutOfDate ->
                     "Serializer out of date."
             )
-    , showActions [ LoadOther, LoadOtherJson, Init ]
+    , showActions [ LoadOther, Init ]
     ]
 
 
 type Action
     = Load
-    | LoadJson
     | LoadOther
-    | LoadOtherJson
     | Init
     | Save
-    | SaveJson
 
 
 showActions : List Action -> Element Msg
@@ -229,26 +186,14 @@ showActions buttons =
                     case button of
                         Load ->
                             Input.button Layout.style.button
-                                { onPress = Just (PickFile String)
-                                , label = text "Load a DB file."
-                                }
-
-                        LoadJson ->
-                            Input.button Layout.style.button
-                                { onPress = Just (PickFile Json)
-                                , label = text "Load a JSON file."
+                                { onPress = Just PickFile
+                                , label = text "Load a DB json file."
                                 }
 
                         LoadOther ->
                             Input.button Layout.style.button
-                                { onPress = Just (PickFile String)
-                                , label = text "Load another DB file"
-                                }
-
-                        LoadOtherJson ->
-                            Input.button Layout.style.button
-                                { onPress = Just (PickFile Json)
-                                , label = text "Load another JSON file"
+                                { onPress = Just PickFile
+                                , label = text "Load another DB json file"
                                 }
 
                         Init ->
@@ -259,14 +204,8 @@ showActions buttons =
 
                         Save ->
                             Input.button Layout.style.button
-                                { onPress = Just (SaveDataBase String)
+                                { onPress = Just SaveDataBase
                                 , label = text "Save DB"
-                                }
-
-                        SaveJson ->
-                            Input.button Layout.style.button
-                                { onPress = Just (SaveDataBase Json)
-                                , label = text "Save JSON"
                                 }
                 )
         )
