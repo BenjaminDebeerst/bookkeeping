@@ -8,10 +8,10 @@ module Persistence.Data exposing
 import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode
-import Persistence.Account as Account exposing (Account, AccountV0, Accounts)
-import Persistence.Category as Category exposing (Categories, Category, CategoryV0)
-import Persistence.ImportProfile as ImportProfile exposing (ImportProfile, ImportProfileV0, ImportProfiles)
-import Persistence.RawEntry as RawEntry exposing (RawEntries, RawEntry, RawEntryV0)
+import Persistence.Account as Account exposing (AccountV0, Accounts)
+import Persistence.Category as Category exposing (Categories, CategoryV0)
+import Persistence.ImportProfile as ImportProfile exposing (ImportProfileV0, ImportProfiles)
+import Persistence.RawEntry as RawEntry exposing (RawEntries, RawEntryV0)
 import Serialize as S exposing (Error)
 
 
