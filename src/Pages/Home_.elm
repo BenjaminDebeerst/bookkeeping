@@ -100,7 +100,7 @@ save model =
             Cmd.none
 
         Loaded data ->
-            Download.string "bookkeeping.db" "text/plain" (encode data)
+            Download.string "bookkeeping.json" "application/json" (encode data)
 
         Problem _ ->
             Cmd.none
@@ -187,13 +187,13 @@ showActions buttons =
                         Load ->
                             Input.button Layout.style.button
                                 { onPress = Just PickFile
-                                , label = text "Load a DB file."
+                                , label = text "Load a DB json file."
                                 }
 
                         LoadOther ->
                             Input.button Layout.style.button
                                 { onPress = Just PickFile
-                                , label = text "Load another DB file"
+                                , label = text "Load another DB json file"
                                 }
 
                         Init ->

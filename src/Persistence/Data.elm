@@ -6,6 +6,8 @@ module Persistence.Data exposing
     )
 
 import Dict exposing (Dict)
+import Json.Decode
+import Json.Encode
 import Persistence.Account as Account exposing (AccountV0, Accounts)
 import Persistence.Category as Category exposing (Categories, CategoryV0)
 import Persistence.ImportProfile as ImportProfile exposing (ImportProfileV0, ImportProfiles)
@@ -57,7 +59,8 @@ empty =
 
 encode : Data -> String
 encode storage =
-    S.encodeToString dataCodec storage
+    S.encodeToJson dataCodec storage
+        |> Json.Encode.encode 0
 
 
 decode : String -> Result (Error String) (Maybe Data)
@@ -67,7 +70,9 @@ decode value =
             Ok Nothing
 
         s ->
-            S.decodeFromString dataCodec (String.trim s)
+            Json.Decode.decodeString Json.Decode.value s
+                |> Result.mapError (\e -> S.CustomError (Json.Decode.errorToString e))
+                |> Result.andThen (S.decodeFromJson dataCodec)
                 |> Result.map Just
 
 
