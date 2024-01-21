@@ -10,17 +10,17 @@ import Element.Input as Input
 import File exposing (File)
 import File.Download as Download
 import File.Select as Select
-import Page
+import Page exposing (Page)
 import Persistence.Data exposing (Data, encode)
 import Persistence.Storage as Storage
-import Request exposing (Request)
+import Route exposing (Route)
 import Serialize exposing (Error(..))
 import Shared exposing (Model(..))
 import Task
 import View exposing (View)
 
 
-page : Shared.Model -> Request -> Page.With Model Msg
+page : Shared.Model -> Route () -> Page Model Msg
 page shared _ =
     Page.element
         { init = init

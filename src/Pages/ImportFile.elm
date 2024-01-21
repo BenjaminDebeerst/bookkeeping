@@ -12,12 +12,11 @@ import Element.Font as Font
 import Element.Input as Input exposing (labelLeft, labelRight, placeholder)
 import File exposing (File)
 import File.Select as Select
-import Gen.Params.ImportFile exposing (Params)
 import Html.Events exposing (preventDefaultOn)
 import Json.Decode as D
 import List.Extra
 import Maybe.Extra
-import Page
+import Page exposing (Page)
 import Parser
 import Persistence.Account exposing (Account)
 import Persistence.Category as Category exposing (Category, category)
@@ -29,14 +28,14 @@ import Processing.CategorizationRules exposing (applyAllCategorizationRules)
 import Processing.CategoryParser as CategoryParser
 import Processing.CsvParser as CsvParser exposing (ParsedRow, toDate)
 import Processing.Model exposing (getCategoryByShort)
-import Request
+import Route exposing (Route)
 import Shared exposing (Model(..))
 import Task
 import Time.Date
 import View exposing (View)
 
 
-page : Shared.Model -> Request.With Params -> Page.With Model Msg
+page : Shared.Model -> Route () -> Page Model Msg
 page shared req =
     Page.element
         { init = ( Pick, Cmd.none )

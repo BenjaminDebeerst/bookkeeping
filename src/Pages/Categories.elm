@@ -6,8 +6,7 @@ import Dict
 import Element exposing (Element, column, el, indexedTable, padding, paddingXY, row, spacing, text)
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelLeft, placeholder)
-import Gen.Params.Accounts exposing (Params)
-import Page
+import Page exposing (Page)
 import Parser
 import Persistence.Category exposing (Category, CategoryGroup(..), category)
 import Persistence.Data exposing (Data)
@@ -17,13 +16,13 @@ import Processing.Filter exposing (filterCategory)
 import Processing.Model exposing (getCategoryByShort, getEntries)
 import Processing.Ordering exposing (dateAsc)
 import Regex
-import Request
+import Route exposing (Route)
 import Shared
 import String
 import View exposing (View)
 
 
-page : Shared.Model -> Request.With Params -> Page.With Model Msg
+page : Shared.Model -> Route () -> Page Model Msg
 page shared req =
     Page.element
         { init = init

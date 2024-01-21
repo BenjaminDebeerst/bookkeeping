@@ -6,19 +6,18 @@ import Dict
 import Element exposing (Element, IndexedColumn, column, el, indexedTable, none, padding, paddingXY, row, shrink, spacing, text)
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelLeft, placeholder)
-import Gen.Params.Accounts exposing (Params)
 import Maybe.Extra
-import Page
+import Page exposing (Page)
 import Persistence.Data exposing (Data)
 import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile, importProfile)
 import Persistence.Storage as Storage
 import Processing.CsvParser as CsvParser
-import Request
+import Route exposing (Route)
 import Shared
 import View exposing (View)
 
 
-page : Shared.Model -> Request.With Params -> Page.With Model Msg
+page : Shared.Model -> Route () -> Page Model Msg
 page shared req =
     Page.element
         { init = init

@@ -10,7 +10,7 @@ import Element exposing (Attribute, Column, Element, alignLeft, alignRight, belo
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelHidden)
-import Page
+import Page exposing (Page)
 import Parser
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
@@ -21,14 +21,14 @@ import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit,
 import Processing.CategoryParser as Parser exposing (categorizationParser)
 import Processing.Model exposing (getCategoryByShort, getEntriesAndErrors)
 import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
-import Request exposing (Request)
 import Result.Extra
+import Route exposing (Route)
 import Set
 import Shared
 import View exposing (View)
 
 
-page : Shared.Model -> Request -> Page.With Model Msg
+page : Shared.Model -> Route () -> Page Model Msg
 page shared req =
     Page.element
         { init =

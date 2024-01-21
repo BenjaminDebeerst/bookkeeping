@@ -6,17 +6,16 @@ import Dict
 import Element exposing (Element, column, el, indexedTable, text)
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, placeholder)
-import Gen.Params.Accounts exposing (Params)
-import Page
+import Page exposing (Page)
 import Persistence.Account exposing (Account, AccountStart, account)
 import Persistence.Data exposing (Data)
 import Persistence.Storage as Storage
-import Request
+import Route exposing (Route)
 import Shared exposing (Model(..))
 import View exposing (View)
 
 
-page : Shared.Model -> Request.With Params -> Page.With Model Msg
+page : Shared.Model -> Route () -> Page Model Msg
 page shared req =
     Page.element
         { init = init

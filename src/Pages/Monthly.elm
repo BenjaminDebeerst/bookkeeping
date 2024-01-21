@@ -5,20 +5,19 @@ import Components.Layout as Layout exposing (formatEuro, size, style, updateOrRe
 import Components.Table as T
 import Dict exposing (Dict)
 import Element exposing (Element, IndexedColumn, column, el, indexedTable, spacing, text)
-import Gen.Params.Monthly exposing (Params)
-import Page
+import Page exposing (Page)
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category, CategoryGroup(..))
 import Persistence.Data exposing (Data)
 import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate)
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (dateAsc)
-import Request
+import Route exposing (Route)
 import Shared exposing (Model(..))
 import View exposing (View)
 
 
-page : Shared.Model -> Request.With Params -> Page.With Model Msg
+page : Shared.Model -> Route () -> Page Model Msg
 page shared req =
     Page.element
         { init =
