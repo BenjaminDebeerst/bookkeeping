@@ -1,4 +1,4 @@
-module Effect exposing
+port module Effect exposing
     ( Effect
     , back
     , batch
@@ -10,6 +10,7 @@ module Effect exposing
     , pushRoutePath
     , replaceRoute
     , replaceRoutePath
+    , saveToLocalStorage
     , sendCmd
     , sendMsg
     , store
@@ -19,7 +20,7 @@ module Effect exposing
 
 import Browser.Navigation
 import Dict exposing (Dict)
-import Persistence.Data exposing (Data)
+import Persistence.Data as Data exposing (Data, encode)
 import Route exposing (Route)
 import Route.Path
 import Shared.Model
@@ -40,6 +41,11 @@ type Effect msg
     | Back
       -- SHARED
     | SendSharedMsg Shared.Msg.Msg
+      -- LocalStorage store
+    | Store Data
+
+
+port save : String -> Cmd msg
 
 
 
@@ -134,7 +140,7 @@ back =
 
 
 
--- Database interactions
+-- DATABASE INTERACTIONS
 
 
 loadDatabase : String -> Effect msg
@@ -150,6 +156,15 @@ truncateDatabase =
 store : Data -> Effect msg
 store data =
     SendSharedMsg (Update data)
+
+
+
+-- LOCAL STORAGE
+
+
+saveToLocalStorage : Data -> Effect msg
+saveToLocalStorage data =
+    Store data
 
 
 
@@ -185,6 +200,9 @@ map fn effect =
 
         SendSharedMsg sharedMsg ->
             SendSharedMsg sharedMsg
+
+        Store data ->
+            Store data
 
 
 {-| Elm Land depends on this function to perform your effects.
@@ -225,3 +243,6 @@ toCmd options effect =
         SendSharedMsg sharedMsg ->
             Task.succeed sharedMsg
                 |> Task.perform options.fromSharedMsg
+
+        Store data ->
+            data |> Data.encode |> save

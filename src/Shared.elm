@@ -10,7 +10,7 @@ module Shared exposing
 
 import Effect exposing (Effect)
 import Json.Decode
-import Persistence.Data exposing (Data, decode)
+import Persistence.Data as Data exposing (Data, decode)
 import Route exposing (Route)
 import Serialize exposing (Error)
 import Shared.Model exposing (Model(..))
@@ -47,16 +47,24 @@ subscriptions _ _ =
 
 
 update : Route () -> Msg -> Model -> ( Model, Effect Msg )
-update _ msg _ =
+update _ msg model =
     case msg of
+        Update data ->
+            ( Loaded data, Effect.saveToLocalStorage data )
+
         TruncateDB ->
-            ( None, Effect.none )
+            ( model, Effect.store Data.empty )
 
         LoadDatabase db ->
-            ( db |> decode |> toModel, Effect.none )
+            case db |> decode |> toModel of
+                None ->
+                    ( model, Effect.store Data.empty )
 
-        Update data ->
-            ( Loaded data, Effect.none )
+                Loaded data ->
+                    ( model, Effect.store data )
+
+                Problem error ->
+                    ( Problem error, Effect.none )
 
 
 toModel : Result (Error String) (Maybe Data) -> Model
