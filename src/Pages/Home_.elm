@@ -4,6 +4,7 @@ import Components.Icons exposing (loader)
 import Components.Layout as Layout exposing (color, size)
 import Components.Notification as Notification exposing (Notification)
 import Dict
+import Effect exposing (Effect)
 import Element exposing (Element, el, fill, minimum, row, spacing, text, width)
 import Element.Font as Font
 import Element.Input as Input
@@ -12,17 +13,18 @@ import File.Download as Download
 import File.Select as Select
 import Page exposing (Page)
 import Persistence.Data exposing (Data, encode)
-import Persistence.Storage as Storage
 import Route exposing (Route)
 import Serialize exposing (Error(..))
-import Shared exposing (Model(..))
+import Shared
+import Shared.Model exposing (Model(..))
+import Shared.Msg exposing (Msg(..))
 import Task
 import View exposing (View)
 
 
 page : Shared.Model -> Route () -> Page Model Msg
 page shared _ =
-    Page.element
+    Page.new
         { init = init
         , update = update shared
         , view = view shared
@@ -35,9 +37,9 @@ type alias Model =
     }
 
 
-init : ( Model, Cmd Msg )
-init =
-    ( emptyModel, Cmd.none )
+init : () -> ( Model, Effect Msg )
+init _ =
+    ( emptyModel, Effect.none )
 
 
 emptyModel =
@@ -56,12 +58,12 @@ type Msg
     | SaveDataBase
 
 
-update : Shared.Model -> Msg -> Model -> ( Model, Cmd Msg )
+update : Shared.Model -> Msg -> Model -> ( Model, Effect Msg )
 update sharedModel msg model =
     case msg of
         PickFile ->
             ( model
-            , Select.file [ "*" ] GotFileName
+            , Select.file [ "*" ] GotFileName |> Effect.sendCmd
             )
 
         GotFileName file ->
@@ -71,7 +73,7 @@ update sharedModel msg model =
             load name content
 
         InitDatabase ->
-            ( emptyModel, Storage.truncate )
+            ( emptyModel, Effect.truncateDatabase )
 
         SaveDataBase ->
             ( model, save sharedModel )
@@ -81,29 +83,29 @@ update sharedModel msg model =
 -- MSG processing
 
 
-readFile : File -> Cmd Msg
+readFile : File -> Effect Msg
 readFile file =
-    Task.perform (GotFileContent <| File.name file) <| File.toString file
+    Effect.sendCmd <| Task.perform (GotFileContent <| File.name file) <| File.toString file
 
 
-load : String -> String -> ( Model, Cmd Msg )
+load : String -> String -> ( Model, Effect Msg )
 load fileName content =
     ( { emptyModel | notification = Notification.Info [ text <| "Loaded " ++ fileName ] }
-    , Storage.loadDatabase content
+    , Effect.loadDatabase content
     )
 
 
-save : Shared.Model -> Cmd Msg
+save : Shared.Model -> Effect Msg
 save model =
     case model of
         None ->
-            Cmd.none
+            Effect.none
 
         Loaded data ->
-            Download.string "bookkeeping.json" "application/json" (encode data)
+            Download.string "bookkeeping.json" "application/json" (encode data) |> Effect.sendCmd
 
         Problem _ ->
-            Cmd.none
+            Effect.none
 
 
 

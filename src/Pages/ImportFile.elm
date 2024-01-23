@@ -6,6 +6,7 @@ import Components.Table as T
 import Csv.Decode as Decode exposing (Error(..))
 import Csv.Parser as Parser exposing (Problem(..))
 import Dict exposing (Dict)
+import Effect exposing (Effect)
 import Element exposing (Attribute, Color, Element, IndexedColumn, centerX, centerY, el, fill, height, indexedTable, onRight, padding, paddingEach, paddingXY, px, row, spacing, text, width)
 import Element.Border as Border
 import Element.Font as Font
@@ -29,7 +30,7 @@ import Processing.CategoryParser as CategoryParser
 import Processing.CsvParser as CsvParser exposing (ParsedRow, toDate)
 import Processing.Model exposing (getCategoryByShort)
 import Route exposing (Route)
-import Shared exposing (Model(..))
+import Shared
 import Task
 import Time.Date
 import View exposing (View)
@@ -37,8 +38,8 @@ import View exposing (View)
 
 page : Shared.Model -> Route () -> Page Model Msg
 page shared req =
-    Page.element
-        { init = ( Pick, Cmd.none )
+    Page.new
+        { init = \_ -> ( Pick, Effect.none )
         , update = updateOrRedirectOnError shared req update
         , view = viewDataOnly shared view
         , subscriptions = \_ -> Sub.none
@@ -104,25 +105,25 @@ type Msg
     | Store Account ImportProfile (List String) (List ParsedRow) Bool
 
 
-update : Data -> Msg -> Model -> ( Model, Cmd Msg )
+update : Data -> Msg -> Model -> ( Model, Effect Msg )
 update data msg model =
     case msg of
         DragEnter ->
-            ( PickHover, Cmd.none )
+            ( PickHover, Effect.none )
 
         DragLeave ->
-            ( Pick, Cmd.none )
+            ( Pick, Effect.none )
 
         PickFile ->
             ( model
-            , Select.file [ "*" ] GotFileName
+            , Select.file [ "*" ] GotFileName |> Effect.sendCmd
             )
 
         GotFileName filename ->
-            ( model, readFile filename )
+            ( model, readFile filename |> Effect.sendCmd )
 
         GotFile name content ->
-            ( show name content, Cmd.none )
+            ( show name content, Effect.none )
 
         ChooseImportProfile profile ->
             case model of
@@ -136,30 +137,30 @@ update data msg model =
                                 False
                             )
                         )
-                    , Cmd.none
+                    , Effect.none
                     )
 
                 _ ->
-                    ( model, Cmd.none )
+                    ( model, Effect.none )
 
         Filter on start end ->
             case model of
                 Show csv (Just parsed) ->
-                    ( Show csv (Just { parsed | importFilter = ImportFilter on start end }), Cmd.none )
+                    ( Show csv (Just { parsed | importFilter = ImportFilter on start end }), Effect.none )
 
                 _ ->
-                    ( model, Cmd.none )
+                    ( model, Effect.none )
 
         GenerateIds on ->
             case model of
                 Show csv (Just parsed) ->
-                    ( Show csv (Just { parsed | generateIds = on }), Cmd.none )
+                    ( Show csv (Just { parsed | generateIds = on }), Effect.none )
 
                 _ ->
-                    ( model, Cmd.none )
+                    ( model, Effect.none )
 
         Abort ->
-            ( Pick, Cmd.none )
+            ( Pick, Effect.none )
 
         Store account profile newCats lines generateIds ->
             let
@@ -192,7 +193,7 @@ update data msg model =
                     dataWithNewCategories |> Storage.addEntries generateIds newEntries
             in
             ( Stored (List.length newEntries)
-            , Storage.store newData
+            , newData |> Effect.store
             )
 
 

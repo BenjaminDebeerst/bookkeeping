@@ -20,7 +20,8 @@ import Html.Attributes
 import Persistence.Data exposing (Data)
 import Route exposing (Route)
 import Route.Path
-import Shared exposing (Model(..))
+import Shared exposing (Model)
+import Shared.Model exposing (Model(..))
 import Time.Date as Date exposing (Date)
 import View exposing (View)
 

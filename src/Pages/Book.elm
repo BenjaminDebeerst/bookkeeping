@@ -6,6 +6,7 @@ import Components.Layout as Layout exposing (color, formatDate, formatEuro, form
 import Components.Table as T
 import Dict exposing (Dict)
 import Dict.Extra
+import Effect exposing (Effect)
 import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, shrink, spacing, text, width)
 import Element.Events exposing (onClick)
 import Element.Font as Font
@@ -16,7 +17,7 @@ import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
 import Persistence.Data exposing (Data)
 import Persistence.RawEntry exposing (RawEntry)
-import Persistence.Storage as Storage exposing (addEntries, removeEntries)
+import Persistence.Storage exposing (addEntries, removeEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
 import Processing.CategoryParser as Parser exposing (categorizationParser)
 import Processing.Model exposing (getCategoryByShort, getEntriesAndErrors)
@@ -25,22 +26,23 @@ import Result.Extra
 import Route exposing (Route)
 import Set
 import Shared
+import Shared.Model
 import View exposing (View)
 
 
 page : Shared.Model -> Route () -> Page Model Msg
 page shared req =
-    Page.element
+    Page.new
         { init =
             init
                 (case shared of
-                    Shared.None ->
+                    Shared.Model.None ->
                         []
 
-                    Shared.Loaded data ->
+                    Shared.Model.Loaded data ->
                         Dict.values data.accounts
 
-                    Shared.Problem _ ->
+                    Shared.Model.Problem _ ->
                         []
                 )
         , update = updateOrRedirectOnError shared req update
@@ -63,15 +65,15 @@ type CatAttempt
     | Known String Categorization
 
 
-init : List Account -> ( Model, Cmd Msg )
-init accounts =
+init : List Account -> () -> ( Model, Effect Msg )
+init accounts _ =
     ( { ordering = dateAsc
       , editCategories = False
       , categoryEdits = Dict.empty
       , filters = Filter.init accounts
       , toBeDeleted = []
       }
-    , Cmd.none
+    , Effect.none
     )
 
 
@@ -91,23 +93,23 @@ type Msg
     | DeleteConfirm (List String)
 
 
-update : Data -> Msg -> Model -> ( Model, Cmd Msg )
+update : Data -> Msg -> Model -> ( Model, Effect Msg )
 update data msg model =
     case msg of
         Filter filterMsg ->
-            ( { model | filters = Filter.update filterMsg model.filters }, Cmd.none )
+            ( { model | filters = Filter.update filterMsg model.filters }, Effect.none )
 
         OrderBy ordering ->
-            ( { model | ordering = ordering }, Cmd.none )
+            ( { model | ordering = ordering }, Effect.none )
 
         Categorize ->
-            ( { model | editCategories = True }, Cmd.none )
+            ( { model | editCategories = True }, Effect.none )
 
         AbortCategorize ->
-            ( { model | editCategories = False }, Cmd.none )
+            ( { model | editCategories = False }, Effect.none )
 
         EditCategory id amount cat ->
-            ( { model | categoryEdits = Dict.insert id (parseCategorization data amount (String.toUpper cat)) model.categoryEdits }, Cmd.none )
+            ( { model | categoryEdits = Dict.insert id (parseCategorization data amount (String.toUpper cat)) model.categoryEdits }, Effect.none )
 
         SaveCategories ->
             let
@@ -136,17 +138,17 @@ update data msg model =
                         |> Dict.values
             in
             ( { model | editCategories = False, categoryEdits = Dict.empty }
-            , addEntries False editedEntries data |> Storage.store
+            , addEntries False editedEntries data |> Effect.store
             )
 
         Delete entryIds ->
-            ( { model | toBeDeleted = entryIds }, Cmd.none )
+            ( { model | toBeDeleted = entryIds }, Effect.none )
 
         DeleteAbort ->
-            ( { model | toBeDeleted = [] }, Cmd.none )
+            ( { model | toBeDeleted = [] }, Effect.none )
 
         DeleteConfirm entryIds ->
-            ( { model | toBeDeleted = [] }, removeEntries entryIds data |> Storage.store )
+            ( { model | toBeDeleted = [] }, removeEntries entryIds data |> Effect.store )
 
 
 view : Data -> Model -> View Msg

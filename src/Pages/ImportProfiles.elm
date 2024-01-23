@@ -3,6 +3,7 @@ module Pages.ImportProfiles exposing (Model, Msg, page)
 import Components.Layout as Layout exposing (color, formatDate, formatEuroStr, size, style, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
 import Dict
+import Effect exposing (Effect)
 import Element exposing (Element, IndexedColumn, column, el, indexedTable, none, padding, paddingXY, row, shrink, spacing, text)
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelLeft, placeholder)
@@ -19,7 +20,7 @@ import View exposing (View)
 
 page : Shared.Model -> Route () -> Page Model Msg
 page shared req =
-    Page.element
+    Page.new
         { init = init
         , update = updateOrRedirectOnError shared req update
         , view = viewDataOnly shared view
@@ -52,9 +53,9 @@ type alias Model =
     }
 
 
-init : ( Model, Cmd Msg )
-init =
-    ( Model Nothing Off "" ',' "" (YYYYMMDD '-') "" "" "" "", Cmd.none )
+init : () -> ( Model, Effect Msg )
+init _ =
+    ( Model Nothing Off "" ',' "" (YYYYMMDD '-') "" "" "" "", Effect.none )
 
 
 
@@ -78,38 +79,38 @@ type Msg
     | EditExisting ImportProfile
 
 
-update : Data -> Msg -> Model -> ( Model, Cmd Msg )
+update : Data -> Msg -> Model -> ( Model, Effect Msg )
 update data msg model =
     case msg of
         Add ->
-            ( { model | editing = NewCategory, error = Nothing }, Cmd.none )
+            ( { model | editing = NewCategory, error = Nothing }, Effect.none )
 
         Abort ->
-            init
+            init ()
 
         EditName name ->
-            ( { model | name = name }, Cmd.none )
+            ( { model | name = name }, Effect.none )
 
         EditSplitChar char ->
-            ( { model | splitChar = char }, Cmd.none )
+            ( { model | splitChar = char }, Effect.none )
 
         EditDateColumn string ->
-            ( { model | dateColumn = string }, Cmd.none )
+            ( { model | dateColumn = string }, Effect.none )
 
         EditDateFormat df ->
-            ( { model | dateFormat = df }, Cmd.none )
+            ( { model | dateFormat = df }, Effect.none )
 
         EditDescrColumns string ->
-            ( { model | descrColumns = string }, Cmd.none )
+            ( { model | descrColumns = string }, Effect.none )
 
         EditAmountColumn string ->
-            ( { model | amountColumn = string }, Cmd.none )
+            ( { model | amountColumn = string }, Effect.none )
 
         EditCategoryColumn string ->
-            ( { model | categoryColumn = string }, Cmd.none )
+            ( { model | categoryColumn = string }, Effect.none )
 
         EditTestString string ->
-            ( { model | testString = string }, Cmd.none )
+            ( { model | testString = string }, Effect.none )
 
         EditExisting p ->
             ( { model
@@ -122,7 +123,7 @@ update data msg model =
                 , amountColumn = String.fromInt p.amountField
                 , categoryColumn = p.categoryField |> Maybe.map String.fromInt |> Maybe.withDefault ""
               }
-            , Cmd.none
+            , Effect.none
             )
 
         Save ->
@@ -137,16 +138,16 @@ update data msg model =
             in
             case validateImportProfile data model of
                 Ok a ->
-                    ( { model | error = Nothing, name = "", editing = Off }, storeFunction a data |> Storage.store )
+                    ( { model | error = Nothing, name = "", editing = Off }, storeFunction a data |> Effect.store )
 
                 Err e ->
-                    ( { model | error = Just e }, Cmd.none )
+                    ( { model | error = Just e }, Effect.none )
 
         Delete p ->
-            ( { model | error = Nothing, editing = Deleting p }, Cmd.none )
+            ( { model | error = Nothing, editing = Deleting p }, Effect.none )
 
         DeleteConfirm p ->
-            ( { model | error = Nothing, name = "", editing = Off }, Storage.deleteImportProfile p data |> Storage.store )
+            ( { model | error = Nothing, name = "", editing = Off }, Storage.deleteImportProfile p data |> Effect.store )
 
 
 andMap =

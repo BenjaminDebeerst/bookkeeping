@@ -3,6 +3,7 @@ module Pages.Accounts exposing (Model, Msg, page)
 import Components.Layout as Layout exposing (color, formatEuro, style, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
 import Dict
+import Effect exposing (Effect)
 import Element exposing (Element, column, el, indexedTable, text)
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, placeholder)
@@ -11,13 +12,13 @@ import Persistence.Account exposing (Account, AccountStart, account)
 import Persistence.Data exposing (Data)
 import Persistence.Storage as Storage
 import Route exposing (Route)
-import Shared exposing (Model(..))
+import Shared
 import View exposing (View)
 
 
 page : Shared.Model -> Route () -> Page Model Msg
 page shared req =
-    Page.element
+    Page.new
         { init = init
         , update = updateOrRedirectOnError shared req update
         , view = viewDataOnly shared view
@@ -43,9 +44,9 @@ type alias NewAccount =
     {}
 
 
-init : ( Model, Cmd Msg )
-init =
-    ( Model Nothing False "" "" "" "", Cmd.none )
+init : () -> ( Model, Effect Msg )
+init _ =
+    ( Model Nothing False "" "" "" "", Effect.none )
 
 
 
@@ -62,34 +63,34 @@ type Msg
     | Abort
 
 
-update : Data -> Msg -> Model -> ( Model, Cmd Msg )
+update : Data -> Msg -> Model -> ( Model, Effect Msg )
 update data msg model =
     case msg of
         Add ->
-            ( { model | editing = True }, Cmd.none )
+            ( { model | editing = True }, Effect.none )
 
         Abort ->
-            ( { model | editing = False }, Cmd.none )
+            ( { model | editing = False }, Effect.none )
 
         EditName name ->
-            ( { model | name = name }, Cmd.none )
+            ( { model | name = name }, Effect.none )
 
         EditBalance balance ->
-            ( { model | balance = balance }, Cmd.none )
+            ( { model | balance = balance }, Effect.none )
 
         EditYear year ->
-            ( { model | year = year }, Cmd.none )
+            ( { model | year = year }, Effect.none )
 
         EditMonth month ->
-            ( { model | month = month }, Cmd.none )
+            ( { model | month = month }, Effect.none )
 
         Save ->
             case validateAccount model of
                 Ok a ->
-                    ( { model | error = Nothing }, Storage.store <| Storage.addAccount a data )
+                    ( { model | error = Nothing }, Storage.addAccount a data |> Effect.store )
 
                 Err e ->
-                    ( { model | error = Just e }, Cmd.none )
+                    ( { model | error = Just e }, Effect.none )
 
 
 

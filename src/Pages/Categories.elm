@@ -3,6 +3,7 @@ module Pages.Categories exposing (Model, Msg, page)
 import Components.Layout as Layout exposing (color, size, style, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
 import Dict
+import Effect exposing (Effect)
 import Element exposing (Element, column, el, indexedTable, padding, paddingXY, row, spacing, text)
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelLeft, placeholder)
@@ -24,7 +25,7 @@ import View exposing (View)
 
 page : Shared.Model -> Route () -> Page Model Msg
 page shared req =
-    Page.element
+    Page.new
         { init = init
         , update = updateOrRedirectOnError shared req update
         , view = viewDataOnly shared view
@@ -53,9 +54,9 @@ type alias Model =
     }
 
 
-init : ( Model, Cmd Msg )
-init =
-    ( Model Nothing Off "" "" Nothing [], Cmd.none )
+init : () -> ( Model, Effect Msg )
+init _ =
+    ( Model Nothing Off "" "" Nothing [], Effect.none )
 
 
 
@@ -76,23 +77,23 @@ type Msg
     | EditExisting Category
 
 
-update : Data -> Msg -> Model -> ( Model, Cmd Msg )
+update : Data -> Msg -> Model -> ( Model, Effect Msg )
 update data msg model =
     case msg of
         Add ->
-            ( { model | editing = NewCategory, error = Nothing }, Cmd.none )
+            ( { model | editing = NewCategory, error = Nothing }, Effect.none )
 
         Abort ->
-            ( { model | editing = Off, error = Nothing, name = "", short = "", group = Nothing }, Cmd.none )
+            ( { model | editing = Off, error = Nothing, name = "", short = "", group = Nothing }, Effect.none )
 
         EditName name ->
-            ( { model | name = name }, Cmd.none )
+            ( { model | name = name }, Effect.none )
 
         EditShort short ->
-            ( { model | short = String.toUpper short }, Cmd.none )
+            ( { model | short = String.toUpper short }, Effect.none )
 
         EditGroup group ->
-            ( { model | group = Just group }, Cmd.none )
+            ( { model | group = Just group }, Effect.none )
 
         EditPattern idx pattern ->
             let
@@ -109,16 +110,16 @@ update data msg model =
             in
             case Regex.fromString pattern of
                 Nothing ->
-                    ( { model | error = Just "Invalid regular expression!", rules = patterns }, Cmd.none )
+                    ( { model | error = Just "Invalid regular expression!", rules = patterns }, Effect.none )
 
                 Just _ ->
-                    ( { model | error = Nothing, rules = patterns }, Cmd.none )
+                    ( { model | error = Nothing, rules = patterns }, Effect.none )
 
         AddPatternSlot ->
-            ( { model | rules = model.rules ++ [ "" ] }, Cmd.none )
+            ( { model | rules = model.rules ++ [ "" ] }, Effect.none )
 
         EditExisting cat ->
-            ( { model | error = Nothing, editing = Existing cat, short = cat.short, name = cat.name, group = Just cat.group, rules = cat.rules }, Cmd.none )
+            ( { model | error = Nothing, editing = Existing cat, short = cat.short, name = cat.name, group = Just cat.group, rules = cat.rules }, Effect.none )
 
         Save ->
             let
@@ -132,10 +133,10 @@ update data msg model =
             in
             case validateCategory data model of
                 Ok a ->
-                    ( { model | error = Nothing, name = "", short = "", rules = [], editing = Off }, storeFunction a data |> Storage.store )
+                    ( { model | error = Nothing, name = "", short = "", rules = [], editing = Off }, storeFunction a data |> Effect.store )
 
                 Err e ->
-                    ( { model | error = Just e }, Cmd.none )
+                    ( { model | error = Just e }, Effect.none )
 
         Delete cat ->
             let
@@ -143,13 +144,13 @@ update data msg model =
                     List.length <| getEntries data [ filterCategory cat ] dateAsc
             in
             if n > 0 then
-                ( { model | error = Just ("Cannot delete the category '" ++ cat.name ++ "', it has " ++ String.fromInt n ++ " entries associated.") }, Cmd.none )
+                ( { model | error = Just ("Cannot delete the category '" ++ cat.name ++ "', it has " ++ String.fromInt n ++ " entries associated.") }, Effect.none )
 
             else
-                ( { model | error = Nothing, editing = Deleting cat }, Cmd.none )
+                ( { model | error = Nothing, editing = Deleting cat }, Effect.none )
 
         DeleteConfirm cat ->
-            ( { model | error = Nothing, name = "", short = "", editing = Off }, Storage.deleteCategory cat data |> Storage.store )
+            ( { model | error = Nothing, name = "", short = "", editing = Off }, Storage.deleteCategory cat data |> Effect.store )
 
 
 
