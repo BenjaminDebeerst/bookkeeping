@@ -12,7 +12,7 @@ Prerequisites are working installations of npm and elm.
 
 Install the npm dependencies, then run locally via
 
-    npx elm-spa server
+    npx elm-land server
 
 You can now access the application at `http://localhost:1234`.
 
@@ -20,4 +20,4 @@ Of course you can use elm-spa to package the application and deploy it to a serv
 
 ## Development
 
-Follow instructions for Installation, then the elm-spa server will auto-build upon change and report errors. Bookkeeping is written entirely in Elm.
+Follow instructions for Installation, then the elm-land server will auto-build upon change and report errors. Bookkeeping is written entirely in Elm with the [Elm-Land](https://elm.land) framework.

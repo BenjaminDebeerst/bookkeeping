@@ -4,23 +4,24 @@ import Components.Filter as Filter
 import Components.Layout as Layout exposing (formatEuro, size, style, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
 import Dict exposing (Dict)
+import Effect exposing (Effect)
 import Element exposing (Element, IndexedColumn, column, el, indexedTable, spacing, text)
-import Gen.Params.Monthly exposing (Params)
-import Page
+import Page exposing (Page)
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category, CategoryGroup(..))
 import Persistence.Data exposing (Data)
 import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate)
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (dateAsc)
-import Request
-import Shared exposing (Model(..))
+import Route exposing (Route)
+import Shared
+import Shared.Model exposing (Model(..))
 import View exposing (View)
 
 
-page : Shared.Model -> Request.With Params -> Page.With Model Msg
+page : Shared.Model -> Route () -> Page Model Msg
 page shared req =
-    Page.element
+    Page.new
         { init =
             init
                 (case shared of
@@ -48,9 +49,9 @@ type alias Model =
     }
 
 
-init : List Account -> ( Model, Cmd Msg )
-init accounts =
-    ( { filters = Filter.init accounts }, Cmd.none )
+init : List Account -> () -> ( Model, Effect Msg )
+init accounts _ =
+    ( { filters = Filter.init accounts }, Effect.none )
 
 
 
@@ -61,11 +62,11 @@ type Msg
     = Filter Filter.Msg
 
 
-update : Data -> Msg -> Model -> ( Model, Cmd Msg )
+update : Data -> Msg -> Model -> ( Model, Effect Msg )
 update data msg model =
     case msg of
         Filter filterMsg ->
-            ( { model | filters = Filter.update filterMsg model.filters }, Cmd.none )
+            ( { model | filters = Filter.update filterMsg model.filters }, Effect.none )
 
 
 

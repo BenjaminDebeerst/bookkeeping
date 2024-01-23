@@ -1,61 +1,70 @@
 module Shared exposing
     ( Flags
-    , Model(..)
+    , Model
     , Msg
+    , decoder
     , init
-    , justData
     , subscriptions
     , update
     )
 
-import Persistence.Data exposing (Data, decode)
-import Persistence.Storage as Storage
-import Request exposing (Request)
+import Effect exposing (Effect)
+import Json.Decode
+import Persistence.Data as Data exposing (Data, decode)
+import Route exposing (Route)
 import Serialize exposing (Error)
+import Shared.Model exposing (Model(..))
+import Shared.Msg exposing (Msg(..))
 
 
 type alias Flags =
     String
 
 
-type Model
-    = None
-    | Loaded Data
-    | Problem (Error String)
+type alias Model =
+    Shared.Model.Model
 
 
 type alias Msg =
-    Model
+    Shared.Msg.Msg
 
 
-justData : Model -> Maybe Data
-justData model =
-    case model of
-        None ->
-            Nothing
-
-        Loaded data ->
-            Just data
-
-        Problem _ ->
-            Nothing
+decoder : Json.Decode.Decoder Flags
+decoder =
+    Json.Decode.string
 
 
-init : Request -> Flags -> ( Model, Cmd Msg )
-init _ flags =
-    ( decode flags |> toModel
-    , Cmd.none
+init : Result Json.Decode.Error Flags -> Route () -> ( Model, Effect Msg )
+init result _ =
+    ( result |> Result.withDefault "" |> decode |> toModel
+    , Effect.none
     )
 
 
-subscriptions : Request -> Model -> Sub Msg
+subscriptions : Route () -> Model -> Sub Msg
 subscriptions _ _ =
-    Storage.onChange toModel
+    Sub.none
 
 
-update : Request -> Msg -> Model -> ( Model, Cmd Msg )
-update _ data _ =
-    ( data, Cmd.none )
+update : Route () -> Msg -> Model -> ( Model, Effect Msg )
+update _ msg model =
+    case msg of
+        Update data ->
+            ( Loaded data, Effect.saveToLocalStorage data )
+
+        TruncateDB ->
+            ( model, Effect.store Data.empty )
+
+        LoadDatabase db ->
+            case db |> decode |> toModel of
+                None ->
+                    ( model, Effect.store Data.empty )
+
+                Loaded data ->
+                    ( model, Effect.store data )
+
+                Problem error ->
+                    ( Problem error, Effect.none )
 
 
 toModel : Result (Error String) (Maybe Data) -> Model

@@ -1,4 +1,4 @@
-port module Persistence.Storage exposing
+module Persistence.Storage exposing
     ( addAccount
     , addCategories
     , addCategory
@@ -8,12 +8,7 @@ port module Persistence.Storage exposing
     , deleteImportProfile
     , editCategory
     , editImportProfile
-    , load
-    , loadDatabase
-    , onChange
     , removeEntries
-    , save
-    , store
     , truncate
     )
 
@@ -21,27 +16,10 @@ import Dict
 import Dict.Extra
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
-import Persistence.Data exposing (Data, decode, empty, encode)
+import Persistence.Data exposing (Data, empty)
 import Persistence.ImportProfile exposing (ImportProfile)
 import Persistence.RawEntry exposing (RawEntry, sha1)
-import Serialize exposing (Error)
 import Set
-
-
-port save : String -> Cmd msg
-
-
-port load : (String -> msg) -> Sub msg
-
-
-store : Data -> Cmd msg
-store =
-    encode >> save
-
-
-onChange : (Result (Error String) (Maybe Data) -> msg) -> Sub msg
-onChange fromStorage =
-    load (\s -> decode s |> fromStorage)
 
 
 addAccount : Account -> Data -> Data
@@ -138,11 +116,6 @@ deleteImportProfile profile data =
     { data | importProfiles = Dict.remove profile.id data.importProfiles }
 
 
-loadDatabase : String -> Cmd msg
-loadDatabase encodedStorage =
-    encodedStorage |> save
-
-
-truncate : Cmd msg
+truncate : Data
 truncate =
-    empty |> encode |> save
+    empty

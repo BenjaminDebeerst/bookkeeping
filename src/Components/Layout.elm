@@ -11,15 +11,17 @@ module Components.Layout exposing
     , viewDataOnly
     )
 
+import Effect exposing (Effect)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
-import Gen.Route as Route
 import Html.Attributes
 import Persistence.Data exposing (Data)
-import Request
-import Shared exposing (Model(..))
+import Route exposing (Route)
+import Route.Path
+import Shared exposing (Model)
+import Shared.Model exposing (Model(..))
 import Time.Date as Date exposing (Date)
 import View exposing (View)
 
@@ -228,14 +230,14 @@ viewDataOnly shared view_ =
 
 
 type alias UpdateFn msg model =
-    msg -> model -> ( model, Cmd msg )
+    msg -> model -> ( model, Effect msg )
 
 
-updateOrRedirectOnError : Shared.Model -> Request.With params -> (Data -> UpdateFn a b) -> UpdateFn a b
+updateOrRedirectOnError : Shared.Model -> Route () -> (Data -> UpdateFn a b) -> UpdateFn a b
 updateOrRedirectOnError shared req update_ =
     case shared of
         None ->
-            \_ model -> ( model, Request.pushRoute Route.Home_ req )
+            \_ model -> ( model, Effect.pushRoutePath Route.Path.Home_ )
 
         Loaded data ->
             update_ data
@@ -243,5 +245,5 @@ updateOrRedirectOnError shared req update_ =
         Problem _ ->
             \_ model ->
                 ( model
-                , Request.pushRoute Route.Home_ req
+                , Effect.pushRoutePath Route.Path.Home_
                 )
