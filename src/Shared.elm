@@ -1,61 +1,62 @@
 module Shared exposing
     ( Flags
-    , Model(..)
+    , Model
     , Msg
+    , decoder
     , init
-    , justData
     , subscriptions
     , update
     )
 
+import Effect exposing (Effect)
+import Json.Decode
 import Persistence.Data exposing (Data, decode)
-import Persistence.Storage as Storage
-import Request exposing (Request)
+import Route exposing (Route)
 import Serialize exposing (Error)
+import Shared.Model exposing (Model(..))
+import Shared.Msg exposing (Msg(..))
 
 
 type alias Flags =
     String
 
 
-type Model
-    = None
-    | Loaded Data
-    | Problem (Error String)
+type alias Model =
+    Shared.Model.Model
 
 
 type alias Msg =
-    Model
+    Shared.Msg.Msg
 
 
-justData : Model -> Maybe Data
-justData model =
-    case model of
-        None ->
-            Nothing
-
-        Loaded data ->
-            Just data
-
-        Problem _ ->
-            Nothing
+decoder : Json.Decode.Decoder Flags
+decoder =
+    Json.Decode.string
 
 
-init : Request -> Flags -> ( Model, Cmd Msg )
-init _ flags =
-    ( decode flags |> toModel
-    , Cmd.none
+init : Result Json.Decode.Error Flags -> Route () -> ( Model, Effect Msg )
+init result _ =
+    ( result |> Result.withDefault "" |> decode |> toModel
+    , Effect.none
     )
 
 
-subscriptions : Request -> Model -> Sub Msg
+subscriptions : Route () -> Model -> Sub Msg
 subscriptions _ _ =
-    Storage.onChange toModel
+    Sub.none
 
 
-update : Request -> Msg -> Model -> ( Model, Cmd Msg )
-update _ data _ =
-    ( data, Cmd.none )
+update : Route () -> Msg -> Model -> ( Model, Effect Msg )
+update _ msg _ =
+    case msg of
+        TruncateDB ->
+            ( None, Effect.none )
+
+        LoadDatabase db ->
+            ( db |> decode |> toModel, Effect.none )
+
+        Update data ->
+            ( Loaded data, Effect.none )
 
 
 toModel : Result (Error String) (Maybe Data) -> Model
