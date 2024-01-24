@@ -11,13 +11,13 @@ import Element.Input as Input
 import File exposing (File)
 import File.Download as Download
 import File.Select as Select
+import Json.Decode as Decode exposing (Error)
+import Json.Encode
 import Page exposing (Page)
-import Persistence.Data exposing (Data, encode)
+import Persistence.Data as Data exposing (Data)
 import Route exposing (Route)
-import Serialize exposing (Error(..))
 import Shared
 import Shared.Model exposing (Model(..))
-import Shared.Msg exposing (Msg(..))
 import Task
 import View exposing (View)
 
@@ -102,7 +102,7 @@ save model =
             Effect.none
 
         Loaded data ->
-            Download.string "bookkeeping.json" "application/json" (encode data) |> Effect.sendCmd
+            Download.string "bookkeeping.json" "application/json" (data |> Data.jsonEncoder |> Json.Encode.encode 0) |> Effect.sendCmd
 
         Problem _ ->
             Effect.none
@@ -152,21 +152,10 @@ showDataSummary data =
     ]
 
 
-showDataIssues : Error String -> List (Element Msg)
+showDataIssues : Error -> List (Element Msg)
 showDataIssues error =
     [ Notification.showNotification <| Notification.Error [ text "There was an issue loading the data from the DB!" ]
-    , el [] <|
-        text
-            (case error of
-                CustomError e ->
-                    e
-
-                DataCorrupted ->
-                    "Data is corrupt. Was this a Bookkeeping database file?"
-
-                SerializerOutOfDate ->
-                    "Serializer out of date."
-            )
+    , el [] <| text <| Decode.errorToString error
     , showActions [ LoadOther, Init ]
     ]
 

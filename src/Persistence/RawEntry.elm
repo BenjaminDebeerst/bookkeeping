@@ -63,12 +63,12 @@ fromV0 dict =
 -- versioning-aware encoding
 
 
-codec : S.Codec String RawEntries
+codec : S.Codec e RawEntries
 codec =
     S.dict S.string rawEntryCodec
 
 
-rawEntryCodec : S.Codec String RawEntry
+rawEntryCodec : S.Codec e RawEntry
 rawEntryCodec =
     S.customType
         (\v0Encoder value ->
@@ -104,13 +104,13 @@ v0Codec =
         |> S.finishRecord
 
 
-dateCodec : S.Codec String Date
+dateCodec : S.Codec e Date
 dateCodec =
     S.triple S.int S.int S.int
         |> S.map Date.fromTuple Date.toTuple
 
 
-categorizationCodec : S.Codec String Categorization
+categorizationCodec : S.Codec e Categorization
 categorizationCodec =
     S.customType
         (\singleEncoder splitEncoder value ->
@@ -126,7 +126,7 @@ categorizationCodec =
         |> S.finishCustomType
 
 
-splitCategorizationCodec : S.Codec String (List SplitCatEntry)
+splitCategorizationCodec : S.Codec e (List SplitCatEntry)
 splitCategorizationCodec =
     S.list
         (S.record SplitCatEntry

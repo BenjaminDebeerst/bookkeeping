@@ -67,12 +67,12 @@ v0v1 c =
 -- versioning-aware encoding
 
 
-codec : S.Codec String Categories
+codec : S.Codec e Categories
 codec =
     S.dict S.int categoryCodec
 
 
-categoryCodec : S.Codec String Category
+categoryCodec : S.Codec e Category
 categoryCodec =
     S.customType
         (\v0Encoder v1Encoder v2Encoder value ->
@@ -111,7 +111,7 @@ type StorageVersions
     | V2 CategoryV2
 
 
-v2Codec : S.Codec String CategoryV2
+v2Codec : S.Codec e CategoryV2
 v2Codec =
     S.record CategoryV2
         |> S.field .id S.int
@@ -122,7 +122,7 @@ v2Codec =
         |> S.finishRecord
 
 
-v1Codec : S.Codec String CategoryV1
+v1Codec : S.Codec e CategoryV1
 v1Codec =
     S.record CategoryV1
         |> S.field .id S.int
@@ -132,7 +132,7 @@ v1Codec =
         |> S.finishRecord
 
 
-categoryGroupCodec : S.Codec String CategoryGroup
+categoryGroupCodec : S.Codec e CategoryGroup
 categoryGroupCodec =
     S.customType
         (\a b c value ->
@@ -152,7 +152,7 @@ categoryGroupCodec =
         |> S.finishCustomType
 
 
-v0Codec : S.Codec String CategoryV0
+v0Codec : S.Codec e CategoryV0
 v0Codec =
     S.record CategoryV0
         |> S.field .id S.int

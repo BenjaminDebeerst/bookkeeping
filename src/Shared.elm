@@ -9,16 +9,16 @@ module Shared exposing
     )
 
 import Effect exposing (Effect)
-import Json.Decode
-import Persistence.Data as Data exposing (Data, decode)
+import Json.Decode exposing (Error)
+import Persistence.Data as Data exposing (Data)
+import Result.Extra
 import Route exposing (Route)
-import Serialize exposing (Error)
 import Shared.Model exposing (Model(..))
 import Shared.Msg exposing (Msg(..))
 
 
 type alias Flags =
-    String
+    Model
 
 
 type alias Model =
@@ -31,12 +31,20 @@ type alias Msg =
 
 decoder : Json.Decode.Decoder Flags
 decoder =
-    Json.Decode.string
+    Json.Decode.map
+        (\s ->
+            if s == "" then
+                None
+
+            else
+                Json.Decode.decodeString Data.jsonDecoder s |> toModel
+        )
+        Json.Decode.string
 
 
 init : Result Json.Decode.Error Flags -> Route () -> ( Model, Effect Msg )
 init result _ =
-    ( result |> Result.withDefault "" |> decode |> toModel
+    ( Result.Extra.unpack Problem identity result
     , Effect.none
     )
 
@@ -56,7 +64,7 @@ update _ msg model =
             ( model, Effect.store Data.empty )
 
         LoadDatabase db ->
-            case db |> decode |> toModel of
+            case db |> Json.Decode.decodeString Data.jsonDecoder |> toModel of
                 None ->
                     ( model, Effect.store Data.empty )
 
@@ -67,13 +75,10 @@ update _ msg model =
                     ( Problem error, Effect.none )
 
 
-toModel : Result (Error String) (Maybe Data) -> Model
+toModel : Result Error Data -> Model
 toModel result =
     case result of
-        Ok Nothing ->
-            None
-
-        Ok (Just data) ->
+        Ok data ->
             Loaded data
 
         Err e ->

@@ -20,7 +20,8 @@ port module Effect exposing
 
 import Browser.Navigation
 import Dict exposing (Dict)
-import Persistence.Data as Data exposing (Data, encode)
+import Json.Encode
+import Persistence.Data as Data exposing (Data)
 import Route exposing (Route)
 import Route.Path
 import Shared.Model
@@ -42,7 +43,7 @@ type Effect msg
       -- SHARED
     | SendSharedMsg Shared.Msg.Msg
       -- LocalStorage store
-    | Store Data
+    | SaveToLocalStorage Data
 
 
 port save : String -> Cmd msg
@@ -164,7 +165,7 @@ store data =
 
 saveToLocalStorage : Data -> Effect msg
 saveToLocalStorage data =
-    Store data
+    SaveToLocalStorage data
 
 
 
@@ -201,8 +202,8 @@ map fn effect =
         SendSharedMsg sharedMsg ->
             SendSharedMsg sharedMsg
 
-        Store data ->
-            Store data
+        SaveToLocalStorage data ->
+            SaveToLocalStorage data
 
 
 {-| Elm Land depends on this function to perform your effects.
@@ -244,5 +245,5 @@ toCmd options effect =
             Task.succeed sharedMsg
                 |> Task.perform options.fromSharedMsg
 
-        Store data ->
-            data |> Data.encode |> save
+        SaveToLocalStorage data ->
+            data |> Data.jsonEncoder |> Json.Encode.encode 0 |> save

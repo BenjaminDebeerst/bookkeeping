@@ -43,12 +43,12 @@ fromV0 dict =
 -- versioning-aware encoding
 
 
-codec : S.Codec String ImportProfiles
+codec : S.Codec e ImportProfiles
 codec =
     S.dict S.int profileCodec
 
 
-profileCodec : S.Codec String ImportProfile
+profileCodec : S.Codec e ImportProfile
 profileCodec =
     S.customType
         (\v0Encoder value ->
@@ -71,7 +71,7 @@ type StorageVersions
     = V0 ImportProfileV0
 
 
-v0Codec : S.Codec String ImportProfileV0
+v0Codec : S.Codec e ImportProfileV0
 v0Codec =
     S.record ImportProfileV0
         |> S.field .id S.int
@@ -85,7 +85,7 @@ v0Codec =
         |> S.finishRecord
 
 
-dateFormatCodec : S.Codec String DateFormat
+dateFormatCodec : S.Codec e DateFormat
 dateFormatCodec =
     S.customType
         (\a b value ->
@@ -103,6 +103,6 @@ dateFormatCodec =
 
 {-| Just store the char as 1-character string. The default value when decoding doesn't matter.
 -}
-charCodec : S.Codec String Char
+charCodec : S.Codec e Char
 charCodec =
     S.string |> S.map (\s -> s |> String.toList |> List.head |> Maybe.withDefault '?') String.fromChar

@@ -8,11 +8,11 @@ own file, so they can be imported by `Effect.elm`
 
 -}
 
-import Persistence.Data as Data exposing (Data)
-import Serialize exposing (Error)
+import Json.Decode exposing (Error)
+import Persistence.Data exposing (Data)
 
 
 type Model
     = None
     | Loaded Data
-    | Problem (Error String)
+    | Problem Error

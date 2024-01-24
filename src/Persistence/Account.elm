@@ -37,12 +37,12 @@ fromV0 dict =
 -- versioning-aware encoding
 
 
-codec : S.Codec String Accounts
+codec : S.Codec e Accounts
 codec =
     S.dict S.int accountCodec
 
 
-accountCodec : S.Codec String Account
+accountCodec : S.Codec e Account
 accountCodec =
     S.customType
         (\v0Encoder value ->
@@ -65,7 +65,7 @@ type StorageVersions
     = V0 AccountV0
 
 
-v0Codec : S.Codec String AccountV0
+v0Codec : S.Codec e AccountV0
 v0Codec =
     S.record AccountV0
         |> S.field .id S.int
@@ -74,7 +74,7 @@ v0Codec =
         |> S.finishRecord
 
 
-accountStartCodec : S.Codec String AccountStart
+accountStartCodec : S.Codec e AccountStart
 accountStartCodec =
     S.record AccountStart
         |> S.field .amount S.int

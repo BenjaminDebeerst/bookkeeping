@@ -1,13 +1,13 @@
 module Persistence.Data exposing
     ( Data
-    , decode
     , empty
-    , encode
+    , jsonDecoder
+    , jsonEncoder
     )
 
 import Dict exposing (Dict)
 import Json.Decode
-import Json.Encode
+import Json.Encode exposing (Value)
 import Persistence.Account as Account exposing (AccountV0, Accounts)
 import Persistence.Category as Category exposing (Categories, CategoryV0)
 import Persistence.ImportProfile as ImportProfile exposing (ImportProfileV0, ImportProfiles)
@@ -57,23 +57,14 @@ empty =
     }
 
 
-encode : Data -> String
-encode storage =
-    S.encodeToJson dataCodec storage
-        |> Json.Encode.encode 0
+jsonEncoder : Data -> Value
+jsonEncoder =
+    S.encodeToJson dataCodec
 
 
-decode : String -> Result (Error String) (Maybe Data)
-decode value =
-    case value of
-        "" ->
-            Ok Nothing
-
-        s ->
-            Json.Decode.decodeString Json.Decode.value s
-                |> Result.mapError (\e -> S.CustomError (Json.Decode.errorToString e))
-                |> Result.andThen (S.decodeFromJson dataCodec)
-                |> Result.map Just
+jsonDecoder : Json.Decode.Decoder Data
+jsonDecoder =
+    S.getJsonDecoder never dataCodec
 
 
 
@@ -85,7 +76,7 @@ type StorageVersions
     | V1 DataV1
 
 
-dataCodec : S.Codec String Data
+dataCodec : S.Codec e Data
 dataCodec =
     S.customType
         (\v0Encoder v1Encoder value ->
@@ -111,7 +102,7 @@ dataCodec =
             V1
 
 
-v1Codec : S.Codec String DataV1
+v1Codec : S.Codec e DataV1
 v1Codec =
     S.record DataV1
         |> S.field .rawEntries RawEntry.codec
@@ -122,7 +113,7 @@ v1Codec =
         |> S.finishRecord
 
 
-v0Codec : S.Codec String DataV0
+v0Codec : S.Codec e DataV0
 v0Codec =
     S.record DataV0
         |> S.field .rawEntries (S.dict S.string RawEntry.v0Codec)
