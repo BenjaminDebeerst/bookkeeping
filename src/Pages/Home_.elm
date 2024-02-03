@@ -1,11 +1,11 @@
 module Pages.Home_ exposing (Model, Msg, page)
 
 import Components.Icons exposing (loader)
-import Components.Layout as Layout exposing (color, size)
 import Components.Notification as Notification exposing (Notification)
+import Config exposing (color, size, style)
 import Dict
 import Effect exposing (Effect)
-import Element exposing (Element, el, fill, minimum, row, spacing, text, width)
+import Element exposing (Element, column, el, fill, minimum, padding, row, spacing, text, width)
 import Element.Font as Font
 import Element.Input as Input
 import File exposing (File)
@@ -13,6 +13,7 @@ import File.Download as Download
 import File.Select as Select
 import Json.Decode as Decode exposing (Error)
 import Json.Encode
+import Layouts
 import Page exposing (Page)
 import Persistence.Data as Data exposing (Data)
 import Route exposing (Route)
@@ -30,6 +31,7 @@ page shared _ =
         , view = view shared
         , subscriptions = \_ -> Sub.none
         }
+        |> Page.withLayout (\_ -> Layouts.Sidebar {})
 
 
 type alias Model =
@@ -114,18 +116,22 @@ save model =
 
 view : Shared.Model -> Model -> View Msg
 view sharedModel model =
-    Layout.page "Home" <|
-        [ Notification.showNotification model.notification ]
-            ++ (case sharedModel of
-                    None ->
-                        showStart
+    { title = "Home"
+    , body =
+        column [ padding size.l, spacing size.m ]
+            ([ Notification.showNotification model.notification ]
+                ++ (case sharedModel of
+                        None ->
+                            showStart
 
-                    Loaded data ->
-                        showDataSummary data
+                        Loaded data ->
+                            showDataSummary data
 
-                    Problem e ->
-                        showDataIssues e
-               )
+                        Problem e ->
+                            showDataIssues e
+                   )
+            )
+    }
 
 
 showStart : List (Element Msg)
@@ -176,25 +182,25 @@ showActions buttons =
                 (\button ->
                     case button of
                         Load ->
-                            Input.button Layout.style.button
+                            Input.button style.button
                                 { onPress = Just PickFile
                                 , label = text "Load a DB json file."
                                 }
 
                         LoadOther ->
-                            Input.button Layout.style.button
+                            Input.button style.button
                                 { onPress = Just PickFile
                                 , label = text "Load another DB json file"
                                 }
 
                         Init ->
-                            Input.button Layout.style.button
+                            Input.button style.button
                                 { onPress = Just InitDatabase
                                 , label = text "Initialize an empty DB"
                                 }
 
                         Save ->
-                            Input.button Layout.style.button
+                            Input.button style.button
                                 { onPress = Just SaveDataBase
                                 , label = text "Save DB"
                                 }

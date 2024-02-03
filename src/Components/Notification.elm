@@ -1,7 +1,7 @@
 module Components.Notification exposing (Notification(..), showNotification)
 
-import Components.Layout exposing (color, size)
-import Element exposing (Element, padding, row, spacing, text)
+import Config exposing (color, size)
+import Element exposing (Element, padding, row, spacing)
 import Element.Background as Background
 import Element.Border as Border
 

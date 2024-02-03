@@ -1,13 +1,14 @@
 module Pages.ImportFile exposing (Model, Msg, page)
 
 import Components.Icons exposing (checkMark, copy, folderPlus, infoMark, warnTriangle)
-import Components.Layout as Layout exposing (color, formatDate, formatEuro, size, style, tooltip, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
+import Components.Tooltip exposing (tooltip)
+import Config exposing (color, size, style)
 import Csv.Decode as Decode exposing (Error(..))
 import Csv.Parser as Parser exposing (Problem(..))
 import Dict exposing (Dict)
 import Effect exposing (Effect)
-import Element exposing (Attribute, Color, Element, IndexedColumn, centerX, centerY, el, fill, height, indexedTable, onRight, padding, paddingEach, paddingXY, px, row, spacing, text, width)
+import Element exposing (Attribute, Color, Element, IndexedColumn, centerX, centerY, column, el, fill, fillPortion, height, indexedTable, onRight, padding, paddingEach, paddingXY, px, row, scrollbarX, spacing, text, width)
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input exposing (labelLeft, labelRight, placeholder)
@@ -15,6 +16,7 @@ import File exposing (File)
 import File.Select as Select
 import Html.Events exposing (preventDefaultOn)
 import Json.Decode as D
+import Layouts
 import List.Extra
 import Maybe.Extra
 import Page exposing (Page)
@@ -33,17 +35,19 @@ import Route exposing (Route)
 import Shared
 import Task
 import Time.Date
-import View exposing (View)
+import Util.Formats exposing (formatDate, formatEuro)
+import Util.Layout exposing (dataUpdate, dataView)
 
 
 page : Shared.Model -> Route () -> Page Model Msg
-page shared req =
+page shared _ =
     Page.new
         { init = \_ -> ( Pick, Effect.none )
-        , update = updateOrRedirectOnError shared req update
-        , view = viewDataOnly shared view
+        , update = dataUpdate shared update
+        , view = dataView shared "Import CSV File" view
         , subscriptions = \_ -> Sub.none
         }
+        |> Page.withLayout (\_ -> Layouts.Sidebar {})
 
 
 
@@ -206,15 +210,16 @@ readFile file =
 -- VIEW
 
 
-view : Data -> Model -> View Msg
+view : Data -> Model -> Element Msg
 view data model =
-    Layout.page "Import CSV File" <|
-        case model of
+    column [ height fill, width <| fillPortion 7, scrollbarX, padding size.l, spacing size.m ]
+        (case model of
             Show csv parsed ->
                 viewFileContents data csv parsed
 
             _ ->
                 viewFilePicker data model
+        )
 
 
 
@@ -230,18 +235,18 @@ viewFilePicker _ model =
                 , Border.dashed
                 , Border.color <|
                     if model == PickHover then
-                        Layout.color.brightAccent
+                        color.brightAccent
 
                     else
-                        Layout.color.darkAccent
-                , Border.width Layout.size.xs
-                , Border.rounded Layout.size.xl
+                        color.darkAccent
+                , Border.width size.xs
+                , Border.rounded size.xl
                 , onEvent "dragenter" (D.succeed DragEnter)
                 , onEvent "dragover" (D.succeed DragEnter)
                 , onEvent "dragleave" (D.succeed DragLeave)
                 , onEvent "drop" fileDropDecoder
                 ]
-                (Input.button ([ centerX, centerY ] ++ Layout.style.button) { onPress = Just PickFile, label = text "Select File" })
+                (Input.button ([ centerX, centerY ] ++ style.button) { onPress = Just PickFile, label = text "Select File" })
            ]
 
 

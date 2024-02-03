@@ -1,6 +1,6 @@
 module Components.Table exposing (fullStyledColumn, styledColumn, tableStyle, textColumn)
 
-import Components.Layout exposing (size, style)
+import Config exposing (size, style)
 import Element exposing (Element, IndexedColumn, el, shrink, spacing, text)
 
 

@@ -1,12 +1,13 @@
 module Pages.ImportProfiles exposing (Model, Msg, page)
 
-import Components.Layout as Layout exposing (color, formatDate, formatEuroStr, size, style, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
+import Config exposing (color, size, style)
 import Dict
 import Effect exposing (Effect)
 import Element exposing (Element, IndexedColumn, column, el, indexedTable, none, padding, paddingXY, row, shrink, spacing, text)
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelLeft, placeholder)
+import Layouts
 import Maybe.Extra
 import Page exposing (Page)
 import Persistence.Data exposing (Data)
@@ -15,17 +16,19 @@ import Persistence.Storage as Storage
 import Processing.CsvParser as CsvParser
 import Route exposing (Route)
 import Shared
-import View exposing (View)
+import Util.Formats exposing (formatDate, formatEuroStr)
+import Util.Layout exposing (dataUpdate, dataView)
 
 
 page : Shared.Model -> Route () -> Page Model Msg
-page shared req =
+page shared _ =
     Page.new
         { init = init
-        , update = updateOrRedirectOnError shared req update
-        , view = viewDataOnly shared view
+        , update = dataUpdate shared update
+        , view = dataView shared "Import Profiles" view
         , subscriptions = \_ -> Sub.none
         }
+        |> Page.withLayout (\_ -> Layouts.Sidebar {})
 
 
 
@@ -192,9 +195,9 @@ validateImportProfile data model =
 -- VIEW
 
 
-view : Data -> Model -> View Msg
+view : Data -> Model -> Element Msg
 view data model =
-    Layout.page "Import Profiles"
+    column [ padding size.l, spacing size.m ]
         [ errorNotice model.error
         , editArea data model
         , showData data model

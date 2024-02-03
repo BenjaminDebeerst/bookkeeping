@@ -1,11 +1,12 @@
 module Pages.Monthly exposing (Model, Msg, page)
 
 import Components.Filter as Filter
-import Components.Layout as Layout exposing (formatEuro, size, style, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
+import Config exposing (size, style)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
-import Element exposing (Element, IndexedColumn, column, el, indexedTable, spacing, text)
+import Element exposing (Element, IndexedColumn, column, el, indexedTable, padding, spacing, text)
+import Layouts
 import Page exposing (Page)
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category, CategoryGroup(..))
@@ -16,11 +17,12 @@ import Processing.Ordering exposing (dateAsc)
 import Route exposing (Route)
 import Shared
 import Shared.Model exposing (Model(..))
-import View exposing (View)
+import Util.Formats exposing (formatEuro)
+import Util.Layout exposing (dataUpdate, dataView)
 
 
 page : Shared.Model -> Route () -> Page Model Msg
-page shared req =
+page shared _ =
     Page.new
         { init =
             init
@@ -34,10 +36,11 @@ page shared req =
                     Problem _ ->
                         []
                 )
-        , update = updateOrRedirectOnError shared req update
-        , view = viewDataOnly shared view
+        , update = dataUpdate shared update
+        , view = dataView shared "Monthly" view
         , subscriptions = \_ -> Sub.none
         }
+        |> Page.withLayout (\_ -> Layouts.Sidebar {})
 
 
 
@@ -73,7 +76,7 @@ update data msg model =
 -- VIEW
 
 
-view : Data -> Model -> View Msg
+view : Data -> Model -> Element Msg
 view data model =
     let
         filter =
@@ -82,7 +85,7 @@ view data model =
         aggregatedData =
             aggregate <| getEntries data filter dateAsc
     in
-    Layout.page "Monthly" <|
+    column [ padding size.l, spacing size.m ]
         [ showFilters model <| Dict.values data.accounts
         , showData data aggregatedData
         ]

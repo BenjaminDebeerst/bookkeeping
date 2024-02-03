@@ -1,29 +1,32 @@
 module Pages.Accounts exposing (Model, Msg, page)
 
-import Components.Layout as Layout exposing (color, formatEuro, style, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
+import Config exposing (color, size, style)
 import Dict
 import Effect exposing (Effect)
-import Element exposing (Element, column, el, indexedTable, text)
+import Element exposing (Element, column, el, indexedTable, padding, spacing, text)
 import Element.Font as Font
 import Element.Input exposing (button, labelHidden, placeholder)
+import Layouts
 import Page exposing (Page)
 import Persistence.Account exposing (Account, AccountStart, account)
 import Persistence.Data exposing (Data)
 import Persistence.Storage as Storage
 import Route exposing (Route)
 import Shared
-import View exposing (View)
+import Util.Formats exposing (formatEuro)
+import Util.Layout exposing (dataUpdate, dataView)
 
 
 page : Shared.Model -> Route () -> Page Model Msg
-page shared req =
+page shared _ =
     Page.new
         { init = init
-        , update = updateOrRedirectOnError shared req update
-        , view = viewDataOnly shared view
+        , update = dataUpdate shared update
+        , view = dataView shared "Accounts" view
         , subscriptions = \_ -> Sub.none
         }
+        |> Page.withLayout (\_ -> Layouts.Sidebar {})
 
 
 
@@ -110,9 +113,9 @@ validateAccount m =
 -- VIEW
 
 
-view : Data -> Model -> View Msg
+view : Data -> Model -> Element Msg
 view data model =
-    Layout.page "Accounts" <|
+    column [ padding size.l, spacing size.m ]
         [ errorNotice model.error
         , editArea model.editing model
         , showData data model

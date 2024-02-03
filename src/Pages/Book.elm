@@ -2,8 +2,9 @@ module Pages.Book exposing (Model, Msg, page)
 
 import Components.Filter as Filter
 import Components.Icons exposing (checkMark, triangleDown, triangleUp, warnTriangle)
-import Components.Layout as Layout exposing (color, formatDate, formatEuro, formatEuroStr, size, style, tooltip, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
+import Components.Tooltip exposing (tooltip)
+import Config exposing (color, size, style)
 import Dict exposing (Dict)
 import Dict.Extra
 import Effect exposing (Effect)
@@ -11,6 +12,7 @@ import Element exposing (Attribute, Column, Element, alignLeft, alignRight, belo
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelHidden)
+import Layouts
 import Page exposing (Page)
 import Parser
 import Persistence.Account exposing (Account)
@@ -27,11 +29,12 @@ import Route exposing (Route)
 import Set
 import Shared
 import Shared.Model
-import View exposing (View)
+import Util.Formats exposing (formatDate, formatEuro, formatEuroStr)
+import Util.Layout exposing (dataUpdate, dataView)
 
 
 page : Shared.Model -> Route () -> Page Model Msg
-page shared req =
+page shared _ =
     Page.new
         { init =
             init
@@ -45,10 +48,11 @@ page shared req =
                     Shared.Model.Problem _ ->
                         []
                 )
-        , update = updateOrRedirectOnError shared req update
-        , view = viewDataOnly shared view
+        , update = dataUpdate shared update
+        , view = dataView shared "Book" view
         , subscriptions = \_ -> Sub.none
         }
+        |> Page.withLayout (\_ -> Layouts.Sidebar {})
 
 
 type alias Model =
@@ -151,7 +155,7 @@ update data msg model =
             ( { model | toBeDeleted = [] }, removeEntries entryIds data |> Effect.store )
 
 
-view : Data -> Model -> View Msg
+view : Data -> Model -> Element Msg
 view data model =
     let
         filters =
@@ -160,7 +164,7 @@ view data model =
         ( entries, errors ) =
             getEntriesAndErrors data filters model.ordering
     in
-    Layout.page "Book" <|
+    column [ padding size.l, spacing size.m ]
         [ showFilters model.filters <| Dict.values data.accounts
         , showActions model (entries |> List.map .id)
         , showData model entries

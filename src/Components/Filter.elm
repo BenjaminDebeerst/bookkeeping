@@ -1,6 +1,6 @@
 module Components.Filter exposing (..)
 
-import Components.Layout exposing (size)
+import Config exposing (size)
 import Element exposing (Element, el, paddingEach, paddingXY, text)
 import Element.Input as Input exposing (labelLeft, labelRight, placeholder)
 import Maybe.Extra

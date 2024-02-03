@@ -1,12 +1,13 @@
 module Pages.Categories exposing (Model, Msg, page)
 
-import Components.Layout as Layout exposing (color, size, style, updateOrRedirectOnError, viewDataOnly)
 import Components.Table as T
+import Config exposing (color, size, style)
 import Dict
 import Effect exposing (Effect)
 import Element exposing (Element, column, el, indexedTable, padding, paddingXY, row, spacing, text)
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelLeft, placeholder)
+import Layouts
 import Page exposing (Page)
 import Parser
 import Persistence.Category exposing (Category, CategoryGroup(..), category)
@@ -20,17 +21,18 @@ import Regex
 import Route exposing (Route)
 import Shared
 import String
-import View exposing (View)
+import Util.Layout exposing (dataUpdate, dataView)
 
 
 page : Shared.Model -> Route () -> Page Model Msg
-page shared req =
+page shared _ =
     Page.new
         { init = init
-        , update = updateOrRedirectOnError shared req update
-        , view = viewDataOnly shared view
+        , update = dataUpdate shared update
+        , view = dataView shared "Categories" view
         , subscriptions = \_ -> Sub.none
         }
+        |> Page.withLayout (\_ -> Layouts.Sidebar {})
 
 
 
@@ -226,9 +228,9 @@ invalidRegex s =
 -- VIEW
 
 
-view : Data -> Model -> View Msg
+view : Data -> Model -> Element Msg
 view data model =
-    Layout.page "Categories" <|
+    column [ padding size.l, spacing size.m ]
         [ errorNotice model.error
         , editArea data model
         , showData data model
