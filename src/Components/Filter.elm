@@ -1,7 +1,7 @@
 module Components.Filter exposing (..)
 
 import Config exposing (size)
-import Element exposing (Element, el, paddingEach, paddingXY, text)
+import Element exposing (Element, el, padding, paddingEach, paddingXY, spacing, text)
 import Element.Input as Input exposing (labelLeft, labelRight, placeholder)
 import Maybe.Extra
 import Persistence.Account exposing (Account)
@@ -83,48 +83,48 @@ toFilter categories model =
 
 yearFilter : Model -> (Msg -> msg) -> Element msg
 yearFilter model msg =
-    Input.text []
+    Input.text [ spacing size.m ]
         { onChange = msg << Year
         , text = model.year
         , placeholder = Just <| placeholder [] <| text "Year"
-        , label = labelLeft [ paddingXY size.m 0 ] <| text "Year"
+        , label = labelLeft [ padding 0 ] <| text "Year"
         }
 
 
 monthFilter : Model -> (Msg -> msg) -> Element msg
 monthFilter model msg =
-    Input.text []
+    Input.text [ spacing size.m ]
         { onChange = msg << Month
         , text = model.month
         , placeholder = Just <| placeholder [] <| text "Month"
-        , label = labelLeft [ paddingXY size.m 0 ] <| text "Month"
+        , label = labelLeft [ padding 0 ] <| text "Month"
         }
 
 
 descriptionFilter : Model -> (Msg -> msg) -> Element msg
 descriptionFilter model msg =
-    Input.text []
+    Input.text [ spacing size.m ]
         { onChange = msg << Descr
         , text = model.descr
         , placeholder = Just <| placeholder [] <| text "Description"
-        , label = labelLeft [ paddingXY size.m 0 ] <| text "Description"
+        , label = labelLeft [ padding 0 ] <| text "Description"
         }
 
 
 categoryFilter : Model -> (Msg -> msg) -> Element msg
 categoryFilter model msg =
-    Input.text []
+    Input.text [ spacing size.m ]
         { onChange = msg << Category
         , text = model.category
         , placeholder = Just <| placeholder [] <| text "Category"
-        , label = labelLeft [ paddingXY size.m 0 ] <| text "Category"
+        , label = labelLeft [ padding 0 ] <| text "Category"
         }
 
 
 accountFilter : List Account -> Model -> (Msg -> msg) -> Element msg
 accountFilter accounts model msg =
-    Element.row []
-        ([ el [ paddingXY size.m 0 ] <| text "Accounts "
+    Element.row [ spacing size.m, paddingEach { top = size.xs, bottom = 0, left = 0, right = 0 } ]
+        ([ text "Accounts"
          , Input.checkbox []
             { onChange =
                 \on ->
@@ -135,7 +135,7 @@ accountFilter accounts model msg =
                         msg (SetAccounts [])
             , icon = Input.defaultCheckbox
             , checked = List.length model.accounts == List.length accounts
-            , label = labelRight [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text <| "All"
+            , label = labelRight [] <| text <| "All"
             }
          ]
             ++ List.map
@@ -158,15 +158,15 @@ accountCheckbox model acc msg =
                     msg <| RemoveAccount acc
         , icon = Input.defaultCheckbox
         , checked = List.member acc model.accounts
-        , label = labelRight [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text <| acc.name
+        , label = labelRight [] <| text <| acc.name
         }
 
 
 uncategorizedFilter : Model -> (Msg -> msg) -> Element msg
 uncategorizedFilter model msg =
-    Input.checkbox []
+    Input.checkbox [ spacing size.m, paddingEach { top = size.xs, bottom = 0, left = 0, right = 0 } ]
         { onChange = msg << OnlyUncategorized
         , icon = Input.defaultCheckbox
         , checked = model.onlyUncategorized
-        , label = labelLeft [ paddingXY size.m size.xs ] <| text "Show uncategorized only"
+        , label = labelLeft [] <| text "Show uncategorized only"
         }

@@ -230,7 +230,7 @@ invalidRegex s =
 
 view : Data -> Model -> Element Msg
 view data model =
-    column [ padding size.l, spacing size.m ]
+    column [ spacing size.m ]
         [ errorNotice model.error
         , editArea data model
         , showData data model

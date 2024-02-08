@@ -85,7 +85,7 @@ view data model =
         aggregatedData =
             aggregate <| getEntries data filter dateAsc
     in
-    column [ padding size.l, spacing size.m ]
+    column [ spacing size.m ]
         [ showFilters model <| Dict.values data.accounts
         , showData data aggregatedData
         ]

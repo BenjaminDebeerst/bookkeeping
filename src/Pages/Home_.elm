@@ -5,7 +5,8 @@ import Components.Notification as Notification exposing (Notification)
 import Config exposing (color, size, style)
 import Dict
 import Effect exposing (Effect)
-import Element exposing (Element, column, el, fill, minimum, padding, row, spacing, text, width)
+import Element exposing (Element, column, el, fill, height, minimum, padding, row, spacing, text, width)
+import Element.Background as Background
 import Element.Font as Font
 import Element.Input as Input
 import File exposing (File)
@@ -118,7 +119,7 @@ view : Shared.Model -> Model -> View Msg
 view sharedModel model =
     { title = "Home"
     , body =
-        column [ padding size.l, spacing size.m ]
+        column [ spacing size.m ]
             ([ Notification.showNotification model.notification ]
                 ++ (case sharedModel of
                         None ->

@@ -164,7 +164,7 @@ view data model =
         ( entries, errors ) =
             getEntriesAndErrors data filters model.ordering
     in
-    column [ padding size.l, spacing size.m ]
+    column [ spacing size.m ]
         [ showFilters model.filters <| Dict.values data.accounts
         , showActions model (entries |> List.map .id)
         , showData model entries

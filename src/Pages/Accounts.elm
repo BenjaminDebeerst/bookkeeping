@@ -115,7 +115,7 @@ validateAccount m =
 
 view : Data -> Model -> Element Msg
 view data model =
-    column [ padding size.l, spacing size.m ]
+    column [ spacing size.m ]
         [ errorNotice model.error
         , editArea model.editing model
         , showData data model

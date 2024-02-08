@@ -212,7 +212,7 @@ readFile file =
 
 view : Data -> Model -> Element Msg
 view data model =
-    column [ height fill, width <| fillPortion 7, scrollbarX, padding size.l, spacing size.m ]
+    column [ height fill, width <| fillPortion 7, scrollbarX, spacing size.m ]
         (case model of
             Show csv parsed ->
                 viewFileContents data csv parsed
