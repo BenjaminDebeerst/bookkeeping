@@ -32,7 +32,7 @@ import Processing.CategoryParser as CategoryParser
 import Processing.CsvParser as CsvParser exposing (ParsedRow, toDate)
 import Processing.Model exposing (getCategoryByShort)
 import Route exposing (Route)
-import Shared
+import Shared exposing (dataSummary)
 import Task
 import Time.Date
 import Util.Formats exposing (formatDate, formatEuro)
@@ -47,7 +47,7 @@ page shared _ =
         , view = dataView shared "Import CSV File" view
         , subscriptions = \_ -> Sub.none
         }
-        |> Page.withLayout (\_ -> Layouts.Sidebar {})
+        |> Page.withLayout (\_ -> Layouts.Sidebar { dataSummary = dataSummary shared })
 
 
 

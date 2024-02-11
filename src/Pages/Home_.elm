@@ -5,8 +5,7 @@ import Components.Notification as Notification exposing (Notification)
 import Config exposing (color, size, style)
 import Dict
 import Effect exposing (Effect)
-import Element exposing (Element, column, el, fill, height, minimum, padding, row, spacing, text, width)
-import Element.Background as Background
+import Element exposing (Element, column, el, fill, minimum, row, spacing, text, width)
 import Element.Font as Font
 import Element.Input as Input
 import File exposing (File)
@@ -18,7 +17,7 @@ import Layouts
 import Page exposing (Page)
 import Persistence.Data as Data exposing (Data)
 import Route exposing (Route)
-import Shared
+import Shared exposing (dataSummary)
 import Shared.Model exposing (Model(..))
 import Task
 import View exposing (View)
@@ -32,7 +31,7 @@ page shared _ =
         , view = view shared
         , subscriptions = \_ -> Sub.none
         }
-        |> Page.withLayout (\_ -> Layouts.Sidebar {})
+        |> Page.withLayout (\_ -> Layouts.Sidebar { dataSummary = dataSummary shared })
 
 
 type alias Model =

@@ -15,7 +15,7 @@ import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate)
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (dateAsc)
 import Route exposing (Route)
-import Shared
+import Shared exposing (dataSummary)
 import Shared.Model exposing (Model(..))
 import Util.Formats exposing (formatEuro)
 import Util.Layout exposing (dataUpdate, dataView)
@@ -40,7 +40,7 @@ page shared _ =
         , view = dataView shared "Monthly" view
         , subscriptions = \_ -> Sub.none
         }
-        |> Page.withLayout (\_ -> Layouts.Sidebar {})
+        |> Page.withLayout (\_ -> Layouts.Sidebar { dataSummary = dataSummary shared })
 
 
 

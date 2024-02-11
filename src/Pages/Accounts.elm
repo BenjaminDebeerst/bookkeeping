@@ -13,7 +13,7 @@ import Persistence.Account exposing (Account, AccountStart, account)
 import Persistence.Data exposing (Data)
 import Persistence.Storage as Storage
 import Route exposing (Route)
-import Shared
+import Shared exposing (dataSummary)
 import Util.Formats exposing (formatEuro)
 import Util.Layout exposing (dataUpdate, dataView)
 
@@ -26,7 +26,7 @@ page shared _ =
         , view = dataView shared "Accounts" view
         , subscriptions = \_ -> Sub.none
         }
-        |> Page.withLayout (\_ -> Layouts.Sidebar {})
+        |> Page.withLayout (\_ -> Layouts.Sidebar { dataSummary = dataSummary shared })
 
 
 

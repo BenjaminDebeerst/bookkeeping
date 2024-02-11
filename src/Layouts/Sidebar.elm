@@ -2,7 +2,7 @@ module Layouts.Sidebar exposing (Model, Msg, Props, layout)
 
 import Config exposing (color, size, style)
 import Effect exposing (Effect)
-import Element exposing (column, el, fill, fillPortion, height, link, minimum, padding, row, scrollbarX, scrollbarY, spacing, text, width)
+import Element exposing (Element, column, el, fill, fillPortion, height, link, minimum, padding, row, scrollbarX, scrollbarY, spacing, text, width)
 import Element.Background as Background
 import Element.Font as Font
 import Layout exposing (Layout)
@@ -13,7 +13,7 @@ import View exposing (View)
 
 
 type alias Props =
-    {}
+    { dataSummary : Maybe ( Int, Int, Int ) }
 
 
 layout : Props -> Shared.Model -> Route () -> Layout () Model Msg contentMsg
@@ -21,7 +21,7 @@ layout props shared route =
     Layout.new
         { init = \_ -> ( {}, Effect.none )
         , update = \_ -> \model -> ( model, Effect.none )
-        , view = view
+        , view = view props
         , subscriptions = \_ -> Sub.none
         }
 
@@ -51,20 +51,23 @@ update _ model =
 -- VIEW
 
 
-view : { toContentMsg : Msg -> contentMsg, content : View contentMsg, model : Model } -> View contentMsg
-view { toContentMsg, model, content } =
+view : Props -> { toContentMsg : Msg -> contentMsg, content : View contentMsg, model : Model } -> View contentMsg
+view props { toContentMsg, model, content } =
     { title = content.title
     , body =
         row
             [ width (minimum 600 fill), height fill, Font.size size.m ]
             [ sidebar
-            , mainColumn content
+            , column [ height fill, width (fillPortion 7) ]
+                [ mainColumn content
+                , footer props
+                ]
             ]
     }
 
 
 mainColumn content =
-    column [ height fill, width (fillPortion 7), scrollbarX, padding size.l, spacing size.m, Background.color color.white ]
+    column [ height fill, width fill, scrollbarX, padding size.l, spacing size.m, Background.color color.white ]
         [ el style.h1 (text content.title)
         , content.body
         ]
@@ -88,4 +91,23 @@ sidebar =
         , link [] { url = toString Accounts, label = text "Accounts" }
         , link [] { url = toString Categories, label = text "Categories" }
         , link [] { url = toString ImportProfiles, label = text "Import Profiles" }
+        ]
+
+
+footer : Props -> Element msg
+footer props =
+    Element.row style.statusbar
+        [ props.dataSummary |> Maybe.map summaryString |> Maybe.withDefault "" |> text
+        ]
+
+
+summaryString : ( Int, Int, Int ) -> String
+summaryString ( entries, accounts, categories ) =
+    String.concat
+        [ String.fromInt entries
+        , " entries, "
+        , String.fromInt accounts
+        , " accounts, "
+        , String.fromInt categories
+        , " categories."
         ]

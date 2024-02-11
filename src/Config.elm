@@ -67,4 +67,13 @@ style =
     , h1 = [ Font.bold, Font.size size.l, paddingBottom size.l ]
     , h2 = [ Font.bold, Font.size size.m, paddingBottom size.m ]
     , h3 = [ Font.bold, Font.size size.s, paddingBottom size.m ]
+    , statusbar =
+        [ width fill
+        , Background.color color.black
+        , Font.color color.white
+        , Font.size size.s
+        , padding size.xs
+        , spacing size.s
+        , alignBottom
+        ]
     }

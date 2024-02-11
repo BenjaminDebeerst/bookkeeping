@@ -19,7 +19,7 @@ import Processing.Model exposing (getCategoryByShort, getEntries)
 import Processing.Ordering exposing (dateAsc)
 import Regex
 import Route exposing (Route)
-import Shared
+import Shared exposing (dataSummary)
 import String
 import Util.Layout exposing (dataUpdate, dataView)
 
@@ -32,7 +32,7 @@ page shared _ =
         , view = dataView shared "Categories" view
         , subscriptions = \_ -> Sub.none
         }
-        |> Page.withLayout (\_ -> Layouts.Sidebar {})
+        |> Page.withLayout (\_ -> Layouts.Sidebar { dataSummary = dataSummary shared })
 
 
 

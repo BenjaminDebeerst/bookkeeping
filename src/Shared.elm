@@ -2,12 +2,14 @@ module Shared exposing
     ( Flags
     , Model
     , Msg
+    , dataSummary
     , decoder
     , init
     , subscriptions
     , update
     )
 
+import Dict
 import Effect exposing (Effect)
 import Json.Decode exposing (Error)
 import Persistence.Data as Data exposing (Data)
@@ -83,3 +85,26 @@ toModel result =
 
         Err e ->
             Problem e
+
+
+dataSummary : Model -> Maybe ( Int, Int, Int )
+dataSummary model =
+    case model of
+        None ->
+            Nothing
+
+        Problem _ ->
+            Nothing
+
+        Loaded data ->
+            let
+                entries =
+                    data.rawEntries |> Dict.size
+
+                accounts =
+                    data.accounts |> Dict.size
+
+                categories =
+                    data.categories |> Dict.size
+            in
+            Just ( entries, accounts, categories )

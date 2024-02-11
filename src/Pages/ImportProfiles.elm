@@ -15,7 +15,7 @@ import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile, import
 import Persistence.Storage as Storage
 import Processing.CsvParser as CsvParser
 import Route exposing (Route)
-import Shared
+import Shared exposing (dataSummary)
 import Util.Formats exposing (formatDate, formatEuroStr)
 import Util.Layout exposing (dataUpdate, dataView)
 
@@ -28,7 +28,7 @@ page shared _ =
         , view = dataView shared "Import Profiles" view
         , subscriptions = \_ -> Sub.none
         }
-        |> Page.withLayout (\_ -> Layouts.Sidebar {})
+        |> Page.withLayout (\_ -> Layouts.Sidebar { dataSummary = dataSummary shared })
 
 
 

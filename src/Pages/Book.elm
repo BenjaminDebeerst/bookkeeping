@@ -27,7 +27,7 @@ import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
 import Result.Extra
 import Route exposing (Route)
 import Set
-import Shared
+import Shared exposing (dataSummary)
 import Shared.Model
 import Util.Formats exposing (formatDate, formatEuro, formatEuroStr)
 import Util.Layout exposing (dataUpdate, dataView)
@@ -52,7 +52,7 @@ page shared _ =
         , view = dataView shared "Book" view
         , subscriptions = \_ -> Sub.none
         }
-        |> Page.withLayout (\_ -> Layouts.Sidebar {})
+        |> Page.withLayout (\_ -> Layouts.Sidebar { dataSummary = dataSummary shared })
 
 
 type alias Model =
