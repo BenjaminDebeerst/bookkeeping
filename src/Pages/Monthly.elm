@@ -163,7 +163,36 @@ viewByCategory data model =
 
 viewByAccount : Data -> Model -> List (Element Msg)
 viewByAccount data model =
-    [ Element.text "TODO: by account" ]
+    let
+        aggregators =
+            [ Aggregator.all True "Balance"
+            , Aggregator.all False "Sum"
+            ]
+                ++ (model.filters.accounts
+                        |> List.sortBy .name
+                        |> List.map (Aggregator.fromAccount True)
+                   )
+
+        startDate =
+            model.filters.accounts
+                |> List.map (\a -> Date.date a.start.year a.start.month 1)
+                |> List.Extra.minimumWith Date.compare
+                |> Maybe.withDefault (Date.date 0 0 0)
+
+        startSums =
+            ((model.filters.accounts
+                |> List.map (\a -> ( a.name, a.start.amount ))
+             )
+                ++ (model.filters.accounts |> List.map (.start >> .amount) |> List.sum |> (\s -> [ ( "Balance", s ) ]))
+            )
+                |> Dict.fromList
+
+        aggregatedData =
+            aggregate startDate startSums aggregators <| getEntries data [] dateAsc
+    in
+    [ showFilters model <| Dict.values data.accounts
+    , showAggResults aggregatedData
+    ]
 
 
 

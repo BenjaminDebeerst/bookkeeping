@@ -1,5 +1,6 @@
-module Processing.Aggregator exposing (Aggregator, all, fromCategory)
+module Processing.Aggregator exposing (Aggregator, all, fromAccount, fromCategory)
 
+import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
 import Processing.BookEntry exposing (BookEntry, Categorization(..))
 
@@ -41,4 +42,18 @@ fromCategory category =
                         |> List.map .amount
                         |> List.sum
     , runningSum = False
+    }
+
+
+fromAccount : Bool -> Account -> Aggregator
+fromAccount runningSum account =
+    { title = account.name
+    , amount =
+        \bookEntry ->
+            if bookEntry.account == account then
+                bookEntry.amount
+
+            else
+                0
+    , runningSum = runningSum
     }
