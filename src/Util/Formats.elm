@@ -1,4 +1,4 @@
-module Util.Formats exposing (formatDate, formatEuro, formatEuroStr)
+module Util.Formats exposing (formatDate, formatEuro, formatEuroStr, formatYearMonth)
 
 import Config exposing (color)
 import Element exposing (Element, alignRight, el, text)
@@ -47,3 +47,49 @@ formatEuro cents =
 formatDate : Date -> String
 formatDate date =
     String.join "-" <| List.map String.fromInt <| [ Date.year date, Date.month date, Date.day date ]
+
+
+formatYearMonth : Date -> String
+formatYearMonth date =
+    String.join " "
+        [ case Date.month date of
+            1 ->
+                "January"
+
+            2 ->
+                "February"
+
+            3 ->
+                "March"
+
+            4 ->
+                "April"
+
+            5 ->
+                "May"
+
+            6 ->
+                "June"
+
+            7 ->
+                "July"
+
+            8 ->
+                "August"
+
+            9 ->
+                "September"
+
+            10 ->
+                "October"
+
+            11 ->
+                "November"
+
+            12 ->
+                "December"
+
+            i ->
+                "Month " ++ String.fromInt i
+        , String.fromInt <| Date.year date
+        ]

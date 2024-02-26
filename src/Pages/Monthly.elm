@@ -2,22 +2,25 @@ module Pages.Monthly exposing (Model, Msg, page)
 
 import Components.Filter as Filter
 import Components.Table as T
-import Config exposing (size, style)
+import Components.Tabs as Tabs
 import Dict exposing (Dict)
 import Effect exposing (Effect)
-import Element exposing (Element, IndexedColumn, column, el, indexedTable, padding, spacing, text)
+import Element exposing (Element, IndexedColumn, indexedTable)
 import Layouts
+import List.Extra
 import Page exposing (Page)
 import Persistence.Account exposing (Account)
-import Persistence.Category exposing (Category, CategoryGroup(..))
+import Persistence.Category as Category exposing (Category, CategoryGroup(..))
 import Persistence.Data exposing (Data)
 import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate)
+import Processing.Aggregator as Aggregator
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (dateAsc)
 import Route exposing (Route)
 import Shared exposing (dataSummary)
 import Shared.Model exposing (Model(..))
-import Util.Formats exposing (formatEuro)
+import Time.Date as Date exposing (Date)
+import Util.Formats exposing (formatEuro, formatYearMonth)
 import Util.Layout exposing (dataUpdate, dataView)
 
 
@@ -47,14 +50,20 @@ page shared _ =
 -- INIT
 
 
+type Tab
+    = ByCategory
+    | ByAccount
+
+
 type alias Model =
     { filters : Filter.Model
+    , tab : Tab
     }
 
 
 init : List Account -> () -> ( Model, Effect Msg )
 init accounts _ =
-    ( { filters = Filter.init accounts }, Effect.none )
+    ( { filters = Filter.init accounts, tab = ByCategory }, Effect.none )
 
 
 
@@ -63,6 +72,7 @@ init accounts _ =
 
 type Msg
     = Filter Filter.Msg
+    | TabSelection Tab
 
 
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
@@ -71,6 +81,9 @@ update data msg model =
         Filter filterMsg ->
             ( { model | filters = Filter.update filterMsg model.filters }, Effect.none )
 
+        TabSelection tab ->
+            ( { model | tab = tab }, Effect.none )
+
 
 
 -- VIEW
@@ -78,58 +91,97 @@ update data msg model =
 
 view : Data -> Model -> Element Msg
 view data model =
-    let
-        filter =
-            Filter.toFilter (Dict.values data.categories) model.filters
+    Tabs.tabbedContent
+        { allTabs = [ ByCategory, ByAccount ]
+        , selectedTab = model.tab
+        , tabTitles =
+            \tab ->
+                case tab of
+                    ByCategory ->
+                        "By Category"
 
-        aggregatedData =
-            aggregate <| getEntries data filter dateAsc
-    in
-    column [ spacing size.m ]
-        [ showFilters model <| Dict.values data.accounts
-        , showData data aggregatedData
-        ]
+                    ByAccount ->
+                        "By Account"
+        , tabMsg = TabSelection
+        , content =
+            case model.tab of
+                ByCategory ->
+                    viewByCategory data model
+
+                ByAccount ->
+                    viewByAccount data model
+        }
 
 
 showFilters : Model -> List Account -> Element Msg
 showFilters model accounts =
-    column [ spacing size.s ]
-        [ el style.h2 <| text "Filters"
-        , Filter.accountFilter accounts model.filters Filter
-        ]
+    Filter.accountFilter accounts model.filters Filter
 
 
-showData : Data -> Aggregate -> Element msg
-showData data aggregate =
-    indexedTable T.tableStyle
-        { data = aggregate.rows
-        , columns =
-            [ T.textColumn "Month" .month
-            , T.styledColumn "Balance" (.balance >> formatEuro)
-            , T.styledColumn "Diff" (.diff >> formatEuro)
+
+-- BY CATEGORY
+
+
+viewByCategory : Data -> Model -> List (Element Msg)
+viewByCategory data model =
+    let
+        aggregators =
+            [ Aggregator.all True "Balance"
+            , Aggregator.all False "Diff"
             ]
-                ++ categoryColumns data.categories
+                ++ (Dict.values data.categories
+                        |> List.sortWith Category.order
+                        |> List.map Aggregator.fromCategory
+                   )
+
+        bookEntryFilter =
+            Filter.toFilter (Dict.values data.categories) model.filters
+
+        startDate =
+            model.filters.accounts
+                |> List.map (\a -> Date.date a.start.year a.start.month 1)
+                |> List.Extra.minimumWith Date.compare
+                |> Maybe.withDefault (Date.date 0 0 0)
+
+        startSums =
+            model.filters.accounts
+                |> List.map (.start >> .amount)
+                |> List.sum
+                |> (\s -> Dict.fromList [ ( "Balance", s ) ])
+
+        aggregatedData =
+            aggregate startDate startSums aggregators <| getEntries data bookEntryFilter dateAsc
+    in
+    [ showFilters model <| Dict.values data.accounts
+    , showAggResults aggregatedData
+    ]
+
+
+
+-- BY ACCOUNT
+
+
+viewByAccount : Data -> Model -> List (Element Msg)
+viewByAccount data model =
+    [ Element.text "TODO: by account" ]
+
+
+
+-- AGGREGATION TABLE
+
+
+showAggResults : Aggregate -> Element msg
+showAggResults aggregation =
+    indexedTable T.tableStyle
+        { data = aggregation.rows
+        , columns = T.textColumn "Month" (.month >> formatYearMonth) :: aggregationColumns aggregation.aggregators
         }
 
 
-categoryColumns : Dict Int Category -> List (IndexedColumn MonthAggregate msg)
-categoryColumns categories =
-    Dict.values categories
-        |> List.sortBy categoryOrder
+aggregationColumns : List String -> List (IndexedColumn MonthAggregate msg)
+aggregationColumns aggregationNames =
+    aggregationNames
         |> List.map
-            (\cat ->
-                T.styledColumn cat.name (.entries >> Dict.get cat.id >> Maybe.withDefault 0 >> formatEuro)
+            (\agg ->
+                T.styledColumn agg (.columns >> Dict.get agg >> Maybe.withDefault 0 >> formatEuro)
             )
-
-
-categoryOrder : Category -> String
-categoryOrder category =
-    case category.group of
-        Income ->
-            "0" ++ category.name
-
-        Expense ->
-            "1" ++ category.name
-
-        Internal ->
-            "2" ++ category.name

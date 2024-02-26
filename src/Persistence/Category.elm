@@ -1,4 +1,4 @@
-module Persistence.Category exposing (Categories, Category, CategoryGroup(..), CategoryV0, category, codec, fromV0, v0Codec)
+module Persistence.Category exposing (Categories, Category, CategoryGroup(..), CategoryV0, category, codec, fromV0, order, v0Codec)
 
 import Dict exposing (Dict)
 import Serialize as S
@@ -45,6 +45,24 @@ type alias CategoryV0 =
 category : Int -> String -> String -> CategoryGroup -> List String -> Category
 category =
     CategoryV2
+
+
+order : Category -> Category -> Order
+order c1 c2 =
+    let
+        orderString =
+            \c ->
+                case c.group of
+                    Income ->
+                        "0" ++ c.name
+
+                    Expense ->
+                        "1" ++ c.name
+
+                    Internal ->
+                        "2" ++ c.name
+    in
+    Basics.compare (orderString c1) (orderString c2)
 
 
 fromV0 : Dict Int CategoryV0 -> Categories

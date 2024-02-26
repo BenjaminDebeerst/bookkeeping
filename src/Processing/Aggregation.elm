@@ -1,172 +1,81 @@
 module Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate)
 
 import Dict exposing (Dict)
-import List.Extra
-import Persistence.Account exposing (Account)
+import Processing.Aggregator exposing (Aggregator)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit)
-import Time.Date as Date exposing (Date, date)
+import Time.Date as Date exposing (Date)
+import Util.Date as Date
+import Util.List exposing (partitionWith)
 
 
 type alias MonthAggregate =
-    { month : String
-    , balance : Int
-    , diff : Int
-    , entries : Dict Int Int -- Category id -> Amount
+    { month : Date
+    , columns : Dict String Int -- title -> Amount}
     }
 
 
 type alias Aggregate =
-    { accounts : List Account
+    { aggregators : List String
     , rows : List MonthAggregate
     }
 
 
-{-| Book entries MUST be given in date ascending order. Entries showing up out of date order may be ignored in the computation.
--}
-aggregate : List BookEntry -> Aggregate
-aggregate bookEntries =
-    let
-        accounts =
-            bookEntries
-                |> List.map .account
-                |> List.Extra.unique
-
-        startMonth =
-            accounts
-                |> List.map (.start >> (\s -> Date.date s.year s.month 1))
-                |> List.sortBy Date.toTuple
-                |> List.head
-
-        -- There's a subtle detail here, namely that this sum ignores the start date of all accounts, adding their
-        -- start balance to the very beginning of what is currently filtered. It only affects the running monthly
-        -- balance though.
-        -- Otherwise there would need to be some kind of "phantom book entry" for the addition of an account.
-        startBalance =
-            accounts |> List.map (.start >> .amount) |> List.sum
-    in
-    case startMonth of
-        Just date ->
-            Aggregate accounts (aggHelper date ( Dict.empty, startBalance, 0 ) bookEntries [])
-
-        Nothing ->
-            Aggregate accounts []
+aggregate : Date -> Dict String Int -> List Aggregator -> List BookEntry -> Aggregate
+aggregate startDate initialSums aggregators bookEntries =
+    Aggregate (List.map .title aggregators)
+        (aggregateMonthly startDate initialSums aggregators bookEntries)
 
 
-aggHelper : Date -> ( Dict Int Int, Int, Int ) -> List BookEntry -> List MonthAggregate -> List MonthAggregate
-aggHelper currentMonth ( monthEntries, balance, diff ) remainingBookEntries aggregatedMonths =
-    case remainingBookEntries of
+aggregateMonthly : Date -> Dict String Int -> List Aggregator -> List BookEntry -> List MonthAggregate
+aggregateMonthly month initialSums aggregators bookEntries =
+    case bookEntries of
         [] ->
-            aggregatedMonths ++ [ MonthAggregate (monthString currentMonth) balance diff monthEntries ]
+            []
 
-        be :: tail ->
-            case compare currentMonth be of
-                GT ->
-                    -- This is a book entry before the start of the accounts or the data was not ordered.
-                    -- Skip the value and carry on
-                    aggHelper
-                        currentMonth
-                        ( monthEntries, balance, diff )
-                        tail
-                        aggregatedMonths
+        nonEmpty ->
+            let
+                ( earlier, currentMonth, rest ) =
+                    nonEmpty |> partitionWith (\e -> Date.compareMonths e.date month)
 
-                EQ ->
-                    aggHelper
-                        currentMonth
-                        ( addCategorizedAmount be monthEntries, balance + be.amount, diff + be.amount )
-                        tail
-                        aggregatedMonths
-
-                LT ->
-                    aggHelper
-                        (Date.addMonths 1 currentMonth)
-                        ( Dict.empty, balance, 0 )
-                        remainingBookEntries
-                        (aggregatedMonths ++ [ MonthAggregate (monthString currentMonth) balance diff monthEntries ])
+                currentMonthResults =
+                    aggregateAllWith aggregators currentMonth initialSums
+            in
+            [ MonthAggregate month currentMonthResults ]
+                ++ aggregateMonthly (Date.addMonths 1 month) currentMonthResults aggregators rest
 
 
-monthString : Date -> String
-monthString date =
-    String.join " "
-        [ case Date.month date of
-            1 ->
-                "January"
+aggregateAllWith : List Aggregator -> List BookEntry -> Dict String Int -> Dict String Int
+aggregateAllWith aggregators bookEntries startingSums =
+    let
+        filteredStartingSums =
+            aggregators
+                |> List.filterMap
+                    (\a ->
+                        if a.runningSum then
+                            Dict.get a.title startingSums |> Maybe.map (\sum -> ( a.title, sum ))
 
-            2 ->
-                "February"
-
-            3 ->
-                "March"
-
-            4 ->
-                "April"
-
-            5 ->
-                "May"
-
-            6 ->
-                "June"
-
-            7 ->
-                "July"
-
-            8 ->
-                "August"
-
-            9 ->
-                "September"
-
-            10 ->
-                "October"
-
-            11 ->
-                "November"
-
-            12 ->
-                "December"
-
-            i ->
-                "Month " ++ String.fromInt i
-        , String.fromInt <| Date.year date
-        ]
+                        else
+                            Nothing
+                    )
+                |> Dict.fromList
+    in
+    bookEntries |> List.foldl (addToDict aggregators) filteredStartingSums
 
 
-addCategorizedAmount : BookEntry -> Dict Int Int -> Dict Int Int
-addCategorizedAmount bookEntry categoryAmounts =
-    case bookEntry.categorization of
-        None ->
-            categoryAmounts
-
-        Single cat ->
-            addToAmounts cat.id bookEntry.amount categoryAmounts
-
-        Split entries ->
-            List.foldl
-                (\entrySplit amounts ->
-                    addToAmounts entrySplit.category.id entrySplit.amount amounts
-                )
-                categoryAmounts
-                entries
+addToDict : List Aggregator -> BookEntry -> Dict String Int -> Dict String Int
+addToDict aggregators entry amounts =
+    aggregators |> List.foldl (aggregateEntry entry) amounts
 
 
-addToAmounts : Int -> Int -> Dict Int Int -> Dict Int Int
-addToAmounts id amount amounts =
-    Dict.update id
-        (\a ->
-            case a of
-                Just n ->
-                    Just (n + amount)
+aggregateEntry : BookEntry -> Aggregator -> Dict String Int -> Dict String Int
+aggregateEntry bookEntry aggregator amounts =
+    amounts
+        |> Dict.update aggregator.title
+            (\a ->
+                case a of
+                    Just n ->
+                        Just (n + aggregator.amount bookEntry)
 
-                Nothing ->
-                    Just amount
-        )
-        amounts
-
-
-yearMonth : Date -> Int
-yearMonth date =
-    Date.year date * 100 + Date.month date
-
-
-compare : Date -> BookEntry -> Basics.Order
-compare date bookEntry =
-    Basics.compare (yearMonth date) (yearMonth bookEntry.date)
+                    Nothing ->
+                        Just (aggregator.amount bookEntry)
+            )
