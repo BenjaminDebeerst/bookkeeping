@@ -24,8 +24,18 @@ formatEuroStr cents =
 
         eur =
             String.padLeft 1 '0' (String.slice 0 -2 str)
+                |> insertThousandsCommas
     in
     sign ++ eur ++ "." ++ ct ++ " €"
+
+
+insertThousandsCommas : String -> String
+insertThousandsCommas s =
+    if String.length s > 3 then
+        insertThousandsCommas (String.dropRight 3 s) ++ "," ++ String.right 3 s
+
+    else
+        s
 
 
 formatEuro : Int -> Element msg
