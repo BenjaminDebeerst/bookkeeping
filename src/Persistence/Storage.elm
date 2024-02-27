@@ -4,8 +4,10 @@ module Persistence.Storage exposing
     , addCategory
     , addEntries
     , addImportProfile
+    , deleteAccount
     , deleteCategory
     , deleteImportProfile
+    , editAccount
     , editCategory
     , editImportProfile
     , removeEntries
@@ -32,6 +34,16 @@ addAccount account data =
         | accounts = Dict.insert id { account | id = id } data.accounts
         , autoIncrement = id + 1
     }
+
+
+editAccount : Account -> Data -> Data
+editAccount account data =
+    { data | accounts = Dict.insert account.id account data.accounts }
+
+
+deleteAccount : Account -> Data -> Data
+deleteAccount account data =
+    { data | accounts = Dict.remove account.id data.accounts }
 
 
 addEntries : Bool -> List RawEntry -> Data -> Data

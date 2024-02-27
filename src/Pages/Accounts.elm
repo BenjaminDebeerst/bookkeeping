@@ -4,9 +4,9 @@ import Components.Table as T
 import Config exposing (color, size, style)
 import Dict
 import Effect exposing (Effect)
-import Element exposing (Element, column, el, indexedTable, padding, spacing, text)
+import Element exposing (Element, column, el, indexedTable, row, shrink, spacing, text)
 import Element.Font as Font
-import Element.Input exposing (button, labelHidden, placeholder)
+import Element.Input as Input exposing (button, labelHidden, placeholder)
 import Layouts
 import Page exposing (Page)
 import Persistence.Account exposing (Account, AccountStart, account)
@@ -33,9 +33,16 @@ page shared _ =
 -- INIT
 
 
+type Editing
+    = Off
+    | NewAccount
+    | Existing Account
+    | Deleting Account
+
+
 type alias Model =
     { error : Maybe String
-    , editing : Bool
+    , editing : Editing
     , name : String
     , year : String
     , month : String
@@ -43,13 +50,13 @@ type alias Model =
     }
 
 
-type alias NewAccount =
-    {}
-
-
 init : () -> ( Model, Effect Msg )
 init _ =
-    ( Model Nothing False "" "" "" "", Effect.none )
+    ( initModel, Effect.none )
+
+
+initModel =
+    Model Nothing Off "" "" "" ""
 
 
 
@@ -64,16 +71,19 @@ type Msg
     | EditBalance String
     | Save
     | Abort
+    | Delete Account
+    | DeleteConfirm Account
+    | EditExisting Account
 
 
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
 update data msg model =
     case msg of
         Add ->
-            ( { model | editing = True }, Effect.none )
+            ( { model | editing = NewAccount, error = Nothing }, Effect.none )
 
         Abort ->
-            ( { model | editing = False }, Effect.none )
+            init ()
 
         EditName name ->
             ( { model | name = name }, Effect.none )
@@ -87,13 +97,39 @@ update data msg model =
         EditMonth month ->
             ( { model | month = month }, Effect.none )
 
+        EditExisting a ->
+            ( { model
+                | editing = Existing a
+                , name = a.name
+                , balance = String.fromInt a.start.amount
+                , year = String.fromInt a.start.year
+                , month = String.fromInt a.start.month
+              }
+            , Effect.none
+            )
+
         Save ->
+            let
+                storeFunction =
+                    case model.editing of
+                        Existing _ ->
+                            Storage.editAccount
+
+                        _ ->
+                            Storage.addAccount
+            in
             case validateAccount model of
                 Ok a ->
-                    ( { model | error = Nothing }, Storage.addAccount a data |> Effect.store )
+                    ( initModel, storeFunction a data |> Effect.store )
 
                 Err e ->
                     ( { model | error = Just e }, Effect.none )
+
+        Delete a ->
+            ( { model | error = Nothing, editing = Deleting a }, Effect.none )
+
+        DeleteConfirm a ->
+            ( { model | error = Nothing, name = "", editing = Off }, Storage.deleteAccount a data |> Effect.store )
 
 
 
@@ -102,7 +138,17 @@ update data msg model =
 
 validateAccount : Model -> Result String Account
 validateAccount m =
-    Result.map4 account
+    let
+        id =
+            case m.editing of
+                Existing a ->
+                    a.id
+
+                _ ->
+                    -1
+    in
+    Result.map5 account
+        (Ok id)
         (Ok m.name)
         (String.toInt m.balance |> Result.fromMaybe "Could not parse the amount")
         (String.toInt m.year |> Result.fromMaybe "Could not parse the year")
@@ -117,7 +163,7 @@ view : Data -> Model -> Element Msg
 view data model =
     column [ spacing size.m ]
         [ errorNotice model.error
-        , editArea model.editing model
+        , editArea data model
         , showData data model
         ]
 
@@ -132,43 +178,51 @@ errorNotice error =
             el [ Font.color color.red ] (text message)
 
 
-editArea : Bool -> Model -> Element Msg
-editArea editing mna =
-    if editing then
-        column []
-            [ Element.Input.text []
-                { onChange = EditName
-                , text = mna.name
-                , placeholder = Just <| placeholder [] <| text "Account Name"
-                , label = labelHidden "Account name"
-                }
-            , Element.Input.text []
-                { onChange = EditBalance
-                , text = mna.balance
-                , placeholder = Just <| placeholder [] <| text "Starting balance (cents)"
-                , label = labelHidden "Account name"
-                }
-            , Element.Input.text []
-                { onChange = EditYear
-                , text = mna.year
-                , placeholder = Just <| placeholder [] <| text "Year"
-                , label = labelHidden "Account name"
-                }
-            , Element.Input.text []
-                { onChange = EditMonth
-                , text = mna.month
-                , placeholder = Just <| placeholder [] <| text "Month"
-                , label = labelHidden "Account name"
-                }
-            , button style.button { onPress = Just Save, label = text "Save" }
-            , button style.button { onPress = Just Abort, label = text "Abort" }
-            ]
+editArea : Data -> Model -> Element Msg
+editArea data model =
+    case model.editing of
+        Off ->
+            button style.button { onPress = Just Add, label = text "Add" }
 
-    else
-        button style.button { onPress = Just Add, label = text "Add" }
+        Deleting a ->
+            column [ spacing size.m ]
+                [ text <| "You are about to delete the account '" ++ a.name ++ "'. Continue?"
+                , button style.button { onPress = Just (DeleteConfirm a), label = text "Really Delete" }
+                , button style.button { onPress = Just Abort, label = text "Abort" }
+                ]
+
+        _ ->
+            column [ spacing size.m ]
+                [ Input.text []
+                    { onChange = EditName
+                    , text = model.name
+                    , placeholder = Just <| placeholder [] <| text "Account Name"
+                    , label = labelHidden "Account name"
+                    }
+                , Input.text []
+                    { onChange = EditBalance
+                    , text = model.balance
+                    , placeholder = Just <| placeholder [] <| text "Starting balance (cents)"
+                    , label = labelHidden "Account name"
+                    }
+                , Input.text []
+                    { onChange = EditYear
+                    , text = model.year
+                    , placeholder = Just <| placeholder [] <| text "Year"
+                    , label = labelHidden "Account name"
+                    }
+                , Input.text []
+                    { onChange = EditMonth
+                    , text = model.month
+                    , placeholder = Just <| placeholder [] <| text "Month"
+                    , label = labelHidden "Account name"
+                    }
+                , button style.button { onPress = Just Save, label = text "Save" }
+                , button style.button { onPress = Just Abort, label = text "Abort" }
+                ]
 
 
-showData : Data -> Model -> Element msg
+showData : Data -> Model -> Element Msg
 showData data _ =
     if Dict.isEmpty data.accounts then
         text "There are no accounts defined yet"
@@ -177,7 +231,15 @@ showData data _ =
         indexedTable T.tableStyle
             { data = Dict.values data.accounts
             , columns =
-                [ T.textColumn "Id" (.id >> String.fromInt)
+                [ { header = el style.header <| text "Actions"
+                  , width = shrink
+                  , view =
+                        \i a ->
+                            row (style.row i ++ [ spacing size.xs ])
+                                [ Input.button style.button { onPress = Just (EditExisting a), label = text "Edit" }
+                                , Input.button style.button { onPress = Just (Delete a), label = text "Delete" }
+                                ]
+                  }
                 , T.textColumn "Name" .name
                 , T.textColumn "Starting Month" (\a -> String.fromInt a.start.year ++ "/" ++ String.fromInt a.start.month)
                 , T.styledColumn "Starting Balance" (.start >> .amount >> formatEuro)

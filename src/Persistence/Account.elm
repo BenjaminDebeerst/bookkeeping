@@ -23,9 +23,9 @@ type alias AccountStart =
     { amount : Int, year : Int, month : Int }
 
 
-account : String -> Int -> Int -> Int -> Account
-account n a y m =
-    AccountV0 0 n (AccountStart a y m)
+account : Int -> String -> Int -> Int -> Int -> Account
+account id n a y m =
+    AccountV0 id n (AccountStart a y m)
 
 
 fromV0 : Dict Int AccountV0 -> Accounts

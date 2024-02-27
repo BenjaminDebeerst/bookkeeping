@@ -37,7 +37,7 @@ page shared _ =
 
 type Editing
     = Off
-    | NewCategory
+    | NewImportProfile
     | Existing ImportProfile
     | Deleting ImportProfile
 
@@ -86,7 +86,7 @@ update : Data -> Msg -> Model -> ( Model, Effect Msg )
 update data msg model =
     case msg of
         Add ->
-            ( { model | editing = NewCategory, error = Nothing }, Effect.none )
+            ( { model | editing = NewImportProfile, error = Nothing }, Effect.none )
 
         Abort ->
             init ()
