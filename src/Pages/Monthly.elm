@@ -130,7 +130,6 @@ overview data model =
         , Aggregator.fromCategoryGroup Expense
         , Aggregator.fromCategoryGroup Internal
         ]
-        []
 
 
 byCategory : Data -> Model -> List (Element Msg)
@@ -143,7 +142,6 @@ byCategory data model =
          ]
             ++ (Dict.values data.categories |> List.sortWith Category.order |> List.map Aggregator.fromCategory)
         )
-        (Filter.toFilter (Dict.values data.categories) model.filters)
 
 
 byAccount : Data -> Model -> List (Element Msg)
@@ -156,21 +154,23 @@ byAccount data model =
          ]
             ++ (model.filters.accounts |> List.sortBy .name |> List.map (Aggregator.fromAccount True))
         )
-        []
 
 
 
 -- AGGREGATION TABLE
 
 
-showAggregations : Data -> Model -> List Aggregator -> List Filter -> List (Element Msg)
-showAggregations data model aggregators entryFilters =
+showAggregations : Data -> Model -> List Aggregator -> List (Element Msg)
+showAggregations data model aggregators =
     let
         start =
             startDate model.filters.accounts
 
         startSums =
             startingBalances model.filters.accounts
+
+        entryFilters =
+            Filter.toFilter (Dict.values data.categories) model.filters
 
         aggregatedData =
             getEntries data entryFilters dateAsc
