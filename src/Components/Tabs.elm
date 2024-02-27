@@ -1,7 +1,7 @@
 module Components.Tabs exposing (tabbedContent)
 
 import Config exposing (color, size)
-import Element exposing (Attribute, Element, alignLeft, centerX, centerY, column, el, paddingEach, row, spacing, text)
+import Element exposing (Attribute, Element, alignLeft, centerX, centerY, column, el, fill, height, paddingEach, row, spacing, text, width)
 import Element.Border as Border
 import Element.Events exposing (onClick)
 
@@ -18,8 +18,10 @@ tabbedContent props =
     column
         []
         [ row
-            [ alignLeft, centerY ]
-            (List.map (singleTab props.selectedTab props.tabTitles props.tabMsg) props.allTabs)
+            [ alignLeft, centerY, width fill ]
+            (List.map (singleTab props.selectedTab props.tabTitles props.tabMsg) props.allTabs
+                ++ [ el fillTabStyle Element.none ]
+            )
         , column contentBoxStyle props.content
         ]
 
@@ -67,6 +69,15 @@ tabStyle selected targetMsg =
         , Border.color color.darkAccent
         , onClick targetMsg
         ]
+
+
+fillTabStyle : List (Attribute msg)
+fillTabStyle =
+    [ Border.widthEach { bottom = borderWidth, top = 0, left = 0, right = 0 }
+    , Border.color color.darkAccent
+    , width fill
+    , height fill
+    ]
 
 
 tabTitleStyle : Bool -> List (Attribute msg)
