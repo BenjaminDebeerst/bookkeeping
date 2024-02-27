@@ -7,19 +7,18 @@ import Dict exposing (Dict)
 import Effect exposing (Effect)
 import Element exposing (Element, IndexedColumn, indexedTable)
 import Layouts
-import List.Extra
 import Page exposing (Page)
-import Persistence.Account exposing (Account)
+import Persistence.Account exposing (Account, Accounts)
 import Persistence.Category as Category exposing (Category, CategoryGroup(..))
 import Persistence.Data exposing (Data)
-import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate)
-import Processing.Aggregator as Aggregator
+import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate, startDate, startingBalances)
+import Processing.Aggregator as Aggregator exposing (Aggregator)
+import Processing.Filter exposing (Filter)
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (dateAsc)
 import Route exposing (Route)
 import Shared exposing (dataSummary)
 import Shared.Model exposing (Model(..))
-import Time.Date as Date exposing (Date)
 import Util.Formats exposing (formatEuro, formatYearMonth)
 import Util.Layout exposing (dataUpdate, dataView)
 
@@ -53,6 +52,7 @@ page shared _ =
 type Tab
     = ByCategory
     | ByAccount
+    | Overview
 
 
 type alias Model =
@@ -63,7 +63,7 @@ type alias Model =
 
 init : List Account -> () -> ( Model, Effect Msg )
 init accounts _ =
-    ( { filters = Filter.init accounts, tab = ByCategory }, Effect.none )
+    ( { filters = Filter.init accounts, tab = Overview }, Effect.none )
 
 
 
@@ -92,7 +92,7 @@ update data msg model =
 view : Data -> Model -> Element Msg
 view data model =
     Tabs.tabbedContent
-        { allTabs = [ ByCategory, ByAccount ]
+        { allTabs = [ Overview, ByCategory, ByAccount ]
         , selectedTab = model.tab
         , tabTitles =
             \tab ->
@@ -102,101 +102,88 @@ view data model =
 
                     ByAccount ->
                         "By Account"
+
+                    Overview ->
+                        "Overview"
         , tabMsg = TabSelection
         , content =
             case model.tab of
                 ByCategory ->
-                    viewByCategory data model
+                    byCategory data model
 
                 ByAccount ->
-                    viewByAccount data model
+                    byAccount data model
+
+                Overview ->
+                    overview data model
         }
+
+
+overview : Data -> Model -> List (Element Msg)
+overview data model =
+    showAggregations
+        data
+        model
+        [ Aggregator.all True "Balance"
+        , Aggregator.all False "Sum"
+        , Aggregator.fromCategoryGroup Income
+        , Aggregator.fromCategoryGroup Expense
+        , Aggregator.fromCategoryGroup Internal
+        ]
+        []
+
+
+byCategory : Data -> Model -> List (Element Msg)
+byCategory data model =
+    showAggregations
+        data
+        model
+        ([ Aggregator.all True "Balance"
+         , Aggregator.all False "Diff"
+         ]
+            ++ (Dict.values data.categories |> List.sortWith Category.order |> List.map Aggregator.fromCategory)
+        )
+        (Filter.toFilter (Dict.values data.categories) model.filters)
+
+
+byAccount : Data -> Model -> List (Element Msg)
+byAccount data model =
+    showAggregations
+        data
+        model
+        ([ Aggregator.all True "Balance"
+         , Aggregator.all False "Sum"
+         ]
+            ++ (model.filters.accounts |> List.sortBy .name |> List.map (Aggregator.fromAccount True))
+        )
+        []
+
+
+
+-- AGGREGATION TABLE
+
+
+showAggregations : Data -> Model -> List Aggregator -> List Filter -> List (Element Msg)
+showAggregations data model aggregators entryFilters =
+    let
+        start =
+            startDate model.filters.accounts
+
+        startSums =
+            startingBalances model.filters.accounts
+
+        aggregatedData =
+            getEntries data entryFilters dateAsc
+                |> aggregate start startSums aggregators
+    in
+    [ Dict.values data.accounts |> showFilters model
+    , showAggResults aggregatedData
+    ]
 
 
 showFilters : Model -> List Account -> Element Msg
 showFilters model accounts =
     Filter.accountFilter accounts model.filters Filter
-
-
-
--- BY CATEGORY
-
-
-viewByCategory : Data -> Model -> List (Element Msg)
-viewByCategory data model =
-    let
-        aggregators =
-            [ Aggregator.all True "Balance"
-            , Aggregator.all False "Diff"
-            ]
-                ++ (Dict.values data.categories
-                        |> List.sortWith Category.order
-                        |> List.map Aggregator.fromCategory
-                   )
-
-        bookEntryFilter =
-            Filter.toFilter (Dict.values data.categories) model.filters
-
-        startDate =
-            model.filters.accounts
-                |> List.map (\a -> Date.date a.start.year a.start.month 1)
-                |> List.Extra.minimumWith Date.compare
-                |> Maybe.withDefault (Date.date 0 0 0)
-
-        startSums =
-            model.filters.accounts
-                |> List.map (.start >> .amount)
-                |> List.sum
-                |> (\s -> Dict.fromList [ ( "Balance", s ) ])
-
-        aggregatedData =
-            aggregate startDate startSums aggregators <| getEntries data bookEntryFilter dateAsc
-    in
-    [ showFilters model <| Dict.values data.accounts
-    , showAggResults aggregatedData
-    ]
-
-
-
--- BY ACCOUNT
-
-
-viewByAccount : Data -> Model -> List (Element Msg)
-viewByAccount data model =
-    let
-        aggregators =
-            [ Aggregator.all True "Balance"
-            , Aggregator.all False "Sum"
-            ]
-                ++ (model.filters.accounts
-                        |> List.sortBy .name
-                        |> List.map (Aggregator.fromAccount True)
-                   )
-
-        startDate =
-            model.filters.accounts
-                |> List.map (\a -> Date.date a.start.year a.start.month 1)
-                |> List.Extra.minimumWith Date.compare
-                |> Maybe.withDefault (Date.date 0 0 0)
-
-        startSums =
-            ((model.filters.accounts
-                |> List.map (\a -> ( a.name, a.start.amount ))
-             )
-                ++ (model.filters.accounts |> List.map (.start >> .amount) |> List.sum |> (\s -> [ ( "Balance", s ) ]))
-            )
-                |> Dict.fromList
-
-        aggregatedData =
-            aggregate startDate startSums aggregators <| getEntries data [] dateAsc
-    in
-    [ showFilters model <| Dict.values data.accounts
-    , showAggResults aggregatedData
-    ]
-
-
-
--- AGGREGATION TABLE
 
 
 showAggResults : Aggregate -> Element msg

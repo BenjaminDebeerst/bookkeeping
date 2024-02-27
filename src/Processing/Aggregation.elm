@@ -1,6 +1,8 @@
-module Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate)
+module Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate, startDate, startingBalances)
 
 import Dict exposing (Dict)
+import List.Extra
+import Persistence.Account exposing (Account)
 import Processing.Aggregator exposing (Aggregator)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit)
 import Time.Date as Date exposing (Date)
@@ -20,10 +22,27 @@ type alias Aggregate =
     }
 
 
+startingBalances : List Account -> Dict String Int
+startingBalances accounts =
+    Dict.fromList
+        ([]
+            ++ (accounts |> List.map (\a -> ( a.name, a.start.amount )))
+            ++ (accounts |> List.map (.start >> .amount) |> List.sum |> (\s -> [ ( "Balance", s ) ]))
+        )
+
+
+startDate : List Account -> Date
+startDate accounts =
+    accounts
+        |> List.map (\a -> Date.date a.start.year a.start.month 1)
+        |> List.Extra.minimumWith Date.compare
+        |> Maybe.withDefault (Date.date 0 0 0)
+
+
 aggregate : Date -> Dict String Int -> List Aggregator -> List BookEntry -> Aggregate
-aggregate startDate initialSums aggregators bookEntries =
+aggregate start initialSums aggregators bookEntries =
     Aggregate (List.map .title aggregators)
-        (aggregateMonthly startDate initialSums aggregators bookEntries)
+        (aggregateMonthly start initialSums aggregators bookEntries)
 
 
 aggregateMonthly : Date -> Dict String Int -> List Aggregator -> List BookEntry -> List MonthAggregate

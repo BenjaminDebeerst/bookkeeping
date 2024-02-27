@@ -1,7 +1,7 @@
-module Processing.Aggregator exposing (Aggregator, all, fromAccount, fromCategory)
+module Processing.Aggregator exposing (Aggregator, all, fromAccount, fromCategory, fromCategoryGroup)
 
 import Persistence.Account exposing (Account)
-import Persistence.Category exposing (Category)
+import Persistence.Category exposing (Category, CategoryGroup(..))
 import Processing.BookEntry exposing (BookEntry, Categorization(..))
 
 
@@ -17,6 +17,40 @@ all runningSum title =
     { title = title
     , amount = \e -> e.amount
     , runningSum = runningSum
+    }
+
+
+fromCategoryGroup : CategoryGroup -> Aggregator
+fromCategoryGroup group =
+    { title =
+        case group of
+            Income ->
+                "Income"
+
+            Expense ->
+                "Expenses"
+
+            Internal ->
+                "Internal"
+    , amount =
+        \bookEntry ->
+            case bookEntry.categorization of
+                None ->
+                    0
+
+                Single cat ->
+                    if group == cat.group then
+                        bookEntry.amount
+
+                    else
+                        0
+
+                Split entries ->
+                    entries
+                        |> List.filter (\e -> e.category.group == group)
+                        |> List.map .amount
+                        |> List.sum
+    , runningSum = False
     }
 
 
