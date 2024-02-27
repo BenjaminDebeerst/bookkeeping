@@ -36,7 +36,7 @@ startDate accounts =
     accounts
         |> List.map (\a -> Date.date a.start.year a.start.month 1)
         |> List.Extra.minimumWith Date.compare
-        |> Maybe.withDefault (Date.date 0 0 0)
+        |> Maybe.withDefault (Date.date 2000 1 1)
 
 
 aggregate : Date -> Dict String Int -> List Aggregator -> List BookEntry -> Aggregate
