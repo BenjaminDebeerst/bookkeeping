@@ -31,6 +31,7 @@ import Processing.CategorizationRules exposing (applyAllCategorizationRules)
 import Processing.CategoryParser as CategoryParser
 import Processing.CsvParser as CsvParser exposing (ParsedRow, toDate)
 import Processing.Model exposing (getCategoryByShort)
+import Result.Extra
 import Route exposing (Route)
 import Shared exposing (dataSummary)
 import Task
@@ -89,7 +90,12 @@ emptyFilter =
 
 show : String -> String -> Model
 show file content =
-    Show (RawCsv file content (Parser.parse { fieldSeparator = ',' } content)) Nothing
+    let
+        parsingPreview =
+            Parser.parse { fieldSeparator = ',' } content
+                |> Result.Extra.orElse (Parser.parse { fieldSeparator = ';' } content)
+    in
+    Show (RawCsv file content parsingPreview) Nothing
 
 
 
@@ -698,7 +704,7 @@ preview csv =
                     [ text "Problem parsing CSV file: Unclosed quoted text field." ]
 
                 AdditionalCharactersAfterClosingQuote _ ->
-                    [ text "Problem parsing CSV file: Unexpected text after quoted string before filed separator." ]
+                    [ text "Problem parsing CSV file: Unexpected text after quoted string before field separator." ]
 
 
 previewTable : List (List String) -> Element msg
