@@ -19,7 +19,7 @@ import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
 import Persistence.Data exposing (Data)
 import Persistence.RawEntry exposing (RawEntry)
-import Persistence.Storage exposing (addEntries, removeEntries)
+import Persistence.Storage exposing (removeEntries, updateEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
 import Processing.CategoryParser as Parser exposing (categorizationParser)
 import Processing.Model exposing (getCategoryByShort, getEntriesAndErrors)
@@ -135,14 +135,9 @@ update data msg model =
 
                 alteredCategories =
                     Dict.Extra.filterMap (\k v -> Dict.get k data.rawEntries |> Maybe.map (\e -> { e | categorization = toPersistence v })) entryCategorizations
-
-                editedEntries : List RawEntry
-                editedEntries =
-                    alteredCategories
-                        |> Dict.values
             in
             ( { model | editCategories = False, categoryEdits = Dict.empty }
-            , addEntries False editedEntries data |> Effect.store
+            , updateEntries alteredCategories data |> Effect.store
             )
 
         Delete entryIds ->

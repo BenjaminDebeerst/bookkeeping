@@ -12,9 +12,10 @@ module Persistence.Storage exposing
     , editImportProfile
     , removeEntries
     , truncate
+    , updateEntries
     )
 
-import Dict
+import Dict exposing (Dict)
 import Dict.Extra
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
@@ -44,6 +45,11 @@ editAccount account data =
 deleteAccount : Account -> Data -> Data
 deleteAccount account data =
     { data | accounts = Dict.remove account.id data.accounts }
+
+
+updateEntries : Dict String RawEntry -> Data -> Data
+updateEntries newEntries data =
+    { data | rawEntries = Dict.union newEntries data.rawEntries }
 
 
 addEntries : Bool -> List RawEntry -> Data -> Data
