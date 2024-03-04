@@ -1,6 +1,9 @@
 module Pages.ImportFile exposing (Model, Msg, page)
 
-import Components.Icons exposing (checkMark, copy, folderPlus, infoMark, warnTriangle)
+import Array exposing (Array)
+import Components.Icons exposing (checkMark, copy, folderPlus, infoMark, plusSquare, warnTriangle)
+import Components.Input exposing (brightButton, button)
+import Components.Notification as Notification exposing (Notification)
 import Components.Table as T
 import Components.Tooltip exposing (tooltip)
 import Config exposing (color, size, style)
@@ -8,8 +11,9 @@ import Csv.Decode as Decode exposing (Error(..))
 import Csv.Parser as Parser exposing (Problem(..))
 import Dict exposing (Dict)
 import Effect exposing (Effect)
-import Element exposing (Attribute, Color, Element, IndexedColumn, centerX, centerY, column, el, fill, fillPortion, height, indexedTable, onRight, padding, paddingEach, paddingXY, px, row, scrollbarX, spacing, text, width)
+import Element exposing (Attribute, Color, Element, IndexedColumn, alignRight, centerX, centerY, column, el, fill, height, indexedTable, onRight, padding, paddingEach, paddingXY, px, row, spacing, text, width)
 import Element.Border as Border
+import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelLeft, labelRight, placeholder)
 import File exposing (File)
@@ -24,14 +28,13 @@ import Parser
 import Persistence.Account exposing (Account)
 import Persistence.Category as Category exposing (Category, category)
 import Persistence.Data exposing (Data)
-import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile)
+import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile, importProfile)
 import Persistence.RawEntry exposing (rawEntry, sha1)
 import Persistence.Storage as Storage
 import Processing.CategorizationRules exposing (applyAllCategorizationRules)
 import Processing.CategoryParser as CategoryParser
 import Processing.CsvParser as CsvParser exposing (ParsedRow, toDate)
 import Processing.Model exposing (getCategoryByShort)
-import Result.Extra
 import Route exposing (Route)
 import Shared exposing (dataSummary)
 import Task
@@ -43,7 +46,7 @@ import Util.Layout exposing (dataUpdate, dataView)
 page : Shared.Model -> Route () -> Page Model Msg
 page shared _ =
     Page.new
-        { init = \_ -> ( Pick, Effect.none )
+        { init = \_ -> ( initialModel, Effect.none )
         , update = dataUpdate shared update
         , view = dataView shared "Import CSV File" view
         , subscriptions = \_ -> Sub.none
@@ -55,17 +58,47 @@ page shared _ =
 -- MODEL
 
 
-type Model
-    = Pick
-    | PickHover
-    | Show RawCsv (Maybe ParsedFile)
-    | Stored Int
+initialModel : Model
+initialModel =
+    { notification = Notification.None, state = SelectFile False }
 
 
-type alias RawCsv =
+type alias Model =
+    { notification : Notification Msg
+    , state : State
+    }
+
+
+type State
+    = SelectFile Bool
+    | Preview SelectedFile ParsedRawCsv
+    | CreateParser SelectedFile ParsedRawCsv ParserConfig
+    | Parsed SelectedFile ParsedFile
+
+
+type alias ParserConfig =
+    { separator : Maybe Char
+    , dateColumn : Maybe Int
+    , dateFormat : Maybe DateFormat
+    , amountColumn : Maybe Int
+    , descriptionColumns : List Int
+    , categoryColumn : Maybe Int
+    , selected : Maybe Int
+    , name : String
+    }
+
+
+emptyParserConfig =
+    ParserConfig Nothing Nothing Nothing Nothing [] Nothing Nothing ""
+
+
+type alias ParsedRawCsv =
+    Result Problem (List (List String))
+
+
+type alias SelectedFile =
     { name : String
     , content : String
-    , parsed : Result Problem (List (List String))
     }
 
 
@@ -88,16 +121,6 @@ emptyFilter =
     ImportFilter False "" ""
 
 
-show : String -> String -> Model
-show file content =
-    let
-        parsingPreview =
-            Parser.parse { fieldSeparator = ',' } content
-                |> Result.Extra.orElse (Parser.parse { fieldSeparator = ';' } content)
-    in
-    Show (RawCsv file content parsingPreview) Nothing
-
-
 
 -- UPDATE
 
@@ -109,20 +132,36 @@ type Msg
     | GotFileName File
     | GotFile String String
     | ChooseImportProfile ImportProfile
+    | CustomParser CustomParserMsg
     | Filter Bool String String
     | GenerateIds Bool
     | Abort
     | Store Account ImportProfile (List String) (List ParsedRow) Bool
 
 
+type CustomParserMsg
+    = StartCustomParser
+    | SplitChar Char
+    | Select Int
+    | DateColumn Int
+    | DateFormat DateFormat
+    | AmountColumn Int
+    | AddDescrColumn Int
+    | RemoveDescrColumn Int
+    | CategoryColumn Int
+    | Name String
+    | Save ImportProfile
+    | AbortCustomParser
+
+
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
 update data msg model =
     case msg of
         DragEnter ->
-            ( PickHover, Effect.none )
+            ( { model | state = SelectFile True }, Effect.none )
 
         DragLeave ->
-            ( Pick, Effect.none )
+            ( { model | state = SelectFile False }, Effect.none )
 
         PickFile ->
             ( model
@@ -133,20 +172,17 @@ update data msg model =
             ( model, readFile filename |> Effect.sendCmd )
 
         GotFile name content ->
-            ( show name content, Effect.none )
+            ( { model | state = Preview (SelectedFile name content) (parseFileForPreview Nothing content) }, Effect.none )
 
         ChooseImportProfile profile ->
-            case model of
-                Show csv parsed ->
-                    ( Show csv
-                        (Just
-                            (ParsedFile
-                                profile
-                                (CsvParser.parse profile csv.content)
-                                (parsed |> Maybe.map .importFilter |> Maybe.withDefault emptyFilter)
-                                False
-                            )
-                        )
+            case model.state of
+                Preview file _ ->
+                    ( { model | state = Parsed file (parseFile file profile emptyFilter False) }
+                    , Effect.none
+                    )
+
+                Parsed file parsed ->
+                    ( { model | state = Parsed file (parseFile file profile parsed.importFilter parsed.generateIds) }
                     , Effect.none
                     )
 
@@ -154,23 +190,26 @@ update data msg model =
                     ( model, Effect.none )
 
         Filter on start end ->
-            case model of
-                Show csv (Just parsed) ->
-                    ( Show csv (Just { parsed | importFilter = ImportFilter on start end }), Effect.none )
+            case model.state of
+                Parsed file parsed ->
+                    ( { model | state = Parsed file { parsed | importFilter = ImportFilter on start end } }, Effect.none )
 
                 _ ->
                     ( model, Effect.none )
 
         GenerateIds on ->
-            case model of
-                Show csv (Just parsed) ->
-                    ( Show csv (Just { parsed | generateIds = on }), Effect.none )
+            case model.state of
+                Parsed file parsed ->
+                    ( { model | state = Parsed file { parsed | generateIds = on } }, Effect.none )
 
                 _ ->
                     ( model, Effect.none )
 
+        CustomParser parserMsg ->
+            updateCustomParser data parserMsg model
+
         Abort ->
-            ( Pick, Effect.none )
+            ( initialModel, Effect.none )
 
         Store account profile newCats lines generateIds ->
             let
@@ -202,14 +241,87 @@ update data msg model =
                 newData =
                     dataWithNewCategories |> Storage.addEntries generateIds newEntries
             in
-            ( Stored (List.length newEntries)
+            ( { notification = storeConfirmation (List.length newEntries), state = SelectFile False }
             , newData |> Effect.store
             )
+
+
+updateCustomParser : Data -> CustomParserMsg -> Model -> ( Model, Effect msg )
+updateCustomParser data customParserMsg model =
+    case model.state of
+        Parsed file _ ->
+            ( { model | state = CreateParser file (parseFileForPreview Nothing file.content) emptyParserConfig }, Effect.none )
+
+        Preview file csv ->
+            ( { model | state = CreateParser file csv emptyParserConfig }, Effect.none )
+
+        CreateParser file csv parserConfig ->
+            case customParserMsg of
+                StartCustomParser ->
+                    ( model, Effect.none )
+
+                SplitChar char ->
+                    ( { model | state = CreateParser file (parseFileForPreview (Just char) file.content) { parserConfig | separator = Just char, selected = Nothing } }, Effect.none )
+
+                Select i ->
+                    ( { model | state = CreateParser file csv { parserConfig | selected = Just i } }, Effect.none )
+
+                DateColumn i ->
+                    ( { model | state = CreateParser file csv { parserConfig | dateColumn = Just i } }, Effect.none )
+
+                DateFormat format ->
+                    ( { model | state = CreateParser file csv { parserConfig | dateFormat = Just format, selected = Nothing } }, Effect.none )
+
+                AmountColumn i ->
+                    ( { model | state = CreateParser file csv { parserConfig | amountColumn = Just i, selected = Nothing } }, Effect.none )
+
+                AddDescrColumn i ->
+                    ( { model | state = CreateParser file csv { parserConfig | descriptionColumns = parserConfig.descriptionColumns ++ [ i ], selected = Nothing } }, Effect.none )
+
+                RemoveDescrColumn i ->
+                    ( { model | state = CreateParser file csv { parserConfig | descriptionColumns = parserConfig.descriptionColumns |> List.filter (\j -> j == i), selected = Nothing } }, Effect.none )
+
+                CategoryColumn i ->
+                    ( { model | state = CreateParser file csv { parserConfig | categoryColumn = Just i, selected = Nothing } }, Effect.none )
+
+                Name s ->
+                    ( { model | state = CreateParser file csv { parserConfig | name = s } }, Effect.none )
+
+                Save importProfile ->
+                    let
+                        newData =
+                            Storage.addImportProfile { importProfile | name = parserConfig.name } data
+
+                        newProfile =
+                            Dict.get (newData.autoIncrement - 1) newData.importProfiles |> Maybe.withDefault importProfile
+                    in
+                    ( { model | state = Parsed file (parseFile file newProfile emptyFilter False) }, newData |> Effect.store )
+
+                AbortCustomParser ->
+                    ( { model | state = Preview file csv }, Effect.none )
+
+        _ ->
+            ( model, Effect.none )
 
 
 readFile : File -> Cmd Msg
 readFile file =
     Task.perform (GotFile <| File.name file) <| File.toString file
+
+
+parseFileForPreview : Maybe Char -> String -> ParsedRawCsv
+parseFileForPreview separator content =
+    case separator of
+        Nothing ->
+            content |> String.trim |> String.split "\n" |> List.map (\row -> [ row ]) |> Ok
+
+        Just c ->
+            Parser.parse { fieldSeparator = c } content
+
+
+parseFile : SelectedFile -> ImportProfile -> ImportFilter -> Bool -> ParsedFile
+parseFile file profile filter generateIds =
+    ParsedFile profile (CsvParser.parse profile file.content) filter generateIds
 
 
 
@@ -218,13 +330,21 @@ readFile file =
 
 view : Data -> Model -> Element Msg
 view data model =
-    column [ height fill, width <| fillPortion 7, scrollbarX, spacing size.m ]
-        (case model of
-            Show csv parsed ->
-                viewFileContents data csv parsed
+    column [ height fill, width fill, spacing size.m ]
+        ([ Notification.showNotification model.notification ]
+            ++ (case model.state of
+                    SelectFile hover ->
+                        viewFilePicker hover
 
-            _ ->
-                viewFilePicker data model
+                    Preview file csv ->
+                        viewCsvPreview Nothing file csv ++ viewProfileSelector data Nothing
+
+                    CreateParser file csv parserConfig ->
+                        viewParserBuilder data file csv parserConfig
+
+                    Parsed _ parsed ->
+                        viewProfileSelector data (Just parsed.importProfile) ++ viewParsedFile data parsed Nothing
+               )
         )
 
 
@@ -232,28 +352,27 @@ view data model =
 -- FILE PICKER
 
 
-viewFilePicker : Data -> Model -> List (Element Msg)
-viewFilePicker _ model =
-    showStoreConfirmation model
-        ++ [ el
-                [ width fill
-                , height fill
-                , Border.dashed
-                , Border.color <|
-                    if model == PickHover then
-                        color.brightAccent
+viewFilePicker : Bool -> List (Element Msg)
+viewFilePicker hover =
+    [ el
+        [ width fill
+        , height fill
+        , Border.dashed
+        , Border.color <|
+            if hover then
+                color.brightAccent
 
-                    else
-                        color.darkAccent
-                , Border.width size.xs
-                , Border.rounded size.xl
-                , onEvent "dragenter" (D.succeed DragEnter)
-                , onEvent "dragover" (D.succeed DragEnter)
-                , onEvent "dragleave" (D.succeed DragLeave)
-                , onEvent "drop" fileDropDecoder
-                ]
-                (Input.button ([ centerX, centerY ] ++ style.button) { onPress = Just PickFile, label = text "Select File" })
-           ]
+            else
+                color.darkAccent
+        , Border.width size.xs
+        , Border.rounded size.xl
+        , onEvent "dragenter" (D.succeed DragEnter)
+        , onEvent "dragover" (D.succeed DragEnter)
+        , onEvent "dragleave" (D.succeed DragLeave)
+        , onEvent "drop" fileDropDecoder
+        ]
+        (Input.button ([ centerX, centerY ] ++ style.button) { onPress = Just PickFile, label = text "Select File" })
+    ]
 
 
 fileDropDecoder : D.Decoder Msg
@@ -266,35 +385,140 @@ onEvent event decoder =
     preventDefaultOn event (D.map (\msg -> ( msg, True )) decoder) |> Element.htmlAttribute
 
 
-showStoreConfirmation : Model -> List (Element msg)
-showStoreConfirmation s =
-    case s of
-        Stored n ->
-            [ text <| "Stored " ++ String.fromInt n ++ " rows in the DB" ]
-
-        _ ->
-            []
+storeConfirmation : Int -> Notification Msg
+storeConfirmation n =
+    "Stored " ++ String.fromInt n ++ " rows in the DB" |> text |> (\t -> Notification.Info [ t ])
 
 
 
--- CSV Importer
+-- CSV PREVIEW & PARSER BUILDER
 
 
-viewFileContents : Data -> RawCsv -> Maybe ParsedFile -> List (Element Msg)
-viewFileContents data csv parsed =
-    preview csv
-        ++ (csv.parsed
-                |> Result.map (\_ -> viewProfileSelector data (parsed |> Maybe.map .importProfile))
-                |> Result.withDefault []
-           )
-        ++ (parsed
-                |> Maybe.map (\file -> showFile data file)
+viewCsvPreview : Maybe ParserConfig -> SelectedFile -> ParsedRawCsv -> List (Element Msg)
+viewCsvPreview parserConfig file csv =
+    case csv of
+        Ok rows ->
+            [ text <| String.concat [ "Loaded ", file.name, " (", String.fromInt <| List.length rows, " rows). Data preview:" ]
+            , previewTable (List.map Array.fromList rows) parserConfig
+            ]
+
+        Err problem ->
+            case problem of
+                SourceEndedWithoutClosingQuote _ ->
+                    [ text "Problem parsing CSV file: Unclosed quoted text field." ]
+
+                AdditionalCharactersAfterClosingQuote _ ->
+                    [ text "Problem parsing CSV file: Unexpected text after quoted string before field separator." ]
+
+
+previewTable : List (Array String) -> Maybe ParserConfig -> Element Msg
+previewTable csv parserConfig =
+    let
+        headers =
+            csv |> List.head |> Maybe.withDefault Array.empty
+
+        data =
+            csv |> List.drop 1 |> List.take 5
+
+        tableCell =
+            \i -> Array.get i >> Maybe.withDefault "n/a" >> text
+
+        header =
+            parserConfig |> Maybe.map headCell |> Maybe.withDefault (\_ title -> text title)
+    in
+    indexedTable T.tableStyle
+        { data = data
+        , columns =
+            headers
+                |> Array.toList
+                |> List.indexedMap
+                    (\i title ->
+                        T.fullStyledColumn
+                            (header i title)
+                            (tableCell i)
+                    )
+        }
+
+
+headCell : ParserConfig -> Int -> String -> Element Msg
+headCell parserConfig i title =
+    column [ width fill, spacing size.s ]
+        ([ row [ width fill ]
+            [ text title
+            , plusSquare
+                [ alignRight
+                , paddingEach { left = size.m, right = 0, top = 0, bottom = 0 }
+                , onClick (CustomParser <| Select i)
+                ]
+                size.m
+            ]
+         ]
+            ++ (if i == (parserConfig.selected |> Maybe.withDefault -1) then
+                    if parserConfig.selected == parserConfig.dateColumn then
+                        List.map (\( format, label ) -> brightButton (CustomParser (DateFormat format)) label)
+                            [ ( YYYYMMDD '-', "Date format: 1970-07-31" )
+                            , ( DDMMYYYY '.', "Date format: 31.7.1970" )
+                            , ( DDMMYYYY '/', "Date format: 31/7/1970" )
+                            ]
+
+                    else
+                        [ brightButton (CustomParser (DateColumn i)) "Set as date"
+                        , brightButton (CustomParser (AmountColumn i)) "Set as amount"
+                        , brightButton (CustomParser (AddDescrColumn i)) "Add to description"
+                        , brightButton (CustomParser (RemoveDescrColumn i)) "Remove from description"
+                        , brightButton (CustomParser (CategoryColumn i)) "Set as category"
+                        ]
+
+                else
+                    [ Element.none ]
+               )
+        )
+
+
+viewParserBuilder : Data -> SelectedFile -> ParsedRawCsv -> ParserConfig -> List (Element Msg)
+viewParserBuilder data file csv parserConfig =
+    [ Input.radioRow [ paddingXY size.m 0, spacing size.m ]
+        { onChange = \c -> CustomParser (SplitChar c)
+        , selected = parserConfig.separator
+        , label = Input.labelLeft [] <| text "Column separator: "
+        , options =
+            [ Input.option ',' (text "Comma")
+            , Input.option ';' (text "Semicolon")
+            , Input.option '\t' (text "Tab")
+            ]
+        }
+    , text "Selected Columns:"
+    , text <| "Date: " ++ (parserConfig.dateColumn |> Maybe.map String.fromInt |> Maybe.withDefault "None")
+    , text <| "Amount: " ++ (parserConfig.amountColumn |> Maybe.map String.fromInt |> Maybe.withDefault "None")
+    , text <| "Description: " ++ (parserConfig.descriptionColumns |> List.map String.fromInt |> String.join ", ")
+    , button (CustomParser AbortCustomParser) "Abort"
+    ]
+        ++ viewCsvPreview (Just parserConfig) file csv
+        ++ (buildParser parserConfig
+                |> Maybe.map (\p -> parseFile file p emptyFilter True)
+                |> Maybe.map (\p -> viewParsedFile data p (Just parserConfig))
                 |> Maybe.withDefault []
            )
 
 
-showFile : Data -> ParsedFile -> List (Element Msg)
-showFile data parsedFile =
+buildParser : ParserConfig -> Maybe ImportProfile
+buildParser parserConfig =
+    Maybe.map4
+        (\separator date dateFormat amount ->
+            importProfile -1 "Preview" separator date parserConfig.descriptionColumns amount dateFormat parserConfig.categoryColumn
+        )
+        parserConfig.separator
+        parserConfig.dateColumn
+        parserConfig.dateFormat
+        parserConfig.amountColumn
+
+
+
+-- VIEW PARSED FILE
+
+
+viewParsedFile : Data -> ParsedFile -> Maybe ParserConfig -> List (Element Msg)
+viewParsedFile data parsedFile parserConfig =
     case parsedFile.parsedRows of
         Err error ->
             [ text "Could not parse the given file with the selected profile.", text (errorToString error) ]
@@ -303,131 +527,84 @@ showFile data parsedFile =
             [ text "The CSV file was empty. There's nothing to do." ]
 
         Ok rows ->
-            viewParsedRows
-                (Dict.values data.accounts)
-                (\s -> Dict.member s data.rawEntries)
-                (getCategoryByShort (Dict.values data.categories))
-                (applyAllCategorizationRules data)
-                parsedFile.importProfile
-                parsedFile.importFilter
-                parsedFile.generateIds
-                rows
+            let
+                annotated =
+                    annotate data parsedFile rows
+            in
+            case parserConfig of
+                Just pc ->
+                    []
+                        ++ [ Input.text [ width <| px 300 ]
+                                { onChange = CustomParser << Name
+                                , text = pc.name
+                                , placeholder = Just <| placeholder [] <| text "Profile Name"
+                                , label = labelLeft [ paddingEach { right = size.m, left = 0, top = 0, bottom = 0 } ] <| text "Profile Name"
+                                }
+                           , Input.button style.button { onPress = Just (CustomParser (Save parsedFile.importProfile)), label = text "Save as New Profile" }
+                           ]
+                        ++ [ text <| "Preview of the parsed data with the new profile:" ]
+                        ++ viewParsedRows annotated.filteredRows
+
+                Nothing ->
+                    []
+                        ++ viewImportOptions parsedFile.importFilter parsedFile.generateIds
+                        ++ viewImportWarnings annotated
+                        ++ viewImportActions
+                            (Dict.values data.accounts)
+                            (\a -> Store a parsedFile.importProfile annotated.newCategories (annotated.filteredRows |> List.map .parsedRow) parsedFile.generateIds)
+                        ++ [ text <| "The following " ++ String.fromInt (List.length rows) ++ " rows shall be added:" ]
+                        ++ viewParsedRows annotated.filteredRows
 
 
-viewParsedRows : List Account -> (String -> Bool) -> (String -> Maybe Category) -> (String -> Maybe Category) -> ImportProfile -> ImportFilter -> Bool -> List ParsedRow -> List (Element Msg)
-viewParsedRows accounts entryIdExists findCategory categorizationByRules profile filter generateIds rows =
-    let
-        csvSize =
-            List.length rows |> String.fromInt
+viewImportWarnings : AnnotatedRows -> List (Element msg)
+viewImportWarnings ar =
+    warning ar.nExcluded (\n -> n ++ " rows are excluded by the date filter.")
+        ++ warning ar.nOverlap (\n -> n ++ " of " ++ String.fromInt ar.csvSize ++ " rows in this CSV have already been imported. They shall be skipped.")
+        ++ warning ar.nDuplicates (\_ -> "This CSV has " ++ String.fromInt ar.csvSize ++ " rows, but only " ++ String.fromInt (List.length ar.filteredRows) ++ " distinct duplicated rows. Duplicate rows will be imported only once. Are your rows sufficiently distinct?")
+        ++ warning (List.length ar.newCategories) (\n -> n ++ " yet unknown categories were found in the CSV. They shall be created upon import: " ++ String.join ", " ar.newCategories)
 
-        filteredRows =
-            filterRows filter rows
 
-        nExcluded =
-            List.length rows - List.length filteredRows
-
-        duplicates =
-            if generateIds then
-                Dict.empty
-
-            else
-                findDuplicateRows filteredRows
-
-        ( annotatedRows, overlap ) =
-            annotateRows
-                filteredRows
-                duplicates
-                (if generateIds then
-                    \_ -> False
-
-                 else
-                    entryIdExists
+viewImportActions : List Account -> (Account -> Msg) -> List (Element Msg)
+viewImportActions accounts storeMsg =
+    [ text <| "Import to account: " ]
+        ++ [ row [ spacing size.s ]
+                ([ Input.button style.button { onPress = Just Abort, label = text "Abort" } ]
+                    ++ (accounts
+                            |> List.map (\a -> Input.button style.button { onPress = Just (storeMsg a), label = text a.name })
+                       )
                 )
-                findCategory
-                categorizationByRules
-
-        annotatedRowsToStore =
-            annotatedRows
-                |> List.filter (\ar -> not ar.alreadyImported)
-                |> (if generateIds then
-                        -- simply skip don't do the uniqueness filter
-                        identity
-
-                    else
-                        List.Extra.uniqueBy (\ar -> sha1 ar.parsedRow.rawLine)
-                   )
-
-        rowsToStore =
-            annotatedRowsToStore |> List.map .parsedRow
-
-        storeSize =
-            List.length rowsToStore
-
-        newCategories =
-            annotatedRows
-                |> List.Extra.uniqueBy (.parsedRow >> .category)
-                |> List.map
-                    (.category
-                        >> Maybe.andThen
-                            (\c ->
-                                case c of
-                                    Unknown cat ->
-                                        Just cat
-
-                                    _ ->
-                                        Nothing
-                            )
-                    )
-                |> Maybe.Extra.values
-                |> List.sort
-    in
-    if storeSize == 0 then
-        showImportOptions filter generateIds
-            ++ [ text "Every row in this CSV has already been imported. There's nothing to do." ]
-
-    else
-        showImportOptions filter generateIds
-            ++ warning nExcluded (\n -> n ++ " rows are excluded by the date filter.")
-            ++ warning overlap (\n -> n ++ " of " ++ csvSize ++ " rows in this CSV have already been imported. They shall be skipped.")
-            ++ warning (Dict.size duplicates) (\_ -> "This CSV has " ++ csvSize ++ " rows, but only " ++ String.fromInt storeSize ++ " distinct duplicated rows. Duplicate rows will be imported only once. Are your rows sufficiently distinct?")
-            ++ warning (List.length newCategories) (\n -> n ++ " yet unknown categories were found in the CSV. They shall be created upon import: " ++ String.join ", " newCategories)
-            ++ [ text <| "Import to account: " ]
-            ++ [ row [ spacing size.s ]
-                    ([ Input.button style.button { onPress = Just Abort, label = text "Abort" } ]
-                        ++ (accounts
-                                |> List.map (\a -> Input.button style.button { onPress = Just (Store a profile newCategories rowsToStore generateIds), label = text a.name })
-                           )
-                    )
-               ]
-            ++ [ text <| "The following " ++ String.fromInt storeSize ++ " rows shall be added:"
-               , indexedTable T.tableStyle
-                    { data = annotatedRowsToStore
-                    , columns =
-                        [ T.styledColumn "Info" <| annotation
-                        , T.textColumn "Date" (.parsedRow >> .date >> formatDate)
-                        , T.styledColumn "Amount" (.parsedRow >> .amount >> formatEuro)
-                        , T.styledColumn "Category" categoryCell
-                        , T.textColumn "Description" (.parsedRow >> .description)
-                        ]
-                    }
-               ]
+           ]
 
 
-showImportOptions : ImportFilter -> Bool -> List (Element Msg)
-showImportOptions filter generateIds =
+viewParsedRows : List AnnotatedRow -> List (Element Msg)
+viewParsedRows annotatedRows =
+    case annotatedRows of
+        [] ->
+            [ text "Every row in this CSV has already been imported. There's nothing to do." ]
+
+        rows ->
+            [ indexedTable T.tableStyle
+                { data = rows
+                , columns =
+                    [ T.styledColumn "Info" <| annotation
+                    , T.textColumn "Date" (.parsedRow >> .date >> formatDate)
+                    , T.styledColumn "Amount" (.parsedRow >> .amount >> formatEuro)
+                    , T.styledColumn "Category" categoryCell
+                    , T.textColumn "Description" (.parsedRow >> .description)
+                    ]
+                }
+            ]
+
+
+viewImportOptions : ImportFilter -> Bool -> List (Element Msg)
+viewImportOptions filter generateIds =
     showGenerateIdsOption generateIds ++ showFilter filter
 
 
 showGenerateIdsOption : Bool -> List (Element Msg)
 showGenerateIdsOption generateIds =
     [ Input.checkbox []
-        { onChange =
-            \on ->
-                if on then
-                    GenerateIds True
-
-                else
-                    GenerateIds False
+        { onChange = GenerateIds
         , icon = Input.defaultCheckbox
         , checked = generateIds
         , label = labelRight [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text <| "Generate ids for rows. Do not assume content-based identity."
@@ -468,6 +645,10 @@ showFilter filter =
             else
                 []
            )
+
+
+
+-- VIEW CATEGORIES
 
 
 categoryCell : AnnotatedRow -> Element msg
@@ -548,7 +729,7 @@ errorToString error =
 
 
 
--- CSV parsing and annotations
+-- CSV PARSING AND ANNOTATIONS
 
 
 filterRows : ImportFilter -> List ParsedRow -> List ParsedRow
@@ -586,6 +767,80 @@ type alias AnnotatedRow =
     , alreadyImported : Bool
     , category : Maybe Categorization
     }
+
+
+type alias AnnotatedRows =
+    { csvSize : Int
+    , nExcluded : Int
+    , nOverlap : Int
+    , nDuplicates : Int
+    , newCategories : List String
+    , filteredRows : List AnnotatedRow
+    }
+
+
+annotate : Data -> ParsedFile -> List ParsedRow -> AnnotatedRows
+annotate data parsedFile rows =
+    let
+        csvSize =
+            List.length rows
+
+        filteredRows =
+            filterRows parsedFile.importFilter rows
+
+        nExcluded =
+            List.length rows - List.length filteredRows
+
+        duplicates =
+            if parsedFile.generateIds then
+                Dict.empty
+
+            else
+                findDuplicateRows filteredRows
+
+        ( annotatedRows, overlap ) =
+            annotateRows
+                filteredRows
+                duplicates
+                (if parsedFile.generateIds then
+                    \_ -> False
+
+                 else
+                    \s -> Dict.member s data.rawEntries
+                )
+                (getCategoryByShort (Dict.values data.categories))
+                (applyAllCategorizationRules data)
+
+        newCategories =
+            annotatedRows
+                |> List.Extra.uniqueBy (.parsedRow >> .category)
+                |> List.map
+                    (.category
+                        >> Maybe.andThen
+                            (\c ->
+                                case c of
+                                    Unknown cat ->
+                                        Just cat
+
+                                    _ ->
+                                        Nothing
+                            )
+                    )
+                |> Maybe.Extra.values
+                |> List.sort
+
+        annotatedRowsToStore =
+            annotatedRows
+                |> List.filter (\ar -> not ar.alreadyImported)
+                |> (if parsedFile.generateIds then
+                        -- simply skip don't do the uniqueness filter
+                        identity
+
+                    else
+                        List.Extra.uniqueBy (\ar -> sha1 ar.parsedRow.rawLine)
+                   )
+    in
+    AnnotatedRows csvSize nExcluded overlap (Dict.size duplicates) newCategories annotatedRowsToStore
 
 
 annotateRows : List ParsedRow -> Dict String Int -> (String -> Bool) -> (String -> Maybe Category) -> (String -> Maybe Category) -> ( List AnnotatedRow, Int )
@@ -687,59 +942,23 @@ getCategoryForParsedRow categorizationRules categories row =
 
 
 
--- raw CSV (pre)view
-
-
-preview : RawCsv -> List (Element Msg)
-preview csv =
-    case csv.parsed of
-        Ok rows ->
-            [ text <| "Loaded header and " ++ (rows |> List.length |> (\i -> i - 1) |> String.fromInt) ++ " rows from " ++ csv.name ++ ". This is how the raw data looks like:"
-            , previewTable rows
-            ]
-
-        Err problem ->
-            case problem of
-                SourceEndedWithoutClosingQuote _ ->
-                    [ text "Problem parsing CSV file: Unclosed quoted text field." ]
-
-                AdditionalCharactersAfterClosingQuote _ ->
-                    [ text "Problem parsing CSV file: Unexpected text after quoted string before field separator." ]
-
-
-previewTable : List (List String) -> Element msg
-previewTable csv =
-    let
-        headers =
-            csv |> List.head |> Maybe.withDefault []
-
-        data =
-            csv |> List.drop 1 |> List.take 5
-    in
-    indexedTable T.tableStyle
-        { data = data
-        , columns =
-            headers
-                |> List.indexedMap
-                    (\i title -> T.textColumn title (List.drop i >> List.head >> Maybe.withDefault "n/a"))
-        }
-
-
-
--- profile selector
+-- PROFILE SELECTOR
 
 
 viewProfileSelector : Data -> Maybe ImportProfile -> List (Element Msg)
 viewProfileSelector data profile =
-    [ Input.radioRow []
-        { onChange = ChooseImportProfile
-        , selected = profile
-        , label = Input.labelLeft [ paddingXY size.m 0 ] <| text "Choose import profile: "
-        , options =
-            Dict.values data.importProfiles
-                |> List.map
-                    (\p ->
-                        Input.option p (el [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text p.name)
-                    )
-        }
+    [ row []
+        [ Input.radioRow [ paddingXY size.m 0, spacing size.m ]
+            { onChange = ChooseImportProfile
+            , selected = profile
+            , label = Input.labelLeft [] <| text "Choose import profile: "
+            , options =
+                Dict.values data.importProfiles
+                    |> List.map
+                        (\p ->
+                            Input.option p (text p.name)
+                        )
+            }
+        , Input.button style.button { onPress = Just (CustomParser StartCustomParser), label = text "Create new Import Profile" }
+        ]
     ]
