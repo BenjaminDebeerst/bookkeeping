@@ -1,7 +1,7 @@
 module Pages.ImportFile exposing (Model, Msg, page)
 
 import Array exposing (Array)
-import Components.Icons exposing (checkMark, copy, folderPlus, infoMark, plusSquare, warnTriangle)
+import Components.Icons exposing (checkMark, folderPlus, infoMark, plusSquare, warnTriangle)
 import Components.Input exposing (brightButton, button)
 import Components.Notification as Notification exposing (Notification)
 import Components.Table as T
@@ -29,7 +29,7 @@ import Persistence.Account exposing (Account)
 import Persistence.Category as Category exposing (Category, category)
 import Persistence.Data exposing (Data)
 import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile, importProfile)
-import Persistence.RawEntry exposing (rawEntry, sha1)
+import Persistence.RawEntry exposing (rawEntry)
 import Persistence.Storage as Storage
 import Processing.CategorizationRules exposing (applyAllCategorizationRules)
 import Processing.CategoryParser as CategoryParser
@@ -106,7 +106,6 @@ type alias ParsedFile =
     { importProfile : ImportProfile
     , parsedRows : Result Error (List ParsedRow)
     , importFilter : ImportFilter
-    , generateIds : Bool
     }
 
 
@@ -134,9 +133,8 @@ type Msg
     | ChooseImportProfile ImportProfile
     | CustomParser CustomParserMsg
     | Filter Bool String String
-    | GenerateIds Bool
     | Abort
-    | Store Account ImportProfile (List String) (List ParsedRow) Bool
+    | Store Account ImportProfile (List String) (List ParsedRow)
 
 
 type CustomParserMsg
@@ -177,12 +175,12 @@ update data msg model =
         ChooseImportProfile profile ->
             case model.state of
                 Preview file _ ->
-                    ( { model | state = Parsed file (parseFile file profile emptyFilter False) }
+                    ( { model | state = Parsed file (parseFile file profile emptyFilter) }
                     , Effect.none
                     )
 
                 Parsed file parsed ->
-                    ( { model | state = Parsed file (parseFile file profile parsed.importFilter parsed.generateIds) }
+                    ( { model | state = Parsed file (parseFile file profile parsed.importFilter) }
                     , Effect.none
                     )
 
@@ -197,21 +195,13 @@ update data msg model =
                 _ ->
                     ( model, Effect.none )
 
-        GenerateIds on ->
-            case model.state of
-                Parsed file parsed ->
-                    ( { model | state = Parsed file { parsed | generateIds = on } }, Effect.none )
-
-                _ ->
-                    ( model, Effect.none )
-
         CustomParser parserMsg ->
             updateCustomParser data parserMsg model
 
         Abort ->
             ( initialModel, Effect.none )
 
-        Store account profile newCats lines generateIds ->
+        Store account profile newCats lines ->
             let
                 dataWithNewCategories =
                     newCats
@@ -239,7 +229,7 @@ update data msg model =
                             )
 
                 newData =
-                    dataWithNewCategories |> Storage.addEntries generateIds newEntries
+                    dataWithNewCategories |> Storage.addEntries newEntries
             in
             ( { notification = storeConfirmation (List.length newEntries), state = SelectFile False }
             , newData |> Effect.store
@@ -295,7 +285,7 @@ updateCustomParser data customParserMsg model =
                         newProfile =
                             Dict.get (newData.autoIncrement - 1) newData.importProfiles |> Maybe.withDefault importProfile
                     in
-                    ( { model | state = Parsed file (parseFile file newProfile emptyFilter False) }, newData |> Effect.store )
+                    ( { model | state = Parsed file (parseFile file newProfile emptyFilter) }, newData |> Effect.store )
 
                 AbortCustomParser ->
                     ( { model | state = Preview file csv }, Effect.none )
@@ -319,9 +309,9 @@ parseFileForPreview separator content =
             Parser.parse { fieldSeparator = c } content
 
 
-parseFile : SelectedFile -> ImportProfile -> ImportFilter -> Bool -> ParsedFile
-parseFile file profile filter generateIds =
-    ParsedFile profile (CsvParser.parse profile file.content) filter generateIds
+parseFile : SelectedFile -> ImportProfile -> ImportFilter -> ParsedFile
+parseFile file profile filter =
+    ParsedFile profile (CsvParser.parse profile file.content) filter
 
 
 
@@ -495,7 +485,7 @@ viewParserBuilder data file csv parserConfig =
     ]
         ++ viewCsvPreview (Just parserConfig) file csv
         ++ (buildParser parserConfig
-                |> Maybe.map (\p -> parseFile file p emptyFilter True)
+                |> Maybe.map (\p -> parseFile file p emptyFilter)
                 |> Maybe.map (\p -> viewParsedFile data p (Just parserConfig))
                 |> Maybe.withDefault []
            )
@@ -547,20 +537,18 @@ viewParsedFile data parsedFile parserConfig =
 
                 Nothing ->
                     []
-                        ++ viewImportOptions parsedFile.importFilter parsedFile.generateIds
+                        ++ viewImportOptions parsedFile.importFilter
                         ++ viewImportWarnings annotated
                         ++ viewImportActions
                             (Dict.values data.accounts)
-                            (\a -> Store a parsedFile.importProfile annotated.newCategories (annotated.filteredRows |> List.map .parsedRow) parsedFile.generateIds)
-                        ++ [ text <| "The following " ++ String.fromInt (List.length rows) ++ " rows shall be added:" ]
+                            (\a -> Store a parsedFile.importProfile annotated.newCategories (annotated.filteredRows |> List.map .parsedRow))
+                        ++ [ text <| "The following " ++ String.fromInt (List.length annotated.filteredRows) ++ " rows shall be added:" ]
                         ++ viewParsedRows annotated.filteredRows
 
 
 viewImportWarnings : AnnotatedRows -> List (Element msg)
 viewImportWarnings ar =
     warning ar.nExcluded (\n -> n ++ " rows are excluded by the date filter.")
-        ++ warning ar.nOverlap (\n -> n ++ " of " ++ String.fromInt ar.csvSize ++ " rows in this CSV have already been imported. They shall be skipped.")
-        ++ warning ar.nDuplicates (\_ -> "This CSV has " ++ String.fromInt ar.csvSize ++ " rows, but only " ++ String.fromInt (List.length ar.filteredRows) ++ " distinct duplicated rows. Duplicate rows will be imported only once. Are your rows sufficiently distinct?")
         ++ warning (List.length ar.newCategories) (\n -> n ++ " yet unknown categories were found in the CSV. They shall be created upon import: " ++ String.join ", " ar.newCategories)
 
 
@@ -586,8 +574,7 @@ viewParsedRows annotatedRows =
             [ indexedTable T.tableStyle
                 { data = rows
                 , columns =
-                    [ T.styledColumn "Info" <| annotation
-                    , T.textColumn "Date" (.parsedRow >> .date >> formatDate)
+                    [ T.textColumn "Date" (.parsedRow >> .date >> formatDate)
                     , T.styledColumn "Amount" (.parsedRow >> .amount >> formatEuro)
                     , T.styledColumn "Category" categoryCell
                     , T.textColumn "Description" (.parsedRow >> .description)
@@ -596,20 +583,9 @@ viewParsedRows annotatedRows =
             ]
 
 
-viewImportOptions : ImportFilter -> Bool -> List (Element Msg)
-viewImportOptions filter generateIds =
-    showGenerateIdsOption generateIds ++ showFilter filter
-
-
-showGenerateIdsOption : Bool -> List (Element Msg)
-showGenerateIdsOption generateIds =
-    [ Input.checkbox []
-        { onChange = GenerateIds
-        , icon = Input.defaultCheckbox
-        , checked = generateIds
-        , label = labelRight [ paddingEach { top = 0, right = size.l, bottom = 0, left = 0 } ] <| text <| "Generate ids for rows. Do not assume content-based identity."
-        }
-    ]
+viewImportOptions : ImportFilter -> List (Element Msg)
+viewImportOptions filter =
+    showFilter filter
 
 
 showFilter : ImportFilter -> List (Element Msg)
@@ -696,18 +672,6 @@ iconTooltip icon color hint =
     icon [ Font.color color, tooltip onRight hint ] size.m
 
 
-annotation : AnnotatedRow -> Element msg
-annotation annotatedRow =
-    if annotatedRow.duplicates > 1 then
-        iconTooltip copy color.black <|
-            "This row was found "
-                ++ String.fromInt annotatedRow.duplicates
-                ++ " times."
-
-    else
-        Element.none
-
-
 errorToString : Error -> String
 errorToString error =
     case error of
@@ -763,8 +727,6 @@ makeDateFilter filter =
 
 type alias AnnotatedRow =
     { parsedRow : ParsedRow
-    , duplicates : Int
-    , alreadyImported : Bool
     , category : Maybe Categorization
     }
 
@@ -772,8 +734,6 @@ type alias AnnotatedRow =
 type alias AnnotatedRows =
     { csvSize : Int
     , nExcluded : Int
-    , nOverlap : Int
-    , nDuplicates : Int
     , newCategories : List String
     , filteredRows : List AnnotatedRow
     }
@@ -791,23 +751,9 @@ annotate data parsedFile rows =
         nExcluded =
             List.length rows - List.length filteredRows
 
-        duplicates =
-            if parsedFile.generateIds then
-                Dict.empty
-
-            else
-                findDuplicateRows filteredRows
-
-        ( annotatedRows, overlap ) =
+        annotatedRows =
             annotateRows
                 filteredRows
-                duplicates
-                (if parsedFile.generateIds then
-                    \_ -> False
-
-                 else
-                    \s -> Dict.member s data.rawEntries
-                )
                 (getCategoryByShort (Dict.values data.categories))
                 (applyAllCategorizationRules data)
 
@@ -828,43 +774,16 @@ annotate data parsedFile rows =
                     )
                 |> Maybe.Extra.values
                 |> List.sort
-
-        annotatedRowsToStore =
-            annotatedRows
-                |> List.filter (\ar -> not ar.alreadyImported)
-                |> (if parsedFile.generateIds then
-                        -- simply skip don't do the uniqueness filter
-                        identity
-
-                    else
-                        List.Extra.uniqueBy (\ar -> sha1 ar.parsedRow.rawLine)
-                   )
     in
-    AnnotatedRows csvSize nExcluded overlap (Dict.size duplicates) newCategories annotatedRowsToStore
+    AnnotatedRows csvSize nExcluded newCategories annotatedRows
 
 
-annotateRows : List ParsedRow -> Dict String Int -> (String -> Bool) -> (String -> Maybe Category) -> (String -> Maybe Category) -> ( List AnnotatedRow, Int )
-annotateRows parsedRows duplicates entryIdExists categoryLookup categorizationByRules =
+annotateRows : List ParsedRow -> (String -> Maybe Category) -> (String -> Maybe Category) -> List AnnotatedRow
+annotateRows parsedRows categoryLookup categorizationByRules =
     parsedRows
         |> List.foldr
-            (\row ( rows, n ) ->
+            (\row rows ->
                 let
-                    rowId =
-                        sha1 row.rawLine
-
-                    exists =
-                        entryIdExists rowId
-
-                    m =
-                        if exists then
-                            n + 1
-
-                        else
-                            n
-
-                    dups =
-                        Dict.get rowId duplicates |> Maybe.withDefault 1
-
                     cat =
                         case row.category of
                             Just cat_str ->
@@ -873,9 +792,9 @@ annotateRows parsedRows duplicates entryIdExists categoryLookup categorizationBy
                             Nothing ->
                                 categorizationByRules row.description |> matchedCategorization
                 in
-                ( AnnotatedRow row dups exists cat :: rows, m )
+                AnnotatedRow row cat :: rows
             )
-            ( [], 0 )
+            []
 
 
 type Categorization
@@ -909,26 +828,6 @@ parseCategory categoryLookup categoryName =
 
         Err _ ->
             ParsingError categoryName
-
-
-findDuplicateRows : List ParsedRow -> Dict String Int
-findDuplicateRows parsedRows =
-    parsedRows
-        |> List.foldl
-            (\row dict ->
-                Dict.update (sha1 row.rawLine)
-                    (\val ->
-                        case val of
-                            Just i ->
-                                Just (i + 1)
-
-                            Nothing ->
-                                Just 1
-                    )
-                    dict
-            )
-            Dict.empty
-        |> Dict.filter (\_ v -> v > 1)
 
 
 getCategoryForParsedRow : (String -> Maybe Category) -> List Category -> ParsedRow -> Maybe Category

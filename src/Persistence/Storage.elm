@@ -52,13 +52,13 @@ updateEntries newEntries data =
     { data | rawEntries = Dict.union newEntries data.rawEntries }
 
 
-addEntries : Bool -> List RawEntry -> Data -> Data
-addEntries generateIds entries data =
+addEntries : List RawEntry -> Data -> Data
+addEntries entries data =
     let
         ( newAutoIncrement, newEntries ) =
             entries
                 |> List.foldl
-                    (addEntryHelper generateIds)
+                    addEntryHelper
                     ( data.autoIncrement, [] )
     in
     { data
@@ -72,17 +72,13 @@ removeEntries ids data =
     { data | rawEntries = Dict.Extra.removeMany (Set.fromList ids) data.rawEntries }
 
 
-addEntryHelper : Bool -> RawEntry -> ( Int, List ( String, RawEntry ) ) -> ( Int, List ( String, RawEntry ) )
-addEntryHelper generateIds entry ( i, acc ) =
+addEntryHelper : RawEntry -> ( Int, List ( String, RawEntry ) ) -> ( Int, List ( String, RawEntry ) )
+addEntryHelper entry ( i, acc ) =
     let
-        ( j, id ) =
-            if generateIds then
-                ( i + 1, i |> String.fromInt |> sha1 )
-
-            else
-                ( i, entry.line |> sha1 )
+        id =
+            i |> String.fromInt |> sha1
     in
-    ( j, [ ( id, { entry | id = id } ) ] ++ acc )
+    ( i + 1, [ ( id, { entry | id = id } ) ] ++ acc )
 
 
 addCategories : List Category -> Data -> Data
