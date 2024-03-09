@@ -754,8 +754,7 @@ annotate data parsedFile rows =
         annotatedRows =
             annotateRows
                 filteredRows
-                (getCategoryByShort (Dict.values data.categories))
-                (applyAllCategorizationRules data)
+                (categorize (getCategoryByShort (Dict.values data.categories)) (applyAllCategorizationRules data))
 
         newCategories =
             annotatedRows
@@ -778,23 +777,19 @@ annotate data parsedFile rows =
     AnnotatedRows csvSize nExcluded newCategories annotatedRows
 
 
-annotateRows : List ParsedRow -> (String -> Maybe Category) -> (String -> Maybe Category) -> List AnnotatedRow
-annotateRows parsedRows categoryLookup categorizationByRules =
-    parsedRows
-        |> List.foldr
-            (\row rows ->
-                let
-                    cat =
-                        case row.category of
-                            Just cat_str ->
-                                Just (parseCategory categoryLookup cat_str)
+annotateRows : List ParsedRow -> (ParsedRow -> Maybe Categorization) -> List AnnotatedRow
+annotateRows parsedRows categorizeRow =
+    parsedRows |> List.map (\row -> AnnotatedRow row (categorizeRow row))
 
-                            Nothing ->
-                                categorizationByRules row.description |> matchedCategorization
-                in
-                AnnotatedRow row cat :: rows
-            )
-            []
+
+categorize : (String -> Maybe Category) -> (String -> Maybe Category) -> ParsedRow -> Maybe Categorization
+categorize categoryLookup categorizationByRules row =
+    case row.category of
+        Just cat_str ->
+            Just (parseCategory categoryLookup cat_str)
+
+        Nothing ->
+            categorizationByRules row.description |> matchedCategorization
 
 
 type Categorization
