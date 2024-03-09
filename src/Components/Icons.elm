@@ -1,4 +1,4 @@
-module Components.Icons exposing (checkMark, copy, folderPlus, infoMark, loader, plusSquare, triangleDown, triangleUp, warnTriangle)
+module Components.Icons exposing (checkMark, copy, edit, folderPlus, infoMark, loader, plusSquare, triangleDown, triangleUp, warnTriangle)
 
 import Element exposing (Attribute, Element, el)
 import FeatherIcons exposing (Icon)
@@ -53,6 +53,11 @@ loader =
 plusSquare : List (Attribute msg) -> Int -> Element msg
 plusSquare =
     basicIcon FeatherIcons.plusSquare
+
+
+edit : List (Attribute msg) -> Int -> Element msg
+edit =
+    basicIcon FeatherIcons.edit
 
 
 basicIcon : Icon -> List (Attribute msg) -> Int -> Element msg

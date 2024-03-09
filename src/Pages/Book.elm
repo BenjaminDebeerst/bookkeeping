@@ -1,14 +1,14 @@
 module Pages.Book exposing (Model, Msg, page)
 
 import Components.Filter as Filter
-import Components.Icons exposing (checkMark, triangleDown, triangleUp, warnTriangle)
+import Components.Icons exposing (checkMark, edit, triangleDown, triangleUp, warnTriangle)
 import Components.Table as T
 import Components.Tooltip exposing (tooltip)
 import Config exposing (color, size, style)
 import Dict exposing (Dict)
 import Dict.Extra
 import Effect exposing (Effect)
-import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, shrink, spacing, text, width)
+import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, row, shrink, spacing, text, width)
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelHidden)
@@ -110,7 +110,7 @@ update data msg model =
             ( { model | editCategories = True }, Effect.none )
 
         AbortCategorize ->
-            ( { model | editCategories = False }, Effect.none )
+            ( { model | editCategories = False, categoryEdits = Dict.empty }, Effect.none )
 
         EditCategory id amount cat ->
             ( { model | categoryEdits = Dict.insert id (parseCategorization data amount (String.toUpper cat)) model.categoryEdits }, Effect.none )
@@ -300,15 +300,16 @@ categoryEditAnnotation : Dict String CatAttempt -> BookEntry -> Element Msg
 categoryEditAnnotation categoryEdits entry =
     case Dict.get entry.id categoryEdits of
         Just (Unknown _ error) ->
-            warnTriangle
-                [ padding size.xs
-                , Font.color color.red
-                , tooltip below error
+            row []
+                [ warnTriangle [ padding size.xs, Font.color color.red, tooltip below error ] size.l
+                , edit [ padding size.xs, Font.color color.darkAccent, tooltip below "Edited entry" ] size.l
                 ]
-                size.l
 
         Just (Known _ _) ->
-            checkMark [ padding size.xs, Font.color color.darkAccent ] size.l
+            row []
+                [ checkMark [ padding size.xs, Font.color color.darkAccent ] size.l
+                , edit [ padding size.xs, Font.color color.darkAccent, tooltip below "Edited entry" ] size.l
+                ]
 
         Nothing ->
             case entry.categorization of
