@@ -1,9 +1,12 @@
-module Components.Notification exposing (Notification(..), showNotification)
+module Components.Notification exposing (Notification(..), delay, showNotification)
 
 import Config exposing (color, size)
+import Effect exposing (Effect)
 import Element exposing (Element, padding, row, spacing)
 import Element.Background as Background
 import Element.Border as Border
+import Process
+import Task
 
 
 type Notification msg
@@ -39,3 +42,10 @@ showNotification n =
                 , Border.rounded size.xs
                 ]
                 messages
+
+
+delay : Float -> msg -> Effect msg
+delay seconds msg =
+    Process.sleep (seconds * 1000)
+        |> Task.perform (\_ -> msg)
+        |> Effect.sendCmd

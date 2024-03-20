@@ -2,7 +2,8 @@ module Pages.Book exposing (Model, Msg, page)
 
 import Components.Filter as Filter
 import Components.Icons exposing (checkMark, edit, triangleDown, triangleUp, warnTriangle)
-import Components.Notification as Notification exposing (Notification)
+import Components.Input exposing (button)
+import Components.Notification as Notification exposing (Notification, delay)
 import Components.Table as T
 import Components.Tooltip exposing (tooltip)
 import Config exposing (color, size, style)
@@ -98,6 +99,8 @@ type Msg
     | Delete (List String)
     | DeleteAbort
     | DeleteConfirm (List String)
+    | Restore Data Model
+    | ClearNotification
 
 
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
@@ -115,7 +118,9 @@ update data msg model =
                 updatedCat =
                     { cat | rules = cat.rules ++ [ regex ] }
             in
-            ( { model | notification = Notification.Info [ text "Rule Saved" ] }, editCategory updatedCat data |> Effect.store )
+            ( { model | notification = Notification.Info [ text "Rule Saved" ] }
+            , Effect.batch [ editCategory updatedCat data |> Effect.store, delay 5 ClearNotification ]
+            )
 
         ApplyPattern cat ->
             let
@@ -127,8 +132,17 @@ update data msg model =
                         |> List.filterMap (\e -> Dict.get e.id data.rawEntries)
                         |> List.map (\e -> ( e.id, { e | categorization = toPersistence (Single cat) } ))
                         |> Dict.fromList
+
+                notification =
+                    if Dict.isEmpty modified then
+                        Notification.None
+
+                    else
+                        undo data model (String.concat [ "Applied category '", cat.name, "' to ", String.fromInt <| Dict.size modified, " entries." ])
             in
-            ( model, updateEntries modified data |> Effect.store )
+            ( { model | notification = notification }
+            , Effect.batch [ updateEntries modified data |> Effect.store, delay 5 ClearNotification ]
+            )
 
         OrderBy ordering ->
             ( { model | ordering = ordering }, Effect.none )
@@ -162,9 +176,20 @@ update data msg model =
 
                 alteredCategories =
                     Dict.Extra.filterMap (\k v -> Dict.get k data.rawEntries |> Maybe.map (\e -> { e | categorization = toPersistence v })) entryCategorizations
+
+                notification =
+                    if Dict.isEmpty alteredCategories then
+                        Notification.None
+
+                    else
+                        undo data model (String.concat [ "Applied category edits for ", String.fromInt <| Dict.size alteredCategories, " entries." ])
             in
-            ( { model | editCategories = False, categoryEdits = Dict.empty }
-            , updateEntries alteredCategories data |> Effect.store
+            ( { model
+                | editCategories = False
+                , categoryEdits = Dict.empty
+                , notification = notification
+              }
+            , Effect.batch [ updateEntries alteredCategories data |> Effect.store, delay 5 ClearNotification ]
             )
 
         Delete entryIds ->
@@ -174,7 +199,13 @@ update data msg model =
             ( { model | toBeDeleted = [] }, Effect.none )
 
         DeleteConfirm entryIds ->
-            ( { model | toBeDeleted = [] }, removeEntries entryIds data |> Effect.store )
+            ( { model | toBeDeleted = [], notification = undo data { model | toBeDeleted = [] } (String.concat [ "Deleted ", String.fromInt (List.length entryIds), " entries." ]) }, removeEntries entryIds data |> Effect.store )
+
+        Restore prevData prevModel ->
+            ( prevModel, Effect.store prevData )
+
+        ClearNotification ->
+            ( { model | notification = Notification.None }, Effect.none )
 
 
 view : Data -> Model -> Element Msg
@@ -195,6 +226,14 @@ view data model =
         ]
 
 
+undo : Data -> Model -> String -> Notification Msg
+undo data model message =
+    Notification.Info
+        [ text message
+        , button (Restore data model) "Undo"
+        ]
+
+
 showFilters : Filter.Model Msg -> List Account -> Element Msg
 showFilters model accounts =
     column [ spacing size.s ]
@@ -210,30 +249,21 @@ showFilters model accounts =
 
 showActions : Model -> List String -> Element Msg
 showActions model entryIds =
-    column [ width shrink, spacing size.m ]
-        [ Element.row [ spacing size.s ]
-            ([]
-                ++ [ Input.button style.button { onPress = Just Categorize, label = text "Edit Categories" } ]
-                ++ (if model.editCategories then
-                        [ Input.button style.button { onPress = Just SaveCategories, label = text "Save Category Edits" }
-                        , Input.button style.button { onPress = Just AbortCategorize, label = text "Abort" }
-                        ]
+    row [ spacing size.s, width fill ]
+        (if model.editCategories then
+            [ Input.button style.button { onPress = Just AbortCategorize, label = text "Abort" }
+            , Input.button style.button { onPress = Just SaveCategories, label = text "Save Category Edits" }
+            ]
 
-                    else
-                        []
-                   )
-            )
-        , Element.row [ spacing size.s ]
-            (if List.isEmpty model.toBeDeleted then
-                [ Input.button style.button { onPress = Just (Delete entryIds), label = text "Delete Entries Shown" } ]
+         else if not (List.isEmpty model.toBeDeleted) then
+            [ text <| "You're about to delete " ++ (String.fromInt <| List.length model.toBeDeleted) ++ " book entries. Sure?"
+            , Input.button style.button { onPress = Just DeleteAbort, label = text "No! Get me out of here." }
+            , Input.button style.button { onPress = Just (DeleteConfirm entryIds), label = text "Really delete" }
+            ]
 
-             else
-                [ text <| "You're about to delete " ++ (String.fromInt <| List.length model.toBeDeleted) ++ " book entries. Sure?"
-                , Input.button style.button { onPress = Just DeleteAbort, label = text "No! Get me out of here." }
-                , Input.button style.button { onPress = Just (DeleteConfirm entryIds), label = text "Really delete" }
-                ]
-            )
-        ]
+         else
+            [ Input.button style.button { onPress = Just (Delete entryIds), label = text "Delete Entries Shown" }, Input.button style.button { onPress = Just Categorize, label = text "Edit Categories" } ]
+        )
 
 
 showData : Model -> List BookEntry -> Element Msg
