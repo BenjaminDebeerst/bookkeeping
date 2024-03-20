@@ -1,4 +1,4 @@
-module Components.Icons exposing (checkMark, copy, edit, folderPlus, infoMark, loader, plusSquare, triangleDown, triangleUp, wand, warnTriangle)
+module Components.Icons exposing (checkMark, copy, cross, edit, folderPlus, infoMark, loader, plusSquare, triangleDown, triangleUp, wand, warnTriangle)
 
 import Element exposing (Attribute, Element, el)
 import FeatherIcons exposing (Icon, withStrokeWidth, withViewBox)
@@ -76,6 +76,11 @@ wandSvg =
     , Svg.path [ fill "currentColor", d "M5 0h1v3h-1v-3z" ] []
     , Svg.path [ fill "currentColor", d "M6 11h-1v-2.5l1 1z" ] []
     ]
+
+
+cross : List (Attribute msg) -> Int -> Element msg
+cross =
+    basicIcon FeatherIcons.xCircle
 
 
 basicIcon : Icon -> List (Attribute msg) -> Int -> Element msg

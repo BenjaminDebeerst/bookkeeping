@@ -1,13 +1,17 @@
 module Pages.Categories exposing (Model, Msg, page)
 
+import Components.Icons exposing (cross)
 import Components.Table as T
+import Components.Tooltip exposing (tooltip)
 import Config exposing (color, size, style)
 import Dict
 import Effect exposing (Effect)
-import Element exposing (Element, column, el, indexedTable, padding, paddingXY, row, spacing, text)
+import Element exposing (Element, alignRight, below, column, el, fill, indexedTable, padding, paddingXY, px, row, spacing, text, width)
+import Element.Events exposing (onClick)
 import Element.Font as Font
-import Element.Input as Input exposing (button, labelLeft, placeholder)
+import Element.Input as Input exposing (button, labelHidden, labelLeft, placeholder)
 import Layouts
+import List.Extra
 import Page exposing (Page)
 import Parser
 import Persistence.Category exposing (Category, CategoryGroup(..), category)
@@ -71,7 +75,8 @@ type Msg
     | EditShort String
     | EditGroup CategoryGroup
     | EditPattern Int String
-    | AddPatternSlot
+    | DeletePattern Int
+    | AddPattern String
     | Save
     | Abort
     | Delete Category
@@ -117,8 +122,11 @@ update data msg model =
                 Just _ ->
                     ( { model | error = Nothing, rules = patterns }, Effect.none )
 
-        AddPatternSlot ->
-            ( { model | rules = model.rules ++ [ "" ] }, Effect.none )
+        DeletePattern i ->
+            ( { model | rules = List.Extra.removeAt i model.rules }, Effect.none )
+
+        AddPattern p ->
+            ( { model | rules = model.rules ++ [ p ] }, Effect.none )
 
         EditExisting cat ->
             ( { model | error = Nothing, editing = Existing cat, short = cat.short, name = cat.name, group = Just cat.group, rules = cat.rules }, Effect.none )
@@ -255,54 +263,67 @@ editArea data model =
             button style.button { onPress = Just Add, label = text "Add" }
 
         Deleting cat ->
-            column [ spacing size.m ]
+            column [ spacing size.m, width fill ]
                 [ text <| "You are about to delete the category '" ++ cat.name ++ "'. Continue?"
-                , button style.button { onPress = Just (DeleteConfirm cat), label = text "Really Delete" }
-                , button style.button { onPress = Just Abort, label = text "Abort" }
+                , row [ width fill ]
+                    [ button style.button { onPress = Just Abort, label = text "Abort" }
+                    , button (style.button ++ [ alignRight ]) { onPress = Just (DeleteConfirm cat), label = text "Really Delete" }
+                    ]
                 ]
 
         _ ->
             column [ spacing size.m ]
                 ([]
-                    ++ [ Input.text []
+                    ++ [ Input.text [ spacing size.m ]
                             { onChange = EditName
                             , text = model.name
                             , placeholder = Just <| placeholder [] <| text "Category Name"
-                            , label = labelLeft [ paddingXY size.m 0 ] <| text "Category name"
+                            , label = labelLeft [] <| text "Category name"
                             }
-                       , Input.text []
+                       , Input.text [ spacing size.m ]
                             { onChange = EditShort
                             , text = model.short
                             , placeholder = Just <| placeholder [] <| text "Short input name"
-                            , label = labelLeft [ paddingXY size.m 0 ] <| text "Short name (uppercase alphanum)"
+                            , label = labelLeft [] <| text "Short name (uppercase alphanum)"
                             }
+                       , text "Matching Patterns:"
                        ]
                     ++ List.indexedMap
                         (\index rule ->
-                            Input.text []
-                                { onChange = \value -> EditPattern index value
-                                , text = rule
-                                , placeholder = Just <| placeholder [] <| text "Regex Pattern"
-                                , label = labelLeft [ paddingXY size.m 0 ] <| text "Pattern"
-                                }
+                            row [ width fill, spacing size.s ]
+                                [ Input.text []
+                                    { onChange = \value -> EditPattern index value
+                                    , text = rule
+                                    , placeholder = Just <| placeholder [] <| text "Add Regex Pattern"
+                                    , label = labelHidden "Pattern"
+                                    }
+                                , cross [ tooltip below "Delete", onClick (DeletePattern index) ] size.l
+                                ]
                         )
                         model.rules
-                    ++ [ row []
-                            [ button style.button { onPress = Just AddPatternSlot, label = text "Add Pattern" }
-                            , text " (leave patterns empty to delete)"
+                    ++ [ row [ width fill, spacing size.s ]
+                            [ Input.text []
+                                { onChange = \value -> AddPattern value
+                                , text = ""
+                                , placeholder = Just <| placeholder [] <| text "Add Regex Pattern"
+                                , label = labelHidden "Pattern"
+                                }
+                            , el [ width <| px size.l ] Element.none
                             ]
                        , Input.radioRow [ padding size.m, spacing size.m ]
                             { onChange = EditGroup
                             , selected = model.group
-                            , label = labelLeft [ paddingXY size.m 0 ] (text "Category group")
+                            , label = labelLeft [] (text "Category group")
                             , options =
                                 [ Input.option Income (text "Income")
                                 , Input.option Expense (text "Expense")
                                 , Input.option Internal (text "Internal")
                                 ]
                             }
-                       , button style.button { onPress = Just Save, label = text "Save" }
-                       , button style.button { onPress = Just Abort, label = text "Abort" }
+                       , row [ width fill ]
+                            [ button style.button { onPress = Just Abort, label = text "Abort" }
+                            , button (style.button ++ [ alignRight ]) { onPress = Just Save, label = text "Save" }
+                            ]
                        ]
                 )
 
