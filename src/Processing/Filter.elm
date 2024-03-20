@@ -3,6 +3,7 @@ module Processing.Filter exposing (..)
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
 import Processing.BookEntry exposing (BookEntry)
+import Regex
 import Time.Date as Date
 
 
@@ -37,6 +38,16 @@ filterDescription s e =
 
     else
         String.contains (String.toLower s) (String.toLower e.description)
+
+
+filterDescriptionRegex : String -> BookEntry -> Bool
+filterDescriptionRegex pattern e =
+    case Regex.fromString pattern of
+        Nothing ->
+            False
+
+        Just regex ->
+            Regex.contains regex e.description
 
 
 filterCategory : Category -> BookEntry -> Bool

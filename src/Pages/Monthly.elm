@@ -56,14 +56,18 @@ type Tab
 
 
 type alias Model =
-    { filters : Filter.Model
+    { filters : Filter.Model Msg
     , tab : Tab
     }
 
 
 init : List Account -> () -> ( Model, Effect Msg )
 init accounts _ =
-    ( { filters = Filter.init accounts, tab = Overview }, Effect.none )
+    ( { filters = Filter.init accounts [] { lift = Filter, save = \_ _ -> Noop, apply = \_ -> Noop }
+      , tab = Overview
+      }
+    , Effect.none
+    )
 
 
 
@@ -73,16 +77,24 @@ init accounts _ =
 type Msg
     = Filter Filter.Msg
     | TabSelection Tab
+    | Noop
 
 
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
 update data msg model =
     case msg of
         Filter filterMsg ->
-            ( { model | filters = Filter.update filterMsg model.filters }, Effect.none )
+            let
+                ( filters, effect ) =
+                    Filter.update filterMsg model.filters
+            in
+            ( { model | filters = filters }, effect )
 
         TabSelection tab ->
             ( { model | tab = tab }, Effect.none )
+
+        Noop ->
+            ( model, Effect.none )
 
 
 
@@ -170,7 +182,7 @@ showAggregations data model aggregators =
             startingBalances model.filters.accounts
 
         entryFilters =
-            Filter.toFilter (Dict.values data.categories) model.filters
+            Filter.toFilter model.filters
 
         aggregatedData =
             getEntries data entryFilters dateAsc
