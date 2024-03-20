@@ -94,8 +94,8 @@ update data msg model =
         EditShort short ->
             ( { model | short = String.toUpper short }, Effect.none )
 
-        EditGroup group ->
-            ( { model | group = Just group }, Effect.none )
+        EditGroup g ->
+            ( { model | group = Just g }, Effect.none )
 
         EditPattern idx pattern ->
             let
@@ -325,6 +325,25 @@ showData data _ =
                     )
                 , T.textColumn "Name" .name
                 , T.textColumn "Short" .short
-                , T.textColumn "Group" (.group >> Debug.toString)
+                , T.textColumn "Group" group
+                , T.styledColumn "Patterns" showPatterns
                 ]
             }
+
+
+group : Category -> String
+group category =
+    case category.group of
+        Income ->
+            "Income"
+
+        Expense ->
+            "Expense"
+
+        Internal ->
+            "Internal"
+
+
+showPatterns : Category -> Element Msg
+showPatterns category =
+    column [ spacing size.s ] (category.rules |> List.map text)
