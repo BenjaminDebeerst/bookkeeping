@@ -2,6 +2,7 @@ module Pages.Book exposing (Model, Msg, page)
 
 import Components.Filter as Filter
 import Components.Icons exposing (checkMark, edit, triangleDown, triangleUp, warnTriangle)
+import Components.Notification as Notification exposing (Notification)
 import Components.Table as T
 import Components.Tooltip exposing (tooltip)
 import Config exposing (color, size, style)
@@ -19,7 +20,7 @@ import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
 import Persistence.Data exposing (Data)
 import Persistence.RawEntry exposing (RawEntry)
-import Persistence.Storage exposing (removeEntries, updateEntries)
+import Persistence.Storage exposing (editCategory, removeEntries, updateEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
 import Processing.CategoryParser as Parser exposing (categorizationParser)
 import Processing.Model exposing (getCategoryByShort, getEntriesAndErrors)
@@ -37,17 +38,15 @@ page : Shared.Model -> Route () -> Page Model Msg
 page shared _ =
     Page.new
         { init =
-            init
-                (case shared of
-                    Shared.Model.None ->
-                        []
+            case shared of
+                Shared.Model.None ->
+                    init [] []
 
-                    Shared.Model.Loaded data ->
-                        Dict.values data.accounts
+                Shared.Model.Problem _ ->
+                    init [] []
 
-                    Shared.Model.Problem _ ->
-                        []
-                )
+                Shared.Model.Loaded data ->
+                    init (Dict.values data.accounts) (Dict.values data.categories)
         , update = dataUpdate shared update
         , view = dataView shared "Book" view
         , subscriptions = \_ -> Sub.none
@@ -56,10 +55,11 @@ page shared _ =
 
 
 type alias Model =
-    { ordering : Ordering BookEntry
+    { notification : Notification Msg
+    , ordering : Ordering BookEntry
     , editCategories : Bool
     , categoryEdits : Dict String CatAttempt
-    , filters : Filter.Model
+    , filters : Filter.Model Msg
     , toBeDeleted : List String
     }
 
@@ -69,12 +69,13 @@ type CatAttempt
     | Known String Categorization
 
 
-init : List Account -> () -> ( Model, Effect Msg )
-init accounts _ =
-    ( { ordering = dateAsc
+init : List Account -> List Category -> () -> ( Model, Effect Msg )
+init accounts categories _ =
+    ( { notification = Notification.None
+      , ordering = dateAsc
       , editCategories = False
       , categoryEdits = Dict.empty
-      , filters = Filter.init accounts
+      , filters = Filter.init accounts categories { lift = Filter, save = SavePattern, apply = ApplyPattern }
       , toBeDeleted = []
       }
     , Effect.none
@@ -87,6 +88,8 @@ init accounts _ =
 
 type Msg
     = Filter Filter.Msg
+    | ApplyPattern Category
+    | SavePattern String Category
     | OrderBy (Ordering BookEntry)
     | Categorize
     | EditCategory String Int String
@@ -101,7 +104,31 @@ update : Data -> Msg -> Model -> ( Model, Effect Msg )
 update data msg model =
     case msg of
         Filter filterMsg ->
-            ( { model | filters = Filter.update filterMsg model.filters }, Effect.none )
+            let
+                ( filters, effect ) =
+                    Filter.update filterMsg model.filters
+            in
+            ( { model | filters = filters }, effect )
+
+        SavePattern regex cat ->
+            let
+                updatedCat =
+                    { cat | rules = cat.rules ++ [ regex ] }
+            in
+            ( { model | notification = Notification.Info [ text "Rule Saved" ] }, editCategory updatedCat data |> Effect.store )
+
+        ApplyPattern cat ->
+            let
+                ( entries, _ ) =
+                    getEntriesAndErrors data (Filter.toFilter model.filters) model.ordering
+
+                modified =
+                    entries
+                        |> List.filterMap (\e -> Dict.get e.id data.rawEntries)
+                        |> List.map (\e -> ( e.id, { e | categorization = toPersistence (Single cat) } ))
+                        |> Dict.fromList
+            in
+            ( model, updateEntries modified data |> Effect.store )
 
         OrderBy ordering ->
             ( { model | ordering = ordering }, Effect.none )
@@ -154,20 +181,21 @@ view : Data -> Model -> Element Msg
 view data model =
     let
         filters =
-            Filter.toFilter (Dict.values data.categories) model.filters
+            Filter.toFilter model.filters
 
         ( entries, errors ) =
             getEntriesAndErrors data filters model.ordering
     in
     column [ spacing size.m ]
-        [ showFilters model.filters <| Dict.values data.accounts
+        [ Notification.showNotification model.notification
+        , showFilters model.filters <| Dict.values data.accounts
         , showActions model (entries |> List.map .id)
         , showData model entries
         , showErrors errors
         ]
 
 
-showFilters : Filter.Model -> List Account -> Element Msg
+showFilters : Filter.Model Msg -> List Account -> Element Msg
 showFilters model accounts =
     column [ spacing size.s ]
         [ el style.h2 <| text "Filters"
