@@ -1,4 +1,4 @@
-module Processing.Aggregator exposing (Aggregator, all, fromAccount, fromCategory, fromCategoryGroup)
+module Processing.Aggregator exposing (Aggregator, all, fromAccount, fromCategory, fromCategoryGroup, uncategorized)
 
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category, CategoryGroup(..))
@@ -75,6 +75,21 @@ fromCategory category =
                         |> List.filter (\e -> e.category.id == category.id)
                         |> List.map .amount
                         |> List.sum
+    , runningSum = False
+    }
+
+
+uncategorized : Aggregator
+uncategorized =
+    { title = "Uncategorized"
+    , amount =
+        \bookEntry ->
+            case bookEntry.categorization of
+                None ->
+                    bookEntry.amount
+
+                _ ->
+                    0
     , runningSum = False
     }
 

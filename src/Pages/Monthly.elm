@@ -141,6 +141,7 @@ overview data model =
         , Aggregator.fromCategoryGroup Income
         , Aggregator.fromCategoryGroup Expense
         , Aggregator.fromCategoryGroup Internal
+        , Aggregator.uncategorized
         ]
 
 
