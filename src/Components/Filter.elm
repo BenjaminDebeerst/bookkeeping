@@ -2,6 +2,7 @@ module Components.Filter exposing (..)
 
 import Components.Icons exposing (wand)
 import Components.Input exposing (button, disabledButton)
+import Components.RangeSlider as RangeSlider
 import Components.Tooltip exposing (tooltip)
 import Config exposing (color, size)
 import Dropdown
@@ -12,18 +13,20 @@ import Element.Border as Border
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelLeft, labelRight, placeholder)
+import List.Extra
 import Maybe.Extra
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
 import Processing.BookEntry exposing (Categorization(..))
-import Processing.Filter as Processing exposing (any, filterAccount, filterCategory, filterDescription, filterDescriptionRegex, filterMonth, filterYear)
+import Processing.Filter as Processing exposing (any, filterAccount, filterCategory, filterDateRange, filterDescription, filterDescriptionRegex)
 import Processing.Model exposing (getCategoryByShort)
 import Regex
+import Time.Date as Date exposing (Date)
+import Util.Date exposing (compareMonths)
 
 
 type alias Model msg =
-    { year : String
-    , month : String
+    { dateRange : RangeSlider.Model Date
     , descr : String
     , descrIsRegex : Bool
     , creatingPattern : Maybe ( Maybe Category, Dropdown.State Category )
@@ -35,10 +38,18 @@ type alias Model msg =
     }
 
 
-init : List Account -> List Category -> (Msg -> msg) -> Model msg
-init accounts categories lift =
-    { year = ""
-    , month = ""
+init : List Account -> List Category -> List Date -> (Msg -> msg) -> Model msg
+init accounts categories dates lift =
+    let
+        -- some 'random' default date if there are neither accounts nor any dates provided
+        -- hardly ever relevant, but necessary to have a non-empty list
+        defaultDate =
+            Date.date 2024 1 1
+
+        ( head, tail ) =
+            dateRange dates accounts |> List.Extra.uncons |> Maybe.withDefault ( defaultDate, [] )
+    in
+    { dateRange = RangeSlider.init head tail
     , descr = ""
     , descrIsRegex = False
     , creatingPattern = Nothing
@@ -50,9 +61,33 @@ init accounts categories lift =
     }
 
 
+dateRange : List Date -> List Account -> List Date
+dateRange dates accounts =
+    let
+        allDates =
+            dates
+                ++ List.map (.start >> (\s -> Date.date s.year s.month 1)) accounts
+
+        min =
+            allDates |> List.Extra.minimumWith Date.compare |> Maybe.map (Date.setDay 1)
+
+        max =
+            allDates |> List.Extra.maximumWith Date.compare |> Maybe.map (Date.setDay 1)
+
+        range : Date -> Date -> List Date
+        range start end =
+            if start == end then
+                [ start ]
+
+            else
+                range start (Date.addMonths -1 end) ++ [ end ]
+    in
+    Maybe.map2 range min max
+        |> Maybe.withDefault []
+
+
 type Msg
-    = Year String
-    | Month String
+    = DateRange (RangeSlider.Msg Date)
     | Descr String
     | DescrRegex Bool
     | PatternCreateStart
@@ -69,11 +104,8 @@ type Msg
 update : Msg -> Model msg -> ( Model msg, Effect msg )
 update msg model =
     case msg of
-        Year year ->
-            ( { model | year = year }, Effect.none )
-
-        Month month ->
-            ( { model | month = month }, Effect.none )
+        DateRange subMsg ->
+            ( { model | dateRange = RangeSlider.update subMsg model.dateRange }, Effect.none )
 
         Descr descr ->
             ( { model | descr = descr }, Effect.none )
@@ -126,8 +158,7 @@ update msg model =
 toFilter : Model msg -> List Processing.Filter
 toFilter model =
     []
-        ++ (model.year |> String.toInt |> Maybe.map filterYear |> Maybe.Extra.toList)
-        ++ (model.month |> String.toInt |> Maybe.map filterMonth |> Maybe.Extra.toList)
+        ++ [ filterDateRange compareMonths (RangeSlider.min model.dateRange) (RangeSlider.max model.dateRange) ]
         ++ [ if model.descrIsRegex then
                 filterDescriptionRegex model.descr
 
@@ -139,24 +170,14 @@ toFilter model =
         ++ [ \bookEntry -> not model.onlyUncategorized || bookEntry.categorization == None ]
 
 
-yearFilter : Model msg -> Element msg
-yearFilter model =
-    Input.text [ spacing size.m ]
-        { onChange = model.lift << Year
-        , text = model.year
-        , placeholder = Just <| placeholder [] <| text "Year"
-        , label = labelLeft [ padding 0 ] <| text "Year"
-        }
+dateRangeFilter : Model msg -> Element msg
+dateRangeFilter model =
+    RangeSlider.view "Date range" formatDateMonth model.dateRange |> Element.map (DateRange >> model.lift)
 
 
-monthFilter : Model msg -> Element msg
-monthFilter model =
-    Input.text [ spacing size.m ]
-        { onChange = model.lift << Month
-        , text = model.month
-        , placeholder = Just <| placeholder [] <| text "Month"
-        , label = labelLeft [ padding 0 ] <| text "Month"
-        }
+formatDateMonth : Date -> String
+formatDateMonth date =
+    String.join "-" [ String.fromInt <| Date.year date, String.padLeft 2 '0' <| String.fromInt <| Date.month date ]
 
 
 descriptionFilter : (Category -> msg) -> (String -> Category -> msg) -> Model msg -> Element msg

@@ -63,7 +63,7 @@ type alias Model =
 
 init : List Account -> () -> ( Model, Effect Msg )
 init accounts _ =
-    ( { filters = Filter.init accounts [] Filter
+    ( { filters = Filter.init accounts [] [] Filter
       , tab = Overview
       }
     , Effect.none

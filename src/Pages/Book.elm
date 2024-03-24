@@ -41,13 +41,13 @@ page shared _ =
         { init =
             case shared of
                 Shared.Model.None ->
-                    init [] []
+                    init [] [] []
 
                 Shared.Model.Problem _ ->
-                    init [] []
+                    init [] [] []
 
                 Shared.Model.Loaded data ->
-                    init (Dict.values data.accounts) (Dict.values data.categories)
+                    init (Dict.values data.accounts) (Dict.values data.categories) (Dict.values data.rawEntries)
         , update = dataUpdate shared update
         , view = dataView shared "Book" view
         , subscriptions = \_ -> Sub.none
@@ -70,13 +70,13 @@ type CatAttempt
     | Known String Categorization
 
 
-init : List Account -> List Category -> () -> ( Model, Effect Msg )
-init accounts categories _ =
+init : List Account -> List Category -> List RawEntry -> () -> ( Model, Effect Msg )
+init accounts categories entries _ =
     ( { notification = Notification.None
       , ordering = dateAsc
       , editCategories = False
       , categoryEdits = Dict.empty
-      , filters = Filter.init accounts categories Filter
+      , filters = Filter.init accounts categories (List.map .date entries) Filter
       , toBeDeleted = []
       }
     , Effect.none
@@ -238,8 +238,7 @@ showFilters : Filter.Model Msg -> List Account -> Element Msg
 showFilters model accounts =
     column [ spacing size.s ]
         [ el style.h2 <| text "Filters"
-        , Filter.yearFilter model
-        , Filter.monthFilter model
+        , Filter.dateRangeFilter model
         , Filter.descriptionFilter ApplyPattern SavePattern model
         , Filter.categoryFilter model
         , Filter.accountFilter accounts model
