@@ -11,7 +11,7 @@ tabbedContent :
     , selectedTab : t
     , tabTitles : t -> String
     , tabMsg : t -> msg
-    , content : List (Element msg)
+    , content : Element msg
     }
     -> Element msg
 tabbedContent props =
@@ -22,7 +22,7 @@ tabbedContent props =
             (List.map (singleTab props.selectedTab props.tabTitles props.tabMsg) props.allTabs
                 ++ [ el fillTabStyle Element.none ]
             )
-        , column contentBoxStyle props.content
+        , el contentBoxStyle props.content
         ]
 
 

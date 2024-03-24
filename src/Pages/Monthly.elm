@@ -3,9 +3,10 @@ module Pages.Monthly exposing (Model, Msg, page)
 import Components.Filter as Filter
 import Components.Table as T
 import Components.Tabs as Tabs
+import Config exposing (size)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
-import Element exposing (Element, IndexedColumn, indexedTable)
+import Element exposing (Element, IndexedColumn, column, indexedTable, spacing)
 import Layouts
 import Page exposing (Page)
 import Persistence.Account exposing (Account, Accounts)
@@ -13,7 +14,6 @@ import Persistence.Category as Category exposing (Category, CategoryGroup(..))
 import Persistence.Data exposing (Data)
 import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate, startDate, startingBalances)
 import Processing.Aggregator as Aggregator exposing (Aggregator)
-import Processing.Filter exposing (Filter)
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (dateAsc)
 import Route exposing (Route)
@@ -103,35 +103,38 @@ update data msg model =
 
 view : Data -> Model -> Element Msg
 view data model =
-    Tabs.tabbedContent
-        { allTabs = [ Overview, ByCategory, ByAccount ]
-        , selectedTab = model.tab
-        , tabTitles =
-            \tab ->
-                case tab of
+    column [ spacing size.m ]
+        [ Dict.values data.accounts |> showFilters model
+        , Tabs.tabbedContent
+            { allTabs = [ Overview, ByCategory, ByAccount ]
+            , selectedTab = model.tab
+            , tabTitles =
+                \tab ->
+                    case tab of
+                        ByCategory ->
+                            "By Category"
+
+                        ByAccount ->
+                            "By Account"
+
+                        Overview ->
+                            "Overview"
+            , tabMsg = TabSelection
+            , content =
+                case model.tab of
                     ByCategory ->
-                        "By Category"
+                        byCategory data model
 
                     ByAccount ->
-                        "By Account"
+                        byAccount data model
 
                     Overview ->
-                        "Overview"
-        , tabMsg = TabSelection
-        , content =
-            case model.tab of
-                ByCategory ->
-                    byCategory data model
-
-                ByAccount ->
-                    byAccount data model
-
-                Overview ->
-                    overview data model
-        }
+                        overview data model
+            }
+        ]
 
 
-overview : Data -> Model -> List (Element Msg)
+overview : Data -> Model -> Element Msg
 overview data model =
     showAggregations
         data
@@ -145,7 +148,7 @@ overview data model =
         ]
 
 
-byCategory : Data -> Model -> List (Element Msg)
+byCategory : Data -> Model -> Element Msg
 byCategory data model =
     showAggregations
         data
@@ -157,7 +160,7 @@ byCategory data model =
         )
 
 
-byAccount : Data -> Model -> List (Element Msg)
+byAccount : Data -> Model -> Element Msg
 byAccount data model =
     showAggregations
         data
@@ -173,7 +176,7 @@ byAccount data model =
 -- AGGREGATION TABLE
 
 
-showAggregations : Data -> Model -> List Aggregator -> List (Element Msg)
+showAggregations : Data -> Model -> List Aggregator -> Element Msg
 showAggregations data model aggregators =
     let
         start =
@@ -189,9 +192,7 @@ showAggregations data model aggregators =
             getEntries data entryFilters dateAsc
                 |> aggregate start startSums aggregators
     in
-    [ Dict.values data.accounts |> showFilters model
-    , showAggResults aggregatedData
-    ]
+    showAggResults aggregatedData
 
 
 showFilters : Model -> List Account -> Element Msg
