@@ -27,8 +27,7 @@
             "elm-explorations/test": "2.1.1",
             "feathericons/elm-feather": "1.5.0",
             "isaacseymour/deprecated-time": "1.0.0",
-            "mdgriffith/elm-ui": "1.1.8",
-            "ryannhg/elm-spa": "6.0.0"
+            "mdgriffith/elm-ui": "1.1.8"
         },
         "indirect": {
             "bburdette/toop": "1.2.0",
