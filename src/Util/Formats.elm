@@ -56,7 +56,7 @@ formatEuro cents =
 
 formatDate : Date -> String
 formatDate date =
-    String.join "-" <| List.map String.fromInt <| [ Date.year date, Date.month date, Date.day date ]
+    String.join "-" <| List.map (String.fromInt >> String.padLeft 2 '0') <| [ Date.year date, Date.month date, Date.day date ]
 
 
 formatYearMonth : Date -> String
