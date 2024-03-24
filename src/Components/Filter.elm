@@ -31,19 +31,12 @@ type alias Model msg =
     , accounts : List Account
     , categories : List Category
     , onlyUncategorized : Bool
-    , messages : FilterMessages msg
+    , lift : Msg -> msg
     }
 
 
-type alias FilterMessages msg =
-    { lift : Msg -> msg
-    , apply : Category -> msg
-    , save : String -> Category -> msg
-    }
-
-
-init : List Account -> List Category -> FilterMessages msg -> Model msg
-init accounts categories msgs =
+init : List Account -> List Category -> (Msg -> msg) -> Model msg
+init accounts categories lift =
     { year = ""
     , month = ""
     , descr = ""
@@ -53,7 +46,7 @@ init accounts categories msgs =
     , accounts = accounts
     , categories = categories
     , onlyUncategorized = False
-    , messages = msgs
+    , lift = lift
     }
 
 
@@ -65,8 +58,6 @@ type Msg
     | PatternCreateStart
     | PatternCategorySelected (Maybe Category)
     | PatternCategoryDropdown (Dropdown.Msg Category)
-    | PatternApply
-    | PatternSave
     | PatternAbort
     | Category String
     | OnlyUncategorized Bool
@@ -101,7 +92,7 @@ update msg model =
                 Just ( selectedCat, dropdownState ) ->
                     let
                         ( state, cmd ) =
-                            Dropdown.update (dropdownConfig model.messages.lift model.categories) dropDownMsg model dropdownState
+                            Dropdown.update (dropdownConfig model.lift model.categories) dropDownMsg model dropdownState
                     in
                     ( { model | creatingPattern = Just ( selectedCat, state ) }, Effect.sendCmd cmd )
 
@@ -112,22 +103,6 @@ update msg model =
 
                 Just ( _, state ) ->
                     ( { model | creatingPattern = Just ( cat, state ) }, Effect.none )
-
-        PatternApply ->
-            case model.creatingPattern of
-                Just ( Just category, _ ) ->
-                    ( model, Effect.sendMsg <| model.messages.apply category )
-
-                _ ->
-                    ( model, Effect.none )
-
-        PatternSave ->
-            case model.creatingPattern of
-                Just ( Just category, _ ) ->
-                    ( { model | creatingPattern = Nothing }, Effect.sendMsg <| model.messages.save model.descr category )
-
-                _ ->
-                    ( model, Effect.none )
 
         PatternAbort ->
             ( { model | creatingPattern = Nothing }, Effect.none )
@@ -164,28 +139,28 @@ toFilter model =
         ++ [ \bookEntry -> not model.onlyUncategorized || bookEntry.categorization == None ]
 
 
-yearFilter : Model msg -> (Msg -> msg) -> Element msg
-yearFilter model msg =
+yearFilter : Model msg -> Element msg
+yearFilter model =
     Input.text [ spacing size.m ]
-        { onChange = msg << Year
+        { onChange = model.lift << Year
         , text = model.year
         , placeholder = Just <| placeholder [] <| text "Year"
         , label = labelLeft [ padding 0 ] <| text "Year"
         }
 
 
-monthFilter : Model msg -> (Msg -> msg) -> Element msg
-monthFilter model msg =
+monthFilter : Model msg -> Element msg
+monthFilter model =
     Input.text [ spacing size.m ]
-        { onChange = msg << Month
+        { onChange = model.lift << Month
         , text = model.month
         , placeholder = Just <| placeholder [] <| text "Month"
         , label = labelLeft [ padding 0 ] <| text "Month"
         }
 
 
-descriptionFilter : Model msg -> (Msg -> msg) -> Element msg
-descriptionFilter model msg =
+descriptionFilter : (Category -> msg) -> (String -> Category -> msg) -> Model msg -> Element msg
+descriptionFilter apply save model =
     column [ width fill, spacing size.s ]
         ([ let
             inputBorder =
@@ -197,77 +172,73 @@ descriptionFilter model msg =
            in
            row [ spacing size.m, width fill ]
             [ Input.text ([ spacing size.m ] ++ inputBorder)
-                { onChange = msg << Descr
+                { onChange = model.lift << Descr
                 , text = model.descr
                 , placeholder = Just <| placeholder [] <| text "Description"
                 , label = labelLeft [ padding 0 ] <| text "Description"
                 }
             , Input.checkbox [ width shrink ]
-                { onChange = msg << DescrRegex
+                { onChange = model.lift << DescrRegex
                 , icon = Input.defaultCheckbox
                 , checked = model.descrIsRegex
                 , label = labelRight [] <| text <| "Regex"
                 }
             , if model.descrIsRegex then
-                wand [ tooltip below "Create matching pattern from filter", onClick (msg PatternCreateStart) ] size.l
+                wand [ tooltip below "Create matching pattern from filter", onClick (model.lift PatternCreateStart) ] size.l
 
               else
                 wand [ tooltip below "Use Regex to create matching pattern from filter", Font.color color.grey ] size.l
             ]
          ]
-            ++ (case model.creatingPattern of
-                    Nothing ->
+            ++ (case ( model.creatingPattern, String.isEmpty model.descr, Regex.fromString model.descr ) of
+                    ( Nothing, _, _ ) ->
                         []
 
-                    Just ( selectedCat, dropdown ) ->
-                        let
-                            isValidPattern =
-                                not (String.isEmpty model.descr)
-                                    && Maybe.Extra.isJust selectedCat
-                                    && (Regex.fromString model.descr |> Maybe.Extra.isJust)
-                        in
+                    ( Just ( Just selectedCat, dropdown ), False, Just validRegex ) ->
                         [ row [ spacing size.s, width fill, alignRight ]
                             [ el [ alignRight ] <| text "Categorize as: "
-                            , Dropdown.view (dropdownConfig msg model.categories) model dropdown
-                            , if isValidPattern then
-                                button (msg PatternApply) "Apply"
+                            , Dropdown.view (dropdownConfig model.lift model.categories) model dropdown
+                            , button (apply selectedCat) "Apply"
+                            , button (model.lift PatternAbort) "Abort"
+                            , button (save model.descr selectedCat) "Save Pattern"
+                            ]
+                        ]
 
-                              else
-                                disabledButton "Apply"
-                            , button (msg PatternAbort) "Abort"
-                            , if isValidPattern then
-                                button (msg PatternSave) "Save Pattern"
-
-                              else
-                                disabledButton "Save Pattern"
+                    ( Just ( _, dropdown ), _, _ ) ->
+                        [ row [ spacing size.s, width fill, alignRight ]
+                            [ el [ alignRight ] <| text "Categorize as: "
+                            , Dropdown.view (dropdownConfig model.lift model.categories) model dropdown
+                            , disabledButton "Apply"
+                            , button (model.lift PatternAbort) "Abort"
+                            , disabledButton "Save Pattern"
                             ]
                         ]
                )
         )
 
 
-categoryFilter : Model msg -> (Msg -> msg) -> Element msg
-categoryFilter model msg =
+categoryFilter : Model msg -> Element msg
+categoryFilter model =
     Input.text [ spacing size.m ]
-        { onChange = msg << Category
+        { onChange = model.lift << Category
         , text = model.category
         , placeholder = Just <| placeholder [] <| text "Category"
         , label = labelLeft [ padding 0 ] <| text "Category"
         }
 
 
-accountFilter : List Account -> Model msg -> (Msg -> msg) -> Element msg
-accountFilter accounts model msg =
+accountFilter : List Account -> Model msg -> Element msg
+accountFilter accounts model =
     Element.row [ spacing size.m, paddingEach { top = size.xs, bottom = 0, left = 0, right = 0 } ]
         ([ text "Accounts"
          , Input.checkbox []
             { onChange =
                 \on ->
                     if on then
-                        msg (SetAccounts accounts)
+                        model.lift (SetAccounts accounts)
 
                     else
-                        msg (SetAccounts [])
+                        model.lift (SetAccounts [])
             , icon = Input.defaultCheckbox
             , checked = List.length model.accounts == List.length accounts
             , label = labelRight [] <| text <| "All"
@@ -275,32 +246,32 @@ accountFilter accounts model msg =
          ]
             ++ List.map
                 (\acc ->
-                    accountCheckbox model acc msg
+                    accountCheckbox model acc
                 )
                 accounts
         )
 
 
-accountCheckbox : Model msg -> Account -> (Msg -> msg) -> Element msg
-accountCheckbox model acc msg =
+accountCheckbox : Model msg -> Account -> Element msg
+accountCheckbox model acc =
     Input.checkbox []
         { onChange =
             \add ->
                 if add then
-                    msg <| AddAccount acc
+                    model.lift <| AddAccount acc
 
                 else
-                    msg <| RemoveAccount acc
+                    model.lift <| RemoveAccount acc
         , icon = Input.defaultCheckbox
         , checked = List.member acc model.accounts
         , label = labelRight [] <| text <| acc.name
         }
 
 
-uncategorizedFilter : Model msg -> (Msg -> msg) -> Element msg
-uncategorizedFilter model msg =
+uncategorizedFilter : Model msg -> Element msg
+uncategorizedFilter model =
     Input.checkbox [ spacing size.m, paddingEach { top = size.xs, bottom = 0, left = 0, right = 0 } ]
-        { onChange = msg << OnlyUncategorized
+        { onChange = model.lift << OnlyUncategorized
         , icon = Input.defaultCheckbox
         , checked = model.onlyUncategorized
         , label = labelLeft [] <| text "Show uncategorized only"

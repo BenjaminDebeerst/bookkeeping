@@ -76,7 +76,7 @@ init accounts categories _ =
       , ordering = dateAsc
       , editCategories = False
       , categoryEdits = Dict.empty
-      , filters = Filter.init accounts categories { lift = Filter, save = SavePattern, apply = ApplyPattern }
+      , filters = Filter.init accounts categories Filter
       , toBeDeleted = []
       }
     , Effect.none
@@ -238,12 +238,12 @@ showFilters : Filter.Model Msg -> List Account -> Element Msg
 showFilters model accounts =
     column [ spacing size.s ]
         [ el style.h2 <| text "Filters"
-        , Filter.yearFilter model Filter
-        , Filter.monthFilter model Filter
-        , Filter.descriptionFilter model Filter
-        , Filter.categoryFilter model Filter
-        , Filter.accountFilter accounts model Filter
-        , Filter.uncategorizedFilter model Filter
+        , Filter.yearFilter model
+        , Filter.monthFilter model
+        , Filter.descriptionFilter ApplyPattern SavePattern model
+        , Filter.categoryFilter model
+        , Filter.accountFilter accounts model
+        , Filter.uncategorizedFilter model
         ]
 
 

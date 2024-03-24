@@ -63,7 +63,7 @@ type alias Model =
 
 init : List Account -> () -> ( Model, Effect Msg )
 init accounts _ =
-    ( { filters = Filter.init accounts [] { lift = Filter, save = \_ _ -> Noop, apply = \_ -> Noop }
+    ( { filters = Filter.init accounts [] Filter
       , tab = Overview
       }
     , Effect.none
@@ -77,7 +77,6 @@ init accounts _ =
 type Msg
     = Filter Filter.Msg
     | TabSelection Tab
-    | Noop
 
 
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
@@ -92,9 +91,6 @@ update data msg model =
 
         TabSelection tab ->
             ( { model | tab = tab }, Effect.none )
-
-        Noop ->
-            ( model, Effect.none )
 
 
 
@@ -197,7 +193,7 @@ showAggregations data model aggregators =
 
 showFilters : Model -> List Account -> Element Msg
 showFilters model accounts =
-    Filter.accountFilter accounts model.filters Filter
+    Filter.accountFilter accounts model.filters
 
 
 showAggResults : Aggregate -> Element msg
