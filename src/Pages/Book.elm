@@ -10,7 +10,7 @@ import Config exposing (color, size, style)
 import Dict exposing (Dict)
 import Dict.Extra
 import Effect exposing (Effect)
-import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, row, shrink, spacing, text, width)
+import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, paragraph, row, spacing, text, width)
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelHidden)
@@ -217,7 +217,7 @@ view data model =
         ( entries, errors ) =
             getEntriesAndErrors data filters model.ordering
     in
-    column [ spacing size.m ]
+    column [ spacing size.m, width fill ]
         [ Notification.showNotification model.notification
         , showFilters model.filters <| Dict.values data.accounts
         , showActions model (entries |> List.map .id)
@@ -237,8 +237,7 @@ undo data model message =
 showFilters : Filter.Model Msg -> List Account -> Element Msg
 showFilters model accounts =
     column [ spacing size.s ]
-        [ el style.h2 <| text "Filters"
-        , Filter.dateRangeFilter model
+        [ Filter.dateRangeFilter model
         , Filter.descriptionFilter ApplyPattern SavePattern model
         , Filter.categoryFilter model
         , Filter.accountFilter accounts model
@@ -267,7 +266,7 @@ showActions model entryIds =
 
 showData : Model -> List BookEntry -> Element Msg
 showData model entries =
-    column [ width shrink, spacing size.m ]
+    column [ width fill, spacing size.m ]
         [ summary entries
         , dataTable model entries
         , maybeNoEntries <| List.length entries
@@ -314,7 +313,7 @@ summary entries =
 
 dataTable model entries =
     indexedTable
-        [ spacing size.tiny ]
+        [ spacing size.tiny, width fill ]
         { data = List.take bookDisplayCap entries
         , columns =
             [ T.fullStyledColumn
@@ -328,7 +327,8 @@ dataTable model entries =
                 (categoryCell model)
             , T.fullStyledColumn
                 (header (OrderBy (asc .description)) (OrderBy (desc .description)) "Description")
-                (.description >> text)
+                (.description >> text >> (\t -> paragraph [] [ t ]))
+                |> T.width fill
             , T.fullStyledColumn
                 (header (OrderBy (asc accountName)) (OrderBy (desc accountName)) "Account")
                 (.account >> .name >> text)
@@ -436,7 +436,7 @@ maybeNoEntries n =
 header : msg -> msg -> String -> Element msg
 header up down s =
     Element.row style.header
-        [ el [ alignLeft ] <| text s
+        [ el [ alignLeft, width fill ] <| text s
         , column
             [ alignRight, height fill, spacing size.xxs ]
             [ triangleUp [ onClick up ] size.s

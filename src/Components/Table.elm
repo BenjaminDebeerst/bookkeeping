@@ -1,7 +1,7 @@
-module Components.Table exposing (fullStyledColumn, styledColumn, tableStyle, textColumn)
+module Components.Table exposing (fullStyledColumn, styledColumn, tableStyle, textColumn, width)
 
 import Config exposing (size, style)
-import Element exposing (Element, IndexedColumn, el, shrink, spacing, text)
+import Element exposing (Element, IndexedColumn, Length, el, shrink, spacing, text)
 
 
 tableStyle =
@@ -24,3 +24,8 @@ fullStyledColumn header elementFromRow =
     , width = shrink
     , view = \i e -> el (style.row i) <| elementFromRow e
     }
+
+
+width : Length -> IndexedColumn record msg -> IndexedColumn record msg
+width size indexedColumn =
+    { indexedColumn | width = size }

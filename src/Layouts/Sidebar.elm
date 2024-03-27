@@ -2,7 +2,7 @@ module Layouts.Sidebar exposing (Model, Msg, Props, layout)
 
 import Config exposing (color, size, style)
 import Effect exposing (Effect)
-import Element exposing (Element, column, el, fill, fillPortion, height, link, minimum, padding, row, scrollbarX, scrollbarY, spacing, text, width)
+import Element exposing (Element, column, el, fill, height, link, padding, px, row, scrollbarX, scrollbarY, spacing, text, width)
 import Element.Background as Background
 import Element.Font as Font
 import Layout exposing (Layout)
@@ -56,9 +56,9 @@ view props { toContentMsg, model, content } =
     { title = content.title
     , body =
         row
-            [ width (minimum 600 fill), height fill, Font.size size.m ]
+            [ width fill, height fill, Font.size size.m ]
             [ sidebar
-            , column [ height fill, width (fillPortion 7) ]
+            , column [ height fill, width fill ]
                 [ mainColumn content
                 , footer props
                 ]
@@ -76,7 +76,7 @@ mainColumn content =
 sidebar =
     column
         [ height fill
-        , width <| fillPortion 1
+        , width (px 250)
         , padding size.l
         , scrollbarY
         , Background.color color.black
