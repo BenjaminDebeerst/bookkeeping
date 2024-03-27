@@ -1,4 +1,4 @@
-module Components.Icons exposing (checkMark, copy, cross, edit, folderPlus, infoMark, loader, plusSquare, triangleDown, triangleUp, wand, warnTriangle)
+module Components.Icons exposing (checkMark, copy, cross, edit, folderPlus, infoMark, loader, plusSquare, triangleDown, triangleLeft, triangleRight, triangleUp, wand, warnTriangle)
 
 import Element exposing (Attribute, Element, el)
 import FeatherIcons exposing (Icon, withStrokeWidth, withViewBox)
@@ -11,14 +11,21 @@ triangleUp attrs size =
         Element.html
             (FeatherIcons.triangle
                 |> FeatherIcons.toHtml
-                    [ Attributes.fill "fill"
-                    , Attributes.height <| String.fromInt size
+                    [ Attributes.height <| String.fromInt size
                     ]
             )
 
 
 triangleDown attrs size =
     el [ Element.rotate <| degrees 180 ] <| triangleUp attrs size
+
+
+triangleLeft attrs size =
+    el [ Element.rotate <| degrees 270 ] <| triangleUp attrs size
+
+
+triangleRight attrs size =
+    el [ Element.rotate <| degrees 90 ] <| triangleUp attrs size
 
 
 checkMark : List (Attribute msg) -> Int -> Element msg

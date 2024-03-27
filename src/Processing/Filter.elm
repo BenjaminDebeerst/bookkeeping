@@ -4,7 +4,7 @@ import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
 import Processing.BookEntry exposing (BookEntry)
 import Regex
-import Time.Date as Date
+import Time.Date as Date exposing (Date)
 
 
 type alias Filter =
@@ -21,14 +21,9 @@ any l =
     \e -> List.any (\f -> f e) l
 
 
-filterMonth : Int -> BookEntry -> Bool
-filterMonth i e =
-    Date.month e.date == i
-
-
-filterYear : Int -> BookEntry -> Bool
-filterYear i e =
-    Date.year e.date == i
+filterDateRange : (Date -> Date -> Order) -> Date -> Date -> BookEntry -> Bool
+filterDateRange order min max be =
+    (not <| order min be.date == GT) && (not <| order be.date max == GT)
 
 
 filterDescription : String -> BookEntry -> Bool

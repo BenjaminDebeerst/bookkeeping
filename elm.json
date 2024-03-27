@@ -26,6 +26,7 @@
             "elm-community/result-extra": "2.4.0",
             "elm-explorations/test": "2.1.1",
             "feathericons/elm-feather": "1.5.0",
+            "hrldcpr/elm-cons": "3.1.0",
             "isaacseymour/deprecated-time": "1.0.0",
             "mdgriffith/elm-ui": "1.1.8"
         },
