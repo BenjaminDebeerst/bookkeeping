@@ -125,7 +125,7 @@ update data msg model =
         ApplyPattern cat ->
             let
                 ( entries, _ ) =
-                    getEntriesAndErrors data (Filter.toFilter model.filters) model.ordering
+                    getEntriesAndErrors data (Filter.toEntryFilter model.filters) model.ordering
 
                 modified =
                     entries
@@ -212,7 +212,7 @@ view : Data -> Model -> Element Msg
 view data model =
     let
         filters =
-            Filter.toFilter model.filters
+            Filter.toEntryFilter model.filters
 
         ( entries, errors ) =
             getEntriesAndErrors data filters model.ordering
@@ -237,10 +237,10 @@ undo data model message =
 showFilters : Filter.Model Msg -> List Account -> Element Msg
 showFilters model accounts =
     column [ spacing size.s ]
-        [ Filter.dateRangeFilter model
+        [ Filter.accountFilter accounts model
+        , Filter.dateRangeFilter model
         , Filter.descriptionFilter ApplyPattern SavePattern model
         , Filter.categoryFilter model
-        , Filter.accountFilter accounts model
         , Filter.uncategorizedFilter model
         ]
 

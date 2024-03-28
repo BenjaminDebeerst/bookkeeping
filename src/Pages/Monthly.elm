@@ -1,19 +1,21 @@
 module Pages.Monthly exposing (Model, Msg, page)
 
-import Components.Filter as Filter
+import Components.Filter as Filter exposing (toAggregateFilter)
 import Components.Table as T
 import Components.Tabs as Tabs
 import Config exposing (size)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
-import Element exposing (Element, IndexedColumn, column, indexedTable, spacing)
+import Element exposing (Element, IndexedColumn, column, indexedTable, minimum, shrink, spacing, width)
 import Layouts
 import Page exposing (Page)
 import Persistence.Account exposing (Account, Accounts)
 import Persistence.Category as Category exposing (Category, CategoryGroup(..))
 import Persistence.Data exposing (Data)
+import Persistence.RawEntry exposing (RawEntry)
 import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate, startDate, startingBalances)
 import Processing.Aggregator as Aggregator exposing (Aggregator)
+import Processing.Filter as Filter exposing (EntryFilter)
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (dateAsc)
 import Route exposing (Route)
@@ -27,17 +29,15 @@ page : Shared.Model -> Route () -> Page Model Msg
 page shared _ =
     Page.new
         { init =
-            init
-                (case shared of
-                    None ->
-                        []
+            case shared of
+                None ->
+                    init [] []
 
-                    Loaded data ->
-                        Dict.values data.accounts
+                Loaded data ->
+                    init (Dict.values data.accounts) (Dict.values data.rawEntries)
 
-                    Problem _ ->
-                        []
-                )
+                Problem _ ->
+                    init [] []
         , update = dataUpdate shared update
         , view = dataView shared "Monthly" view
         , subscriptions = \_ -> Sub.none
@@ -61,9 +61,9 @@ type alias Model =
     }
 
 
-init : List Account -> () -> ( Model, Effect Msg )
-init accounts _ =
-    ( { filters = Filter.init accounts [] [] Filter
+init : List Account -> List RawEntry -> () -> ( Model, Effect Msg )
+init accounts entries _ =
+    ( { filters = Filter.init accounts [] (List.map .date entries) Filter
       , tab = Overview
       }
     , Effect.none
@@ -100,34 +100,39 @@ update data msg model =
 view : Data -> Model -> Element Msg
 view data model =
     column [ spacing size.m ]
-        [ Dict.values data.accounts |> showFilters model
-        , Tabs.tabbedContent
-            { allTabs = [ Overview, ByCategory, ByAccount ]
-            , selectedTab = model.tab
-            , tabTitles =
-                \tab ->
-                    case tab of
-                        ByCategory ->
-                            "By Category"
+        [ viewFilters model (Dict.values data.accounts)
+        , viewTabs data model
+        ]
 
-                        ByAccount ->
-                            "By Account"
 
-                        Overview ->
-                            "Overview"
-            , tabMsg = TabSelection
-            , content =
-                case model.tab of
+viewTabs : Data -> Model -> Element Msg
+viewTabs data model =
+    Tabs.tabbedContent
+        { allTabs = [ Overview, ByCategory, ByAccount ]
+        , selectedTab = model.tab
+        , tabTitles =
+            \tab ->
+                case tab of
                     ByCategory ->
-                        byCategory data model
+                        "By Category"
 
                     ByAccount ->
-                        byAccount data model
+                        "By Account"
 
                     Overview ->
-                        overview data model
-            }
-        ]
+                        "Overview"
+        , tabMsg = TabSelection
+        , content =
+            case model.tab of
+                ByCategory ->
+                    byCategory data model
+
+                ByAccount ->
+                    byAccount data model
+
+                Overview ->
+                    overview data model
+        }
 
 
 overview : Data -> Model -> Element Msg
@@ -181,19 +186,29 @@ showAggregations data model aggregators =
         startSums =
             startingBalances model.filters.accounts
 
+        -- This is a bit special: The date filtering is not applied here, because the
+        -- book entries prior to the selected range are required to calculate the
+        -- starting sums for running-sum aggregators
+        entryFilters : List EntryFilter
         entryFilters =
-            Filter.toFilter model.filters
+            [ model.filters.accounts |> List.map Filter.filterAccount |> Filter.any ]
 
+        -- We discard out-of-range dates only after aggregation
+        aggregatedData : Aggregate
         aggregatedData =
             getEntries data entryFilters dateAsc
                 |> aggregate start startSums aggregators
+                |> toAggregateFilter model.filters
     in
     showAggResults aggregatedData
 
 
-showFilters : Model -> List Account -> Element Msg
-showFilters model accounts =
-    Filter.accountFilter accounts model.filters
+viewFilters : Model -> List Account -> Element Msg
+viewFilters model accounts =
+    column [ spacing size.m, width (shrink |> minimum 800) ]
+        [ Filter.accountFilter accounts model.filters
+        , Filter.dateRangeFilter model.filters
+        ]
 
 
 showAggResults : Aggregate -> Element msg

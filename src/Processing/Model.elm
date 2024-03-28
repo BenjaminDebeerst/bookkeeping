@@ -6,18 +6,18 @@ import Persistence.Category exposing (Category)
 import Persistence.Data exposing (Data)
 import Persistence.RawEntry as RawEntry exposing (RawEntry)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit)
-import Processing.Filter exposing (Filter, all)
+import Processing.Filter exposing (EntryFilter, all)
 import Processing.Ordering exposing (Ordering)
 import Result.Extra
 
 
-getEntries : Data -> List Filter -> Ordering BookEntry -> List BookEntry
+getEntries : Data -> List EntryFilter -> Ordering BookEntry -> List BookEntry
 getEntries data filters order =
     getEntriesAndErrors data filters order
         |> Tuple.first
 
 
-getEntriesAndErrors : Data -> List Filter -> Ordering BookEntry -> ( List BookEntry, List String )
+getEntriesAndErrors : Data -> List EntryFilter -> Ordering BookEntry -> ( List BookEntry, List String )
 getEntriesAndErrors data filters order =
     Dict.values data.rawEntries
         |> List.map (enrichRow data)

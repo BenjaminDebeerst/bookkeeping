@@ -2,31 +2,45 @@ module Processing.Filter exposing (..)
 
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
+import Processing.Aggregation exposing (Aggregate)
 import Processing.BookEntry exposing (BookEntry)
 import Regex
 import Time.Date as Date exposing (Date)
 
 
-type alias Filter =
+type alias EntryFilter =
     BookEntry -> Bool
 
 
-all : List Filter -> Filter
+type alias AggregateFilter =
+    Aggregate -> Aggregate
+
+
+all : List EntryFilter -> EntryFilter
 all l =
     \e -> List.all (\f -> f e) l
 
 
-any : List Filter -> Filter
+any : List EntryFilter -> EntryFilter
 any l =
     \e -> List.any (\f -> f e) l
 
 
-filterDateRange : (Date -> Date -> Order) -> Date -> Date -> BookEntry -> Bool
+filterDateRange : (Date -> Date -> Order) -> Date -> Date -> EntryFilter
 filterDateRange order min max be =
     (not <| order min be.date == GT) && (not <| order be.date max == GT)
 
 
-filterDescription : String -> BookEntry -> Bool
+filterAggregateDateRange : (Date -> Date -> Order) -> Date -> Date -> Aggregate -> Aggregate
+filterAggregateDateRange order min max ag =
+    { ag
+        | rows =
+            ag.rows
+                |> List.filter (\ma -> (not <| order min ma.month == GT) && (not <| order ma.month max == GT))
+    }
+
+
+filterDescription : String -> EntryFilter
 filterDescription s e =
     if String.isEmpty s then
         True
@@ -35,7 +49,7 @@ filterDescription s e =
         String.contains (String.toLower s) (String.toLower e.description)
 
 
-filterDescriptionRegex : String -> BookEntry -> Bool
+filterDescriptionRegex : String -> EntryFilter
 filterDescriptionRegex pattern e =
     case Regex.fromString pattern of
         Nothing ->
@@ -45,7 +59,7 @@ filterDescriptionRegex pattern e =
             Regex.contains regex e.description
 
 
-filterCategory : Category -> BookEntry -> Bool
+filterCategory : Category -> EntryFilter
 filterCategory category bookEntry =
     case bookEntry.categorization of
         Processing.BookEntry.None ->
@@ -58,6 +72,6 @@ filterCategory category bookEntry =
             List.map .category entrySplits |> List.filter (\c -> c.id == category.id) |> List.isEmpty >> not
 
 
-filterAccount : Account -> BookEntry -> Bool
+filterAccount : Account -> EntryFilter
 filterAccount account bookEntry =
     bookEntry.account == account

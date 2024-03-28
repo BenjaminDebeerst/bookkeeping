@@ -18,7 +18,7 @@ import Maybe.Extra
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
 import Processing.BookEntry exposing (Categorization(..))
-import Processing.Filter as Processing exposing (any, filterAccount, filterCategory, filterDateRange, filterDescription, filterDescriptionRegex)
+import Processing.Filter as Filter exposing (AggregateFilter, any, filterAccount, filterAggregateDateRange, filterCategory, filterDateRange, filterDescription, filterDescriptionRegex)
 import Processing.Model exposing (getCategoryByShort)
 import Regex
 import Time.Date as Date exposing (Date)
@@ -155,8 +155,8 @@ update msg model =
             ( { model | onlyUncategorized = b }, Effect.none )
 
 
-toFilter : Model msg -> List Processing.Filter
-toFilter model =
+toEntryFilter : Model msg -> List Filter.EntryFilter
+toEntryFilter model =
     []
         ++ [ filterDateRange compareMonths (RangeSlider.min model.dateRange) (RangeSlider.max model.dateRange) ]
         ++ [ if model.descrIsRegex then
@@ -168,6 +168,11 @@ toFilter model =
         ++ [ model.accounts |> List.map filterAccount |> any ]
         ++ (getCategoryByShort model.categories model.category |> Maybe.map (\c -> [ filterCategory c ]) |> Maybe.withDefault [])
         ++ [ \bookEntry -> not model.onlyUncategorized || bookEntry.categorization == None ]
+
+
+toAggregateFilter : Model msg -> Filter.AggregateFilter
+toAggregateFilter model =
+    filterAggregateDateRange compareMonths (RangeSlider.min model.dateRange) (RangeSlider.max model.dateRange)
 
 
 dateRangeFilter : Model msg -> Element msg
