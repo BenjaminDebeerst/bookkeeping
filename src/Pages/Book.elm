@@ -241,7 +241,6 @@ showFilters model accounts =
         , Filter.dateRangeFilter model
         , Filter.descriptionFilter ApplyPattern SavePattern model
         , Filter.categoryFilter model
-        , Filter.uncategorizedFilter model
         ]
 
 

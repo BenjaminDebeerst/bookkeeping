@@ -5,9 +5,9 @@ import Components.Input exposing (button, disabledButton)
 import Components.RangeSlider as RangeSlider
 import Components.Tooltip exposing (tooltip)
 import Config exposing (color, size)
-import Dropdown
+import Dropdown exposing (withPromptElement, withSearchAttributes)
 import Effect exposing (Effect)
-import Element exposing (Element, alignRight, below, column, el, fill, padding, paddingEach, row, shrink, spacing, text, width)
+import Element exposing (Element, alignRight, below, column, el, fill, minimum, padding, paddingEach, rgb, row, shrink, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events exposing (onClick)
@@ -16,10 +16,9 @@ import Element.Input as Input exposing (labelLeft, labelRight, placeholder)
 import List.Extra
 import Maybe.Extra
 import Persistence.Account exposing (Account)
-import Persistence.Category exposing (Category)
+import Persistence.Category exposing (Category, CategoryGroup(..), category)
 import Processing.BookEntry exposing (Categorization(..))
 import Processing.Filter as Filter exposing (AggregateFilter, any, filterAccount, filterAggregateDateRange, filterCategory, filterDateRange, filterDescription, filterDescriptionRegex)
-import Processing.Model exposing (getCategoryByShort)
 import Regex
 import Time.Date as Date exposing (Date)
 import Util.Date exposing (compareMonths)
@@ -30,10 +29,10 @@ type alias Model msg =
     , descr : String
     , descrIsRegex : Bool
     , creatingPattern : Maybe ( Maybe Category, Dropdown.State Category )
-    , category : String
+    , category : Category
+    , categoryDropdown : Dropdown.State Category
     , accounts : List Account
     , categories : List Category
-    , onlyUncategorized : Bool
     , lift : Msg -> msg
     }
 
@@ -53,10 +52,10 @@ init accounts categories dates lift =
     , descr = ""
     , descrIsRegex = False
     , creatingPattern = Nothing
-    , category = ""
+    , category = allCategories
+    , categoryDropdown = Dropdown.init "category-filter"
     , accounts = accounts
     , categories = categories
-    , onlyUncategorized = False
     , lift = lift
     }
 
@@ -94,8 +93,8 @@ type Msg
     | PatternCategorySelected (Maybe Category)
     | PatternCategoryDropdown (Dropdown.Msg Category)
     | PatternAbort
-    | Category String
-    | OnlyUncategorized Bool
+    | CategorySelected Category
+    | CategoryDropDown (Dropdown.Msg Category)
     | AddAccount Account
     | RemoveAccount Account
     | SetAccounts (List Account)
@@ -114,7 +113,7 @@ update msg model =
             ( { model | descrIsRegex = on, creatingPattern = Nothing }, Effect.none )
 
         PatternCreateStart ->
-            ( { model | creatingPattern = Just ( Nothing, Dropdown.init "" ) }, Effect.none )
+            ( { model | creatingPattern = Just ( Nothing, Dropdown.init "category-for-pattern" ) }, Effect.none )
 
         PatternCategoryDropdown dropDownMsg ->
             case model.creatingPattern of
@@ -124,7 +123,7 @@ update msg model =
                 Just ( selectedCat, dropdownState ) ->
                     let
                         ( state, cmd ) =
-                            Dropdown.update (dropdownConfig model.lift model.categories) dropDownMsg model dropdownState
+                            Dropdown.update (patternCategoryDropdownConfig model) dropDownMsg model dropdownState
                     in
                     ( { model | creatingPattern = Just ( selectedCat, state ) }, Effect.sendCmd cmd )
 
@@ -139,8 +138,15 @@ update msg model =
         PatternAbort ->
             ( { model | creatingPattern = Nothing }, Effect.none )
 
-        Category cat ->
+        CategorySelected cat ->
             ( { model | category = cat }, Effect.none )
+
+        CategoryDropDown dropdownMsg ->
+            let
+                ( updated, cmd ) =
+                    Dropdown.update (categoryFilterDropdownConfig model) dropdownMsg model model.categoryDropdown
+            in
+            ( { model | categoryDropdown = updated }, Effect.sendCmd cmd )
 
         AddAccount acc ->
             ( { model | accounts = acc :: model.accounts }, Effect.none )
@@ -150,9 +156,6 @@ update msg model =
 
         SetAccounts list ->
             ( { model | accounts = list }, Effect.none )
-
-        OnlyUncategorized b ->
-            ( { model | onlyUncategorized = b }, Effect.none )
 
 
 toEntryFilter : Model msg -> List Filter.EntryFilter
@@ -166,8 +169,15 @@ toEntryFilter model =
                 filterDescription (String.trim model.descr)
            ]
         ++ [ model.accounts |> List.map filterAccount |> any ]
-        ++ (getCategoryByShort model.categories model.category |> Maybe.map (\c -> [ filterCategory c ]) |> Maybe.withDefault [])
-        ++ [ \bookEntry -> not model.onlyUncategorized || bookEntry.categorization == None ]
+        ++ (if model.category == allCategories then
+                []
+
+            else if model.category == uncategorized then
+                [ \bookEntry -> bookEntry.categorization == None ]
+
+            else
+                [ filterCategory model.category ]
+           )
 
 
 toAggregateFilter : Model msg -> Filter.AggregateFilter
@@ -223,7 +233,7 @@ descriptionFilter apply save model =
                     ( Just ( Just selectedCat, dropdown ), False, Just validRegex ) ->
                         [ row [ spacing size.s, width fill, alignRight ]
                             [ el [ alignRight ] <| text "Categorize as: "
-                            , Dropdown.view (dropdownConfig model.lift model.categories) model dropdown
+                            , Dropdown.view (patternCategoryDropdownConfig model) model dropdown
                             , button (apply selectedCat) "Apply"
                             , button (model.lift PatternAbort) "Abort"
                             , button (save model.descr selectedCat) "Save Pattern"
@@ -233,7 +243,7 @@ descriptionFilter apply save model =
                     ( Just ( _, dropdown ), _, _ ) ->
                         [ row [ spacing size.s, width fill, alignRight ]
                             [ el [ alignRight ] <| text "Categorize as: "
-                            , Dropdown.view (dropdownConfig model.lift model.categories) model dropdown
+                            , Dropdown.view (patternCategoryDropdownConfig model) model dropdown
                             , disabledButton "Apply"
                             , button (model.lift PatternAbort) "Abort"
                             , disabledButton "Save Pattern"
@@ -245,12 +255,10 @@ descriptionFilter apply save model =
 
 categoryFilter : Model msg -> Element msg
 categoryFilter model =
-    Input.text [ spacing size.m ]
-        { onChange = model.lift << Category
-        , text = model.category
-        , placeholder = Just <| placeholder [] <| text "Category"
-        , label = labelLeft [ padding 0 ] <| text "Category"
-        }
+    row [ spacing size.m ]
+        [ text "Category"
+        , Dropdown.view (categoryFilterDropdownConfig model) model model.categoryDropdown
+        ]
 
 
 accountFilter : List Account -> Model msg -> Element msg
@@ -294,37 +302,71 @@ accountCheckbox model acc =
         }
 
 
-uncategorizedFilter : Model msg -> Element msg
-uncategorizedFilter model =
-    Input.checkbox [ spacing size.m, paddingEach { top = size.xs, bottom = 0, left = 0, right = 0 } ]
-        { onChange = model.lift << OnlyUncategorized
-        , icon = Input.defaultCheckbox
-        , checked = model.onlyUncategorized
-        , label = labelLeft [] <| text "Show uncategorized only"
+patternCategoryDropdownConfig : Model msg -> Dropdown.Config Category msg (Model msg)
+patternCategoryDropdownConfig model =
+    Dropdown.filterable
+        { itemsFromModel = .categories
+        , selectionFromModel = .creatingPattern >> Maybe.andThen Tuple.first
+        , dropdownMsg = PatternCategoryDropdown >> model.lift
+        , onSelectMsg = PatternCategorySelected >> model.lift
+        , itemToPrompt = .name >> itemPrompt
+        , itemToElement = itemElement
+        , itemToText = \c -> c.name ++ "|" ++ c.short
         }
+        |> dropdownListStyle
+        |> withPromptElement (itemPrompt "-- Select --")
+        |> withSearchAttributes [ width (shrink |> minimum 120) ]
 
 
-dropdownConfig : (Msg -> msg) -> List Category -> Dropdown.Config Category msg (Model msg)
-dropdownConfig msg categories =
-    let
-        itemToPrompt item =
-            text item.name
+categoryFilterDropdownConfig : Model msg -> Dropdown.Config Category msg (Model msg)
+categoryFilterDropdownConfig model =
+    Dropdown.filterable
+        { itemsFromModel = \m -> allCategories :: uncategorized :: m.categories
+        , selectionFromModel = .category >> Just
+        , dropdownMsg = CategoryDropDown >> model.lift
+        , onSelectMsg = Maybe.withDefault allCategories >> CategorySelected >> model.lift
+        , itemToPrompt = .name >> itemPrompt
+        , itemToElement = itemElement
+        , itemToText = \c -> c.name ++ "|" ++ c.short
+        }
+        |> dropdownListStyle
+        |> withPromptElement (text allCategories.name)
+        |> withSearchAttributes [ width (shrink |> minimum 120) ]
 
-        itemToElement selected highlighted item =
-            el
-                [ padding size.s
-                , width fill
-                , Background.color
-                    -- "highlighted" does not work with mouse hover, which creates weird UX, hence ignoring here
-                    (if selected then
-                        color.extraBrightAccent
 
-                     else
-                        color.white
-                    )
-                ]
-                (text item.name)
-    in
+itemPrompt : String -> Element msg
+itemPrompt s =
+    el
+        [ Border.width 1
+        , Border.rounded 3
+        , Border.color color.grey
+        , Background.color (rgb 1 1 1)
+        , padding size.s
+        , width (shrink |> minimum 120)
+        ]
+        (text s)
+
+
+itemElement : Bool -> Bool -> Category -> Element msg
+itemElement selected highlighted item =
+    el
+        [ padding size.s
+        , width fill
+        , Background.color
+            (if highlighted then
+                color.brightAccent
+
+             else if selected then
+                color.extraBrightAccent
+
+             else
+                color.white
+            )
+        ]
+        (text item.name)
+
+
+dropdownListStyle =
     Dropdown.withListAttributes
         [ Background.color color.white
         , Border.color color.grey
@@ -336,19 +378,11 @@ dropdownConfig msg categories =
             , color = color.black
             }
         ]
-    <|
-        Dropdown.withContainerAttributes
-            [ Border.color color.grey
-            , Border.width 1
-            , Border.rounded size.xxs
-            , padding size.xs
-            ]
-        <|
-            Dropdown.basic
-                { itemsFromModel = always categories
-                , selectionFromModel = \m -> m.creatingPattern |> Maybe.andThen Tuple.first
-                , dropdownMsg = msg << PatternCategoryDropdown
-                , onSelectMsg = msg << PatternCategorySelected
-                , itemToPrompt = itemToPrompt
-                , itemToElement = itemToElement
-                }
+
+
+allCategories =
+    category -1 "-- All --" "" Internal []
+
+
+uncategorized =
+    category -2 "-- Uncategorized --" "" Internal []
