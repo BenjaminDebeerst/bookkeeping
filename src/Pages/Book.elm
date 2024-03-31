@@ -15,6 +15,7 @@ import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelHidden)
 import Layouts
+import List.Extra
 import Page exposing (Page)
 import Parser
 import Persistence.Account exposing (Account)
@@ -216,14 +217,33 @@ view data model =
 
         ( entries, errors ) =
             getEntriesAndErrors data filters model.ordering
+
+        filteredCategories =
+            entries |> List.concatMap entryCategories |> List.Extra.uniqueBy .id
+
+        filterModel =
+            model.filters
     in
     column [ spacing size.m, width fill ]
         [ Notification.showNotification model.notification
-        , showFilters model.filters <| Dict.values data.accounts
+        , showFilters { filterModel | filterCategories = filteredCategories } (Dict.values data.accounts)
         , showActions model (entries |> List.map .id)
         , showData model entries
         , showErrors errors
         ]
+
+
+entryCategories : BookEntry -> List Category
+entryCategories bookEntry =
+    case bookEntry.categorization of
+        None ->
+            []
+
+        Single cat ->
+            [ cat ]
+
+        Split cats ->
+            cats |> List.map .category
 
 
 undo : Data -> Model -> String -> Notification Msg

@@ -32,7 +32,8 @@ type alias Model msg =
     , category : Category
     , categoryDropdown : Dropdown.State Category
     , accounts : List Account
-    , categories : List Category
+    , allCategories : List Category
+    , filterCategories : List Category
     , lift : Msg -> msg
     }
 
@@ -55,7 +56,8 @@ init accounts categories dates lift =
     , category = allCategories
     , categoryDropdown = Dropdown.init "category-filter"
     , accounts = accounts
-    , categories = categories
+    , allCategories = categories
+    , filterCategories = categories
     , lift = lift
     }
 
@@ -305,7 +307,7 @@ accountCheckbox model acc =
 patternCategoryDropdownConfig : Model msg -> Dropdown.Config Category msg (Model msg)
 patternCategoryDropdownConfig model =
     Dropdown.filterable
-        { itemsFromModel = .categories
+        { itemsFromModel = .allCategories
         , selectionFromModel = .creatingPattern >> Maybe.andThen Tuple.first
         , dropdownMsg = PatternCategoryDropdown >> model.lift
         , onSelectMsg = PatternCategorySelected >> model.lift
@@ -321,7 +323,7 @@ patternCategoryDropdownConfig model =
 categoryFilterDropdownConfig : Model msg -> Dropdown.Config Category msg (Model msg)
 categoryFilterDropdownConfig model =
     Dropdown.filterable
-        { itemsFromModel = \m -> allCategories :: uncategorized :: m.categories
+        { itemsFromModel = \m -> allCategories :: uncategorized :: m.filterCategories
         , selectionFromModel = .category >> Just
         , dropdownMsg = CategoryDropDown >> model.lift
         , onSelectMsg = Maybe.withDefault allCategories >> CategorySelected >> model.lift
