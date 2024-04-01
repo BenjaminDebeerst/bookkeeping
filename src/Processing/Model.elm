@@ -19,7 +19,7 @@ getEntries data filters order =
 
 getEntriesAndErrors : Data -> List EntryFilter -> Ordering BookEntry -> ( List BookEntry, List String )
 getEntriesAndErrors data filters order =
-    Dict.values data.rawEntries
+    Dict.values data.rawEntries.entries
         |> List.map (enrichRow data)
         |> Result.Extra.partition
         |> Tuple.mapFirst (List.filter (all filters))

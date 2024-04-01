@@ -145,7 +145,7 @@ showDataSummary : Data -> List (Element Msg)
 showDataSummary data =
     let
         entries =
-            data.rawEntries |> Dict.size |> String.fromInt
+            data.rawEntries.entries |> Dict.size |> String.fromInt
 
         accounts =
             data.accounts |> Dict.size |> String.fromInt

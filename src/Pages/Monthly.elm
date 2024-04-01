@@ -34,7 +34,7 @@ page shared _ =
                     init [] []
 
                 Loaded data ->
-                    init (Dict.values data.accounts) (Dict.values data.rawEntries)
+                    init (Dict.values data.accounts) (Dict.values data.rawEntries.entries)
 
                 Problem _ ->
                     init [] []
