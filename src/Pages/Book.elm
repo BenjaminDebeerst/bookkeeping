@@ -48,7 +48,7 @@ page shared _ =
                     init [] [] []
 
                 Shared.Model.Loaded data ->
-                    init (Dict.values data.accounts) (Dict.values data.categories) (Dict.values data.rawEntries)
+                    init (Dict.values data.accounts) (Dict.values data.categories) (Dict.values data.rawEntries.entries)
         , update = dataUpdate shared update
         , view = dataView shared "Book" view
         , subscriptions = \_ -> Sub.none
@@ -60,9 +60,9 @@ type alias Model =
     { notification : Notification Msg
     , ordering : Ordering BookEntry
     , editCategories : Bool
-    , categoryEdits : Dict String CatAttempt
+    , categoryEdits : Dict Int CatAttempt
     , filters : Filter.Model Msg
-    , toBeDeleted : List String
+    , toBeDeleted : List Int
     }
 
 
@@ -94,12 +94,12 @@ type Msg
     | SavePattern String Category
     | OrderBy (Ordering BookEntry)
     | Categorize
-    | EditCategory String Int String
+    | EditCategory Int Int String
     | SaveCategories
     | AbortCategorize
-    | Delete (List String)
+    | Delete (List Int)
     | DeleteAbort
-    | DeleteConfirm (List String)
+    | DeleteConfirm (List Int)
     | Restore Data Model
     | ClearNotification
 
@@ -130,7 +130,7 @@ update data msg model =
 
                 modified =
                     entries
-                        |> List.filterMap (\e -> Dict.get e.id data.rawEntries)
+                        |> List.filterMap (\e -> Dict.get e.id data.rawEntries.entries)
                         |> List.map (\e -> ( e.id, { e | categorization = toPersistence (Single cat) } ))
                         |> Dict.fromList
 
@@ -159,7 +159,7 @@ update data msg model =
 
         SaveCategories ->
             let
-                entryCategorizations : Dict String Categorization
+                entryCategorizations : Dict Int Categorization
                 entryCategorizations =
                     Dict.Extra.filterMap
                         (\_ ca ->
@@ -176,7 +176,7 @@ update data msg model =
                         model.categoryEdits
 
                 alteredCategories =
-                    Dict.Extra.filterMap (\k v -> Dict.get k data.rawEntries |> Maybe.map (\e -> { e | categorization = toPersistence v })) entryCategorizations
+                    Dict.Extra.filterMap (\k v -> Dict.get k data.rawEntries.entries |> Maybe.map (\e -> { e | categorization = toPersistence v })) entryCategorizations
 
                 notification =
                     if Dict.isEmpty alteredCategories then
@@ -264,7 +264,7 @@ showFilters model accounts =
         ]
 
 
-showActions : Model -> List String -> Element Msg
+showActions : Model -> List Int -> Element Msg
 showActions model entryIds =
     row [ spacing size.s, width fill ]
         (if model.editCategories then
@@ -372,7 +372,7 @@ categoryCell model entry =
         text <| categorizationString Full entry.categorization
 
 
-categoryEditAnnotation : Dict String CatAttempt -> BookEntry -> Element Msg
+categoryEditAnnotation : Dict Int CatAttempt -> BookEntry -> Element Msg
 categoryEditAnnotation categoryEdits entry =
     case Dict.get entry.id categoryEdits of
         Just (Unknown _ error) ->
@@ -396,7 +396,7 @@ categoryEditAnnotation categoryEdits entry =
                     checkMark [ padding size.xs, Font.color color.darkAccent ] size.l
 
 
-categoryInputText : Dict String CatAttempt -> BookEntry -> String
+categoryInputText : Dict Int CatAttempt -> BookEntry -> String
 categoryInputText categoryEdits entry =
     case Dict.get entry.id categoryEdits of
         Just (Unknown edit _) ->

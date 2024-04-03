@@ -16,11 +16,20 @@ import Serialize as S exposing (Error)
 
 
 type alias Data =
-    DataV1
+    DataV2
+
+
+type alias DataV2 =
+    { rawEntries : RawEntries
+    , accounts : Accounts
+    , categories : Categories
+    , importProfiles : ImportProfiles
+    , autoIncrement : Int
+    }
 
 
 type alias DataV1 =
-    { rawEntries : RawEntries
+    { rawEntries : Dict String RawEntryV0
     , accounts : Accounts
     , categories : Categories
     , importProfiles : ImportProfiles
@@ -37,10 +46,20 @@ type alias DataV0 =
     }
 
 
+v1v2 : DataV1 -> DataV2
+v1v2 v1 =
+    DataV2
+        (RawEntry.fromV0 v1.rawEntries)
+        v1.accounts
+        v1.categories
+        v1.importProfiles
+        v1.autoIncrement
+
+
 v0v1 : DataV0 -> DataV1
 v0v1 v0 =
     DataV1
-        (RawEntry.fromV0 v0.rawEntries)
+        v0.rawEntries
         (Account.fromV0 v0.accounts)
         (Category.fromV0 v0.categories)
         (ImportProfile.fromV0 v0.importProfiles)
@@ -49,7 +68,7 @@ v0v1 v0 =
 
 empty : Data
 empty =
-    { rawEntries = Dict.empty
+    { rawEntries = RawEntry.empty
     , accounts = Dict.empty
     , categories = Dict.empty
     , importProfiles = Dict.empty
@@ -74,38 +93,57 @@ jsonDecoder =
 type StorageVersions
     = V0 DataV0
     | V1 DataV1
+    | V2 DataV2
 
 
 dataCodec : S.Codec e Data
 dataCodec =
     S.customType
-        (\v0Encoder v1Encoder value ->
+        (\v0Encoder v1Encoder v2Encoder value ->
             case value of
                 V0 record ->
                     v0Encoder record
 
                 V1 record ->
                     v1Encoder record
+
+                V2 record ->
+                    v2Encoder record
         )
         |> S.variant1 V0 v0Codec
         |> S.variant1 V1 v1Codec
+        |> S.variant1 V2 v2Codec
         |> S.finishCustomType
         |> S.map
             (\value ->
                 case value of
                     V0 storage ->
-                        v0v1 storage
+                        (v0v1 >> v1v2) storage
 
                     V1 storage ->
+                        v1v2 storage
+
+                    V2 storage ->
                         storage
             )
-            V1
+            V2
+
+
+v2Codec : S.Codec e DataV2
+v2Codec =
+    S.record DataV2
+        |> S.field .rawEntries RawEntry.codec
+        |> S.field .accounts Account.codec
+        |> S.field .categories Category.codec
+        |> S.field .importProfiles ImportProfile.codec
+        |> S.field .autoIncrement S.int
+        |> S.finishRecord
 
 
 v1Codec : S.Codec e DataV1
 v1Codec =
     S.record DataV1
-        |> S.field .rawEntries RawEntry.codec
+        |> S.field .rawEntries (S.dict S.string RawEntry.v0CodecVersioned)
         |> S.field .accounts Account.codec
         |> S.field .categories Category.codec
         |> S.field .importProfiles ImportProfile.codec

@@ -1,18 +1,39 @@
-module Persistence.RawEntry exposing (Categorization(..), RawEntries, RawEntry, RawEntryV0, SplitCatEntry, codec, fromV0, rawEntry, sha1, v0Codec)
+module Persistence.RawEntry exposing (Categorization(..), RawEntries, RawEntry, RawEntryV0, RawEntryV1, SplitCatEntry, codec, empty, fromV0, rawEntry, v0Codec, v0CodecVersioned)
 
 import Dict exposing (Dict)
 import Persistence.Category exposing (Category)
-import SHA1
 import Serialize as S
 import Time.Date as Date exposing (Date)
 
 
 type alias RawEntries =
-    Dict String RawEntry
+    RawEntriesV1
 
 
 type alias RawEntry =
-    RawEntryV0
+    RawEntryV1
+
+
+type alias RawEntriesV1 =
+    { autoIncrement : Int
+    , entries : Dict Int RawEntryV1
+    }
+
+
+type alias RawEntriesV0 =
+    Dict String RawEntryV0
+
+
+type alias RawEntryV1 =
+    { id : Int
+    , line : String
+    , date : Date
+    , amount : Int
+    , description : String
+    , accountId : Int
+    , importProfile : Int
+    , categorization : Maybe Categorization
+    }
 
 
 type alias RawEntryV0 =
@@ -36,10 +57,15 @@ type alias SplitCatEntry =
     { id : Int, amount : Int }
 
 
+empty : RawEntries
+empty =
+    RawEntriesV1 0 Dict.empty
+
+
 rawEntry : Int -> Int -> String -> Date -> Int -> String -> Maybe Category -> RawEntry
 rawEntry accountId profileId line date amount description category =
-    RawEntryV0
-        "id-will-be-generated"
+    RawEntryV1
+        -1
         line
         date
         amount
@@ -49,14 +75,24 @@ rawEntry accountId profileId line date amount description category =
         (Maybe.map (.id >> Single) category)
 
 
-sha1 : String -> String
-sha1 s =
-    SHA1.fromString s |> SHA1.toHex
-
-
 fromV0 : Dict String RawEntryV0 -> RawEntries
 fromV0 dict =
-    dict
+    let
+        addEntryHelper e ( i, acc ) =
+            ( i + 1
+            , ( i
+              , RawEntryV1 i e.line e.date e.amount e.description e.accountId e.importProfile e.categorization
+              )
+                :: acc
+            )
+
+        ( autoIncrement, entries ) =
+            List.foldl
+                addEntryHelper
+                ( 0, [] )
+                (Dict.values dict)
+    in
+    RawEntriesV1 autoIncrement (Dict.fromList entries)
 
 
 
@@ -65,11 +101,52 @@ fromV0 dict =
 
 codec : S.Codec e RawEntries
 codec =
-    S.dict S.string rawEntryCodec
+    S.customType
+        (\v1Encoder value ->
+            case value of
+                V1 record ->
+                    v1Encoder record
+        )
+        |> S.variant1 V1
+            (S.record RawEntriesV1
+                |> S.field .autoIncrement S.int
+                |> S.field .entries (S.dict S.int v1Codec)
+                |> S.finishRecord
+            )
+        |> S.finishCustomType
+        |> S.map
+            (\value ->
+                case value of
+                    V1 storage ->
+                        storage
+            )
+            V1
 
 
-rawEntryCodec : S.Codec e RawEntry
-rawEntryCodec =
+type RawEntriesVersions
+    = V1 RawEntries
+
+
+v1Codec : S.Codec e RawEntryV1
+v1Codec =
+    S.record RawEntryV1
+        |> S.field .id S.int
+        |> S.field .line S.string
+        |> S.field .date dateCodec
+        |> S.field .amount S.int
+        |> S.field .description S.string
+        |> S.field .accountId S.int
+        |> S.field .importProfile S.int
+        |> S.field .categorization (S.maybe categorizationCodec)
+        |> S.finishRecord
+
+
+type RawEntryVersions
+    = V0 RawEntryV0
+
+
+v0CodecVersioned : S.Codec e RawEntryV0
+v0CodecVersioned =
     S.customType
         (\v0Encoder value ->
             case value of
@@ -87,10 +164,7 @@ rawEntryCodec =
             V0
 
 
-type StorageVersions
-    = V0 RawEntryV0
-
-
+v0Codec : S.Codec e RawEntryV0
 v0Codec =
     S.record RawEntryV0
         |> S.field .id S.string

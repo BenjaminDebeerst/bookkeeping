@@ -21,7 +21,7 @@ import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
 import Persistence.Data exposing (Data, empty)
 import Persistence.ImportProfile exposing (ImportProfile)
-import Persistence.RawEntry exposing (RawEntry, sha1)
+import Persistence.RawEntry exposing (RawEntries, RawEntry)
 import Set
 
 
@@ -47,38 +47,42 @@ deleteAccount account data =
     { data | accounts = Dict.remove account.id data.accounts }
 
 
-updateEntries : Dict String RawEntry -> Data -> Data
-updateEntries newEntries data =
-    { data | rawEntries = Dict.union newEntries data.rawEntries }
+updateEntries : Dict Int RawEntry -> Data -> Data
+updateEntries newEntries ({ rawEntries } as data) =
+    let
+        updatedEntries =
+            Dict.union
+                (newEntries |> Dict.filter (\k _ -> Dict.member k rawEntries.entries))
+                rawEntries.entries
+    in
+    { data | rawEntries = { rawEntries | entries = updatedEntries } }
 
 
 addEntries : List RawEntry -> Data -> Data
-addEntries entries data =
+addEntries entries ({ rawEntries } as data) =
     let
+        addEntryHelper entry ( i, acc ) =
+            ( i + 1, [ ( i, { entry | id = i } ) ] ++ acc )
+
         ( newAutoIncrement, newEntries ) =
-            entries
-                |> List.foldl
-                    addEntryHelper
-                    ( data.autoIncrement, [] )
+            List.foldl
+                addEntryHelper
+                ( rawEntries.autoIncrement, [] )
+                entries
+
+        updatedEntries =
+            Dict.union (Dict.fromList newEntries) rawEntries.entries
     in
-    { data
-        | rawEntries = Dict.union (Dict.fromList newEntries) data.rawEntries
-        , autoIncrement = newAutoIncrement
-    }
+    { data | rawEntries = { rawEntries | entries = updatedEntries, autoIncrement = newAutoIncrement } }
 
 
-removeEntries : List String -> Data -> Data
-removeEntries ids data =
-    { data | rawEntries = Dict.Extra.removeMany (Set.fromList ids) data.rawEntries }
-
-
-addEntryHelper : RawEntry -> ( Int, List ( String, RawEntry ) ) -> ( Int, List ( String, RawEntry ) )
-addEntryHelper entry ( i, acc ) =
+removeEntries : List Int -> Data -> Data
+removeEntries ids ({ rawEntries } as data) =
     let
-        id =
-            i |> String.fromInt |> sha1
+        updatedEntries =
+            Dict.Extra.removeMany (Set.fromList ids) rawEntries.entries
     in
-    ( i + 1, [ ( id, { entry | id = id } ) ] ++ acc )
+    { data | rawEntries = { rawEntries | entries = updatedEntries } }
 
 
 addCategories : List Category -> Data -> Data

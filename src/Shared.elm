@@ -99,7 +99,7 @@ dataSummary model =
         Loaded data ->
             let
                 entries =
-                    data.rawEntries |> Dict.size
+                    data.rawEntries.entries |> Dict.size
 
                 accounts =
                     data.accounts |> Dict.size

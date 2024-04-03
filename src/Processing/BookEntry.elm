@@ -7,7 +7,7 @@ import Time.Date exposing (Date)
 
 
 type alias BookEntry =
-    { id : String
+    { id : Int
     , date : Date
     , description : String
     , amount : Int
