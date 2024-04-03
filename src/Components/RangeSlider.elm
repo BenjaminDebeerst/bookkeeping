@@ -15,7 +15,7 @@ each other and make it hard to change focus from one slider to the other.
 import Components.Icons exposing (triangleLeft, triangleRight)
 import Config exposing (color, size)
 import Cons exposing (Cons)
-import Element exposing (Element, behindContent, centerY, el, fill, fillPortion, height, inFront, moveDown, moveLeft, px, row, spacing, text, width)
+import Element exposing (Element, behindContent, centerY, el, fill, fillPortion, height, inFront, minimum, moveDown, moveLeft, px, row, spacing, text, width)
 import Element.Background as Background
 import Element.Font as Font
 import Element.Input as Input exposing (Label, Thumb, labelHidden)
@@ -160,7 +160,7 @@ onChange values msg selection =
 {-| Thumb size and icon size need to be aligned in order for the highlighting / handling to look and feel right
 -}
 thumbSize =
-    px 20
+    20
 
 
 thumbIconSize =
@@ -182,13 +182,13 @@ slider side size minIdx maxIdx valIdx onChangeMsg =
                     , triangleLeft [ moveLeft -6, moveDown -2, Font.color color.brightAccent ] thumbIconSize
                     )
     in
-    Input.slider [ width (fillPortion size), height fill, centerY ]
+    Input.slider [ width (fillPortion size |> minimum thumbSize), height fill, centerY ]
         { onChange = onChangeMsg
         , label = labelHidden label
         , min = toFloat minIdx
         , max = toFloat maxIdx
         , value = toFloat valIdx
-        , thumb = Input.thumb [ width thumbSize, height thumbSize, inFront handle ]
+        , thumb = Input.thumb [ width (px thumbSize), height (px thumbSize), inFront handle ]
         , step = Just 1
         }
 
