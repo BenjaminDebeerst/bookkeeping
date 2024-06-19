@@ -7,11 +7,17 @@ import Time.Date as Date exposing (Date)
 
 
 type alias RawEntries =
-    RawEntriesV1
+    RawEntriesV2
 
 
 type alias RawEntry =
-    RawEntryV1
+    RawEntryV2
+
+
+type alias RawEntriesV2 =
+    { autoIncrement : Int
+    , entries : Dict Int RawEntryV2
+    }
 
 
 type alias RawEntriesV1 =
@@ -22,6 +28,19 @@ type alias RawEntriesV1 =
 
 type alias RawEntriesV0 =
     Dict String RawEntryV0
+
+
+type alias RawEntryV2 =
+    { id : Int
+    , line : String
+    , date : Date
+    , amount : Int
+    , description : String
+    , accountId : Int
+    , importProfile : Int
+    , categorization : Maybe Categorization
+    , comment : String
+    }
 
 
 type alias RawEntryV1 =
@@ -59,12 +78,12 @@ type alias SplitCatEntry =
 
 empty : RawEntries
 empty =
-    RawEntriesV1 0 Dict.empty
+    RawEntriesV2 0 Dict.empty
 
 
 rawEntry : Int -> Int -> String -> Date -> Int -> String -> Maybe Category -> RawEntry
 rawEntry accountId profileId line date amount description category =
-    RawEntryV1
+    RawEntryV2
         -1
         line
         date
@@ -73,10 +92,22 @@ rawEntry accountId profileId line date amount description category =
         accountId
         profileId
         (Maybe.map (.id >> Single) category)
+        ""
 
 
-fromV0 : Dict String RawEntryV0 -> RawEntries
-fromV0 dict =
+v1ToV2 : RawEntriesV1 -> RawEntriesV2
+v1ToV2 rawEntriesV1 =
+    let
+        mappedEntries : Dict Int RawEntryV2
+        mappedEntries =
+            rawEntriesV1.entries
+                |> Dict.map (\_ e -> RawEntryV2 e.id e.line e.date e.amount e.description e.accountId e.importProfile e.categorization "")
+    in
+    RawEntriesV2 rawEntriesV1.autoIncrement mappedEntries
+
+
+v0ToV1 : Dict String RawEntryV0 -> RawEntriesV1
+v0ToV1 dict =
     let
         addEntryHelper e ( i, acc ) =
             ( i + 1
@@ -95,6 +126,11 @@ fromV0 dict =
     RawEntriesV1 autoIncrement (Dict.fromList entries)
 
 
+fromV0 : Dict String RawEntryV0 -> RawEntries
+fromV0 =
+    v0ToV1 >> v1ToV2
+
+
 
 -- versioning-aware encoding
 
@@ -102,10 +138,13 @@ fromV0 dict =
 codec : S.Codec e RawEntries
 codec =
     S.customType
-        (\v1Encoder value ->
+        (\v1Encoder v2Encoder value ->
             case value of
                 V1 record ->
                     v1Encoder record
+
+                V2 record ->
+                    v2Encoder record
         )
         |> S.variant1 V1
             (S.record RawEntriesV1
@@ -113,18 +152,43 @@ codec =
                 |> S.field .entries (S.dict S.int v1Codec)
                 |> S.finishRecord
             )
+        |> S.variant1 V2
+            (S.record RawEntriesV2
+                |> S.field .autoIncrement S.int
+                |> S.field .entries (S.dict S.int v2Codec)
+                |> S.finishRecord
+            )
         |> S.finishCustomType
         |> S.map
             (\value ->
                 case value of
                     V1 storage ->
+                        v1ToV2 storage
+
+                    V2 storage ->
                         storage
             )
-            V1
+            V2
 
 
 type RawEntriesVersions
-    = V1 RawEntries
+    = V1 RawEntriesV1
+    | V2 RawEntriesV2
+
+
+v2Codec : S.Codec e RawEntryV2
+v2Codec =
+    S.record RawEntryV2
+        |> S.field .id S.int
+        |> S.field .line S.string
+        |> S.field .date dateCodec
+        |> S.field .amount S.int
+        |> S.field .description S.string
+        |> S.field .accountId S.int
+        |> S.field .importProfile S.int
+        |> S.field .categorization (S.maybe categorizationCodec)
+        |> S.field .comment S.string
+        |> S.finishRecord
 
 
 v1Codec : S.Codec e RawEntryV1
