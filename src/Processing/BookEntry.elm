@@ -11,6 +11,7 @@ type alias BookEntry =
     , date : Date
     , description : String
     , amount : Int
+    , comment : String
     , account : Account
     , categorization : Categorization
     }

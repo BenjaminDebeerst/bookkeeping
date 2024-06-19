@@ -32,7 +32,7 @@ andMap =
 
 enrichRow : Data -> RawEntry -> Result String BookEntry
 enrichRow data entry =
-    Ok (BookEntry entry.id entry.date entry.description entry.amount)
+    Ok (BookEntry entry.id entry.date entry.description entry.amount entry.comment)
         |> andMap (Dict.get entry.accountId data.accounts |> Result.fromMaybe ("Account not found: " ++ String.fromInt entry.accountId))
         |> andMap (liftCategorization data entry.categorization |> Result.fromMaybe "Category not found")
 

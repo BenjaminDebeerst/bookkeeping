@@ -59,8 +59,9 @@ page shared _ =
 type alias Model =
     { notification : Notification Msg
     , ordering : Ordering BookEntry
-    , editCategories : Bool
+    , editing : Bool
     , categoryEdits : Dict Int CatAttempt
+    , commentEdits : Dict Int String
     , filters : Filter.Model Msg
     , toBeDeleted : List Int
     }
@@ -75,8 +76,9 @@ init : List Account -> List Category -> List RawEntry -> () -> ( Model, Effect M
 init accounts categories entries _ =
     ( { notification = Notification.None
       , ordering = dateAsc
-      , editCategories = False
+      , editing = False
       , categoryEdits = Dict.empty
+      , commentEdits = Dict.empty
       , filters = Filter.init accounts categories (List.map .date entries) Filter
       , toBeDeleted = []
       }
@@ -93,10 +95,11 @@ type Msg
     | ApplyPattern Category
     | SavePattern String Category
     | OrderBy (Ordering BookEntry)
-    | Categorize
+    | Edit
     | EditCategory Int Int String
-    | SaveCategories
-    | AbortCategorize
+    | EditComment Int String
+    | SaveEdits
+    | AbortEdits
     | Delete (List Int)
     | DeleteAbort
     | DeleteConfirm (List Int)
@@ -148,16 +151,19 @@ update data msg model =
         OrderBy ordering ->
             ( { model | ordering = ordering }, Effect.none )
 
-        Categorize ->
-            ( { model | editCategories = True }, Effect.none )
+        Edit ->
+            ( { model | editing = True }, Effect.none )
 
-        AbortCategorize ->
-            ( { model | editCategories = False, categoryEdits = Dict.empty }, Effect.none )
+        AbortEdits ->
+            ( { model | editing = False, categoryEdits = Dict.empty, commentEdits = Dict.empty }, Effect.none )
 
         EditCategory id amount cat ->
             ( { model | categoryEdits = Dict.insert id (parseCategorization data amount (String.toUpper cat)) model.categoryEdits }, Effect.none )
 
-        SaveCategories ->
+        EditComment id comment ->
+            ( { model | commentEdits = Dict.insert id comment model.commentEdits }, Effect.none )
+
+        SaveEdits ->
             let
                 entryCategorizations : Dict Int Categorization
                 entryCategorizations =
@@ -175,22 +181,34 @@ update data msg model =
                         )
                         model.categoryEdits
 
-                alteredCategories =
-                    Dict.Extra.filterMap (\k v -> Dict.get k data.rawEntries.entries |> Maybe.map (\e -> { e | categorization = toPersistence v })) entryCategorizations
+                alteredEntryIds =
+                    Dict.keys entryCategorizations ++ Dict.keys model.commentEdits |> Set.fromList |> Set.toList
+
+                alteredEntries : Dict Int RawEntry
+                alteredEntries =
+                    alteredEntryIds
+                        |> List.filterMap
+                            (\id ->
+                                Dict.get id data.rawEntries.entries
+                                    |> Maybe.map (\e -> { e | comment = Dict.get id model.commentEdits |> Maybe.withDefault e.comment })
+                                    |> Maybe.map (\e -> { e | categorization = Dict.get id entryCategorizations |> Maybe.map toPersistence |> Maybe.withDefault e.categorization })
+                                    |> Maybe.map (\e -> ( id, e ))
+                            )
+                        |> Dict.fromList
 
                 notification =
-                    if Dict.isEmpty alteredCategories then
+                    if List.length alteredEntryIds == 0 then
                         Notification.None
 
                     else
-                        undo data model (String.concat [ "Applied category edits for ", String.fromInt <| Dict.size alteredCategories, " entries." ])
+                        undo data model (String.concat [ "Applied edits for ", String.fromInt <| List.length alteredEntryIds, " entries." ])
             in
             ( { model
-                | editCategories = False
+                | editing = False
                 , categoryEdits = Dict.empty
                 , notification = notification
               }
-            , Effect.batch [ updateEntries alteredCategories data |> Effect.store, delay 5 ClearNotification ]
+            , Effect.batch [ updateEntries alteredEntries data |> Effect.store, delay 5 ClearNotification ]
             )
 
         Delete entryIds ->
@@ -267,9 +285,9 @@ showFilters model accounts =
 showActions : Model -> List Int -> Element Msg
 showActions model entryIds =
     row [ spacing size.s, width fill ]
-        (if model.editCategories then
-            [ Input.button style.button { onPress = Just AbortCategorize, label = text "Abort" }
-            , Input.button style.button { onPress = Just SaveCategories, label = text "Save Category Edits" }
+        (if model.editing then
+            [ Input.button style.button { onPress = Just AbortEdits, label = text "Abort" }
+            , Input.button style.button { onPress = Just SaveEdits, label = text "Save Edits" }
             ]
 
          else if not (List.isEmpty model.toBeDeleted) then
@@ -279,7 +297,7 @@ showActions model entryIds =
             ]
 
          else
-            [ Input.button style.button { onPress = Just (Delete entryIds), label = text "Delete Entries Shown" }, Input.button style.button { onPress = Just Categorize, label = text "Edit Categories" } ]
+            [ Input.button style.button { onPress = Just (Delete entryIds), label = text "Delete Entries Shown" }, Input.button style.button { onPress = Just Edit, label = text "Edit" } ]
         )
 
 
@@ -345,6 +363,9 @@ dataTable model entries =
                 (header (OrderBy (asc <| .categorization >> categorizationString Full)) (OrderBy (desc <| .categorization >> categorizationString Full)) "Category")
                 (categoryCell model)
             , T.fullStyledColumn
+                (header (OrderBy (asc .comment)) (OrderBy (desc .comment)) "Comment")
+                (commentCell model)
+            , T.fullStyledColumn
                 (header (OrderBy (asc .description)) (OrderBy (desc .description)) "Description")
                 (.description >> text >> (\t -> paragraph [] [ t ]))
                 |> T.width fill
@@ -357,7 +378,7 @@ dataTable model entries =
 
 categoryCell : Model -> BookEntry -> Element Msg
 categoryCell model entry =
-    if model.editCategories then
+    if model.editing then
         Element.row []
             [ Input.text []
                 { onChange = EditCategory entry.id entry.amount
@@ -370,6 +391,20 @@ categoryCell model entry =
 
     else
         text <| categorizationString Full entry.categorization
+
+
+commentCell : Model -> BookEntry -> Element Msg
+commentCell model entry =
+    if model.editing then
+        Input.text []
+            { onChange = EditComment entry.id
+            , text = Dict.get entry.id model.commentEdits |> Maybe.withDefault ""
+            , placeholder = Nothing
+            , label = labelHidden "Comment"
+            }
+
+    else
+        text entry.comment
 
 
 categoryEditAnnotation : Dict Int CatAttempt -> BookEntry -> Element Msg
