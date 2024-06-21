@@ -14,8 +14,10 @@ import Persistence.Data exposing (Data)
 import Persistence.Storage as Storage
 import Route exposing (Route)
 import Shared exposing (dataSummary)
-import Util.Formats exposing (formatEuro)
+import Time.Date as Date
+import Util.Formats exposing (formatEuro, formatYearMonth)
 import Util.Layout exposing (dataUpdate, dataView)
+import Util.YearMonth as YearMonth
 
 
 page : Shared.Model -> Route () -> Page Model Msg
@@ -102,8 +104,8 @@ update data msg model =
                 | editing = Existing a
                 , name = a.name
                 , balance = String.fromInt a.start.amount
-                , year = String.fromInt a.start.year
-                , month = String.fromInt a.start.month
+                , year = String.fromInt (YearMonth.toDate a.start.yearMonth |> Date.year)
+                , month = String.fromInt (YearMonth.toDate a.start.yearMonth |> Date.month)
               }
             , Effect.none
             )
@@ -241,7 +243,7 @@ showData data _ =
                                 ]
                   }
                 , T.textColumn "Name" .name
-                , T.textColumn "Starting Month" (\a -> String.fromInt a.start.year ++ "/" ++ String.fromInt a.start.month)
+                , T.textColumn "Starting Month" (.start >> .yearMonth >> formatYearMonth)
                 , T.styledColumn "Starting Balance" (.start >> .amount >> formatEuro)
                 ]
             }

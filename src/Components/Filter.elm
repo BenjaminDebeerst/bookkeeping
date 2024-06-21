@@ -22,10 +22,12 @@ import Processing.Filter as Filter exposing (AggregateFilter, any, filterAccount
 import Regex
 import Time.Date as Date exposing (Date)
 import Util.Date exposing (compareMonths)
+import Util.Formats exposing (formatYearMonthNumeric)
+import Util.YearMonth as YearMonth exposing (YearMonth)
 
 
 type alias Model msg =
-    { dateRange : RangeSlider.Model Date
+    { dateRange : RangeSlider.Model YearMonth
     , descr : String
     , descrIsRegex : Bool
     , creatingPattern : Maybe ( Maybe Category, Dropdown.State Category )
@@ -41,15 +43,10 @@ type alias Model msg =
 init : List Account -> List Category -> List Date -> (Msg -> msg) -> Model msg
 init accounts categories dates lift =
     let
-        -- some 'random' default date if there are neither accounts nor any dates provided
-        -- hardly ever relevant, but necessary to have a non-empty list
-        defaultDate =
-            Date.date 2024 1 1
-
-        ( head, tail ) =
-            dateRange dates accounts |> List.Extra.uncons |> Maybe.withDefault ( defaultDate, [] )
+        ( dateRangeStart, tail ) =
+            dateRange dates accounts |> List.Extra.uncons |> Maybe.withDefault ( YearMonth.zero, [] )
     in
-    { dateRange = RangeSlider.init head tail
+    { dateRange = RangeSlider.init dateRangeStart tail
     , descr = ""
     , descrIsRegex = False
     , creatingPattern = Nothing
@@ -62,33 +59,16 @@ init accounts categories dates lift =
     }
 
 
-dateRange : List Date -> List Account -> List Date
+dateRange : List Date -> List Account -> List YearMonth
 dateRange dates accounts =
-    let
-        allDates =
-            dates
-                ++ List.map (.start >> (\s -> Date.date s.year s.month 1)) accounts
-
-        min =
-            allDates |> List.Extra.minimumWith Date.compare |> Maybe.map (Date.setDay 1)
-
-        max =
-            allDates |> List.Extra.maximumWith Date.compare |> Maybe.map (Date.setDay 1)
-
-        range : Date -> Date -> List Date
-        range start end =
-            if start == end then
-                [ start ]
-
-            else
-                range start (Date.addMonths -1 end) ++ [ end ]
-    in
-    Maybe.map2 range min max
-        |> Maybe.withDefault []
+    YearMonth.range
+        ((dates |> List.map YearMonth.fromDate)
+            ++ List.map (.start >> .yearMonth) accounts
+        )
 
 
 type Msg
-    = DateRange (RangeSlider.Msg Date)
+    = DateRange (RangeSlider.Msg YearMonth)
     | Descr String
     | DescrRegex Bool
     | PatternCreateStart
@@ -163,7 +143,7 @@ update msg model =
 toEntryFilter : Model msg -> List Filter.EntryFilter
 toEntryFilter model =
     []
-        ++ [ filterDateRange compareMonths (RangeSlider.min model.dateRange) (RangeSlider.max model.dateRange) ]
+        ++ [ filterDateRange (RangeSlider.min model.dateRange) (RangeSlider.max model.dateRange) ]
         ++ [ if model.descrIsRegex then
                 filterDescriptionRegex model.descr
 
@@ -184,17 +164,12 @@ toEntryFilter model =
 
 toAggregateFilter : Model msg -> Filter.AggregateFilter
 toAggregateFilter model =
-    filterAggregateDateRange compareMonths (RangeSlider.min model.dateRange) (RangeSlider.max model.dateRange)
+    filterAggregateDateRange (RangeSlider.min model.dateRange) (RangeSlider.max model.dateRange)
 
 
 dateRangeFilter : Model msg -> Element msg
 dateRangeFilter model =
-    RangeSlider.view "Date range" formatDateMonth model.dateRange |> Element.map (DateRange >> model.lift)
-
-
-formatDateMonth : Date -> String
-formatDateMonth date =
-    String.join "-" [ String.fromInt <| Date.year date, String.padLeft 2 '0' <| String.fromInt <| Date.month date ]
+    RangeSlider.view "Date range" formatYearMonthNumeric model.dateRange |> Element.map (DateRange >> model.lift)
 
 
 descriptionFilter : (Category -> msg) -> (String -> Category -> msg) -> Model msg -> Element msg
