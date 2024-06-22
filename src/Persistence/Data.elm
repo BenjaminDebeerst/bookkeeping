@@ -9,6 +9,7 @@ import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode exposing (Value)
 import Persistence.Account as Account exposing (AccountV0, Accounts)
+import Persistence.Audits as Audits exposing (Audits)
 import Persistence.Category as Category exposing (Categories, CategoryV0)
 import Persistence.ImportProfile as ImportProfile exposing (ImportProfileV0, ImportProfiles)
 import Persistence.RawEntry as RawEntry exposing (RawEntries, RawEntryV0)
@@ -16,7 +17,17 @@ import Serialize as S exposing (Error)
 
 
 type alias Data =
-    DataV2
+    DataV3
+
+
+type alias DataV3 =
+    { rawEntries : RawEntries
+    , accounts : Accounts
+    , categories : Categories
+    , importProfiles : ImportProfiles
+    , audits : Audits
+    , autoIncrement : Int
+    }
 
 
 type alias DataV2 =
@@ -46,6 +57,17 @@ type alias DataV0 =
     }
 
 
+v2v3 : DataV2 -> DataV3
+v2v3 v2 =
+    DataV3
+        v2.rawEntries
+        v2.accounts
+        v2.categories
+        v2.importProfiles
+        Audits.empty
+        v2.autoIncrement
+
+
 v1v2 : DataV1 -> DataV2
 v1v2 v1 =
     DataV2
@@ -72,6 +94,7 @@ empty =
     , accounts = Dict.empty
     , categories = Dict.empty
     , importProfiles = Dict.empty
+    , audits = Audits.empty
     , autoIncrement = 0
     }
 
@@ -94,12 +117,13 @@ type StorageVersions
     = V0 DataV0
     | V1 DataV1
     | V2 DataV2
+    | V3 DataV3
 
 
 dataCodec : S.Codec e Data
 dataCodec =
     S.customType
-        (\v0Encoder v1Encoder v2Encoder value ->
+        (\v0Encoder v1Encoder v2Encoder v3Encoder value ->
             case value of
                 V0 record ->
                     v0Encoder record
@@ -109,24 +133,43 @@ dataCodec =
 
                 V2 record ->
                     v2Encoder record
+
+                V3 record ->
+                    v3Encoder record
         )
         |> S.variant1 V0 v0Codec
         |> S.variant1 V1 v1Codec
         |> S.variant1 V2 v2Codec
+        |> S.variant1 V3 v3Codec
         |> S.finishCustomType
         |> S.map
             (\value ->
                 case value of
                     V0 storage ->
-                        (v0v1 >> v1v2) storage
+                        (v0v1 >> v1v2 >> v2v3) storage
 
                     V1 storage ->
-                        v1v2 storage
+                        (v1v2 >> v2v3) storage
 
                     V2 storage ->
+                        v2v3 storage
+
+                    V3 storage ->
                         storage
             )
-            V2
+            V3
+
+
+v3Codec : S.Codec e DataV3
+v3Codec =
+    S.record DataV3
+        |> S.field .rawEntries RawEntry.codec
+        |> S.field .accounts Account.codec
+        |> S.field .categories Category.codec
+        |> S.field .importProfiles ImportProfile.codec
+        |> S.field .audits Audits.codec
+        |> S.field .autoIncrement S.int
+        |> S.finishRecord
 
 
 v2Codec : S.Codec e DataV2

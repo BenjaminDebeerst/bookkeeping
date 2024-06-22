@@ -3,16 +3,23 @@ module Pages.Monthly exposing (Model, Msg, page)
 import Components.Filter as Filter exposing (toAggregateFilter)
 import Components.Table as T
 import Components.Tabs as Tabs
-import Config exposing (size)
+import Config exposing (size, style)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
-import Element exposing (Element, IndexedColumn, column, indexedTable, minimum, shrink, spacing, width)
+import Element exposing (Element, IndexedColumn, column, indexedTable, minimum, shrink, spacing, text, width)
+import Element.Background as Background
+import Element.Border as Border
+import Element.Input as Input exposing (labelHidden)
 import Layouts
+import List.Extra
+import Maybe.Extra
 import Page exposing (Page)
 import Persistence.Account exposing (Account, Accounts)
+import Persistence.Audits as Audits exposing (Audits)
 import Persistence.Category as Category exposing (Category, CategoryGroup(..))
 import Persistence.Data exposing (Data)
 import Persistence.RawEntry exposing (RawEntry)
+import Persistence.Storage exposing (updateAudits)
 import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate, startDate, startingBalances)
 import Processing.Aggregator as Aggregator exposing (Aggregator)
 import Processing.Filter as Filter exposing (EntryFilter)
@@ -23,6 +30,7 @@ import Shared exposing (dataSummary)
 import Shared.Model exposing (Model(..))
 import Util.Formats exposing (formatEuro, formatYearMonth)
 import Util.Layout exposing (dataUpdate, dataView)
+import Util.YearMonth exposing (YearMonth)
 
 
 page : Shared.Model -> Route () -> Page Model Msg
@@ -58,6 +66,7 @@ type Tab
 type alias Model =
     { filters : Filter.Model Msg
     , tab : Tab
+    , edits : Maybe (List ( YearMonth, String ))
     }
 
 
@@ -65,6 +74,7 @@ init : List Account -> List RawEntry -> () -> ( Model, Effect Msg )
 init accounts entries _ =
     ( { filters = Filter.init accounts [] (List.map .date entries) Filter
       , tab = Overview
+      , edits = Nothing
       }
     , Effect.none
     )
@@ -77,6 +87,10 @@ init accounts entries _ =
 type Msg
     = Filter Filter.Msg
     | TabSelection Tab
+    | StartEdit
+    | Save
+    | Abort
+    | EditComment YearMonth String
 
 
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
@@ -92,6 +106,43 @@ update data msg model =
         TabSelection tab ->
             ( { model | tab = tab }, Effect.none )
 
+        StartEdit ->
+            ( { model | edits = Just [] }, Effect.none )
+
+        EditComment ym comment ->
+            case model.edits of
+                Nothing ->
+                    ( model, Effect.none )
+
+                Just edits ->
+                    let
+                        edited : List ( YearMonth, String )
+                        edited =
+                            case List.Extra.findIndex (\( ym2, _ ) -> ym == ym2) edits of
+                                Just i ->
+                                    List.Extra.setAt i ( ym, comment ) edits
+
+                                Nothing ->
+                                    ( ym, comment ) :: edits
+                    in
+                    ( { model | edits = Just edited }, Effect.none )
+
+        Save ->
+            let
+                acc : ( YearMonth, String ) -> Audits -> Audits
+                acc ( ym, comment ) =
+                    Audits.update ym (\a -> { a | comment = comment })
+
+                updated =
+                    model.edits
+                        |> Maybe.withDefault []
+                        |> List.foldl acc data.audits
+            in
+            ( { model | edits = Nothing }, updateAudits updated data |> Effect.store )
+
+        Abort ->
+            ( { model | edits = Nothing }, Effect.none )
+
 
 
 -- VIEW
@@ -101,8 +152,21 @@ view : Data -> Model -> Element Msg
 view data model =
     column [ spacing size.m ]
         [ viewFilters model (Dict.values data.accounts)
+        , viewActions model
         , viewTabs data model
         ]
+
+
+viewActions : Model -> Element Msg
+viewActions model =
+    if model.edits |> Maybe.Extra.isJust then
+        Element.row [ spacing size.m ]
+            [ Input.button style.button { onPress = Just Save, label = text "Save" }
+            , Input.button style.button { onPress = Just Abort, label = text "Abort" }
+            ]
+
+    else
+        Input.button style.button { onPress = Just StartEdit, label = text "Edit" }
 
 
 viewTabs : Data -> Model -> Element Msg
@@ -200,7 +264,7 @@ showAggregations data model aggregators =
                 |> aggregate start startSums aggregators
                 |> toAggregateFilter model.filters
     in
-    showAggResults aggregatedData
+    showAggResults data.audits model.edits aggregatedData
 
 
 viewFilters : Model -> List Account -> Element Msg
@@ -211,12 +275,54 @@ viewFilters model accounts =
         ]
 
 
-showAggResults : Aggregate -> Element msg
-showAggResults aggregation =
+showAggResults : Audits -> Maybe (List ( YearMonth, String )) -> Aggregate -> Element Msg
+showAggResults audits edits aggregation =
     indexedTable T.tableStyle
         { data = aggregation.rows
-        , columns = T.textColumn "Month" (.month >> formatYearMonth) :: aggregationColumns aggregation.aggregators
+        , columns =
+            T.textColumn "Month" (.month >> formatYearMonth)
+                :: aggregationColumns aggregation.aggregators
+                ++ [ T.styledColumn "Comment" (.month >> commentCell audits edits) ]
         }
+
+
+commentCell : Audits -> Maybe (List ( YearMonth, String )) -> YearMonth -> Element Msg
+commentCell audits edits yearMonth =
+    let
+        editing =
+            Maybe.Extra.isJust edits
+
+        findYM =
+            \( ym, c ) ->
+                if ym == yearMonth then
+                    Just c
+
+                else
+                    Nothing
+
+        comment =
+            edits
+                |> Maybe.andThen (List.Extra.findMap findYM)
+                |> Maybe.withDefault (Audits.get yearMonth audits |> .comment)
+    in
+    if editing then
+        Input.text
+            [ Element.padding 1
+            , Border.rounded 3
+            , Background.color (Element.rgb 1 1 1)
+            , Border.width 0
+            , Element.spacing 0
+            , Element.width Element.fill
+            , Element.height Element.shrink
+            ]
+            { onChange = EditComment yearMonth
+            , text = comment
+            , placeholder = Nothing
+            , label = labelHidden "Comment"
+            }
+
+    else
+        Element.text comment
 
 
 aggregationColumns : List String -> List (IndexedColumn MonthAggregate msg)
