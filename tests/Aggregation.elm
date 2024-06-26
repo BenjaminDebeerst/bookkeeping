@@ -9,6 +9,7 @@ import Processing.Aggregator exposing (Aggregator)
 import Processing.BookEntry exposing (BookEntry, Categorization(..))
 import Test exposing (..)
 import Time.Date as Date
+import Util.YearMonth as YearMonth
 
 
 cat1 =
@@ -34,12 +35,12 @@ account2 =
 
 entries : List BookEntry
 entries =
-    [ BookEntry "a" (Date.date 2023 3 1) "" 2 account1 (Single cat1)
-    , BookEntry "b" (Date.date 2023 3 2) "" 2 account1 (Single cat2)
-    , BookEntry "c" (Date.date 2023 4 4) "" 2 account2 (Single cat1)
-    , BookEntry "d" (Date.date 2023 4 6) "" 2 account1 (Single cat2)
-    , BookEntry "e" (Date.date 2023 4 9) "" 2 account1 (Single cat2)
-    , BookEntry "f" (Date.date 2023 5 4) "" 2 account1 (Single cat1)
+    [ BookEntry 1 (Date.date 2023 3 1) "" 2 "" account1 (Single cat1)
+    , BookEntry 2 (Date.date 2023 3 2) "" 2 "" account1 (Single cat2)
+    , BookEntry 3 (Date.date 2023 4 4) "" 2 "" account2 (Single cat1)
+    , BookEntry 4 (Date.date 2023 4 6) "" 2 "" account1 (Single cat2)
+    , BookEntry 5 (Date.date 2023 4 9) "" 2 "" account1 (Single cat2)
+    , BookEntry 6 (Date.date 2023 5 4) "" 2 "" account1 (Single cat1)
     ]
 
 
@@ -49,7 +50,7 @@ aggregate_book_entries =
         [ test "aggregates non-running sums, ignoring start values" <|
             \_ ->
                 (aggregate
-                    (Date.date 2023 2 1)
+                    (YearMonth.new 2023 2)
                     (Dict.fromList [ ( "Sum", 10 ) ])
                     [ Aggregator "Sum" .amount False ]
                     entries
@@ -60,15 +61,15 @@ aggregate_book_entries =
                     -- - if there is no entry for a given month, the value is absent
                     -- - list ends where the entries above end
                     |> Expect.equal
-                        [ { month = Date.date 2023 2 1, columns = Dict.empty }
-                        , { month = Date.date 2023 3 1, columns = Dict.fromList [ ( "Sum", 4 ) ] }
-                        , { month = Date.date 2023 4 1, columns = Dict.fromList [ ( "Sum", 6 ) ] }
-                        , { month = Date.date 2023 5 1, columns = Dict.fromList [ ( "Sum", 2 ) ] }
+                        [ { month = YearMonth.new 2023 2, columns = Dict.empty }
+                        , { month = YearMonth.new 2023 3, columns = Dict.fromList [ ( "Sum", 4 ) ] }
+                        , { month = YearMonth.new 2023 4, columns = Dict.fromList [ ( "Sum", 6 ) ] }
+                        , { month = YearMonth.new 2023 5, columns = Dict.fromList [ ( "Sum", 2 ) ] }
                         ]
         , test " aggregates for running sums, using the start value" <|
             \_ ->
                 (aggregate
-                    (Date.date 2023 2 1)
+                    (YearMonth.new 2023 2)
                     (Dict.fromList [ ( "Cumulative", 10 ) ])
                     [ Aggregator "Cumulative" .amount True ]
                     entries
@@ -77,9 +78,9 @@ aggregate_book_entries =
                     -- - Monthly sums are carried over to next month
                     -- - starting sum is included in the sums
                     |> Expect.equal
-                        [ { month = Date.date 2023 2 1, columns = Dict.fromList [ ( "Cumulative", 10 ) ] }
-                        , { month = Date.date 2023 3 1, columns = Dict.fromList [ ( "Cumulative", 14 ) ] }
-                        , { month = Date.date 2023 4 1, columns = Dict.fromList [ ( "Cumulative", 20 ) ] }
-                        , { month = Date.date 2023 5 1, columns = Dict.fromList [ ( "Cumulative", 22 ) ] }
+                        [ { month = YearMonth.new 2023 2, columns = Dict.fromList [ ( "Cumulative", 10 ) ] }
+                        , { month = YearMonth.new 2023 3, columns = Dict.fromList [ ( "Cumulative", 14 ) ] }
+                        , { month = YearMonth.new 2023 4, columns = Dict.fromList [ ( "Cumulative", 20 ) ] }
+                        , { month = YearMonth.new 2023 5, columns = Dict.fromList [ ( "Cumulative", 22 ) ] }
                         ]
         ]

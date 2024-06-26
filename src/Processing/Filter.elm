@@ -5,7 +5,7 @@ import Persistence.Category exposing (Category)
 import Processing.Aggregation exposing (Aggregate)
 import Processing.BookEntry exposing (BookEntry)
 import Regex
-import Time.Date as Date exposing (Date)
+import Util.YearMonth as YearMonth exposing (YearMonth)
 
 
 type alias EntryFilter =
@@ -26,18 +26,19 @@ any l =
     \e -> List.any (\f -> f e) l
 
 
-filterDateRange : (Date -> Date -> Order) -> Date -> Date -> EntryFilter
-filterDateRange order min max be =
-    (not <| order min be.date == GT) && (not <| order be.date max == GT)
+inInclusiveRange : YearMonth -> YearMonth -> YearMonth -> Bool
+inInclusiveRange min max candidate =
+    not (YearMonth.compare min candidate == GT || YearMonth.compare max candidate == LT)
 
 
-filterAggregateDateRange : (Date -> Date -> Order) -> Date -> Date -> Aggregate -> Aggregate
-filterAggregateDateRange order min max ag =
-    { ag
-        | rows =
-            ag.rows
-                |> List.filter (\ma -> (not <| order min ma.month == GT) && (not <| order ma.month max == GT))
-    }
+filterDateRange : YearMonth -> YearMonth -> EntryFilter
+filterDateRange min max be =
+    inInclusiveRange min max (YearMonth.fromDate be.date)
+
+
+filterAggregateDateRange : YearMonth -> YearMonth -> Aggregate -> Aggregate
+filterAggregateDateRange min max ag =
+    { ag | rows = ag.rows |> List.filter (.month >> inInclusiveRange min max) }
 
 
 filterDescription : String -> EntryFilter

@@ -1,9 +1,10 @@
-module Util.Formats exposing (formatDate, formatEuro, formatEuroStr, formatYearMonth)
+module Util.Formats exposing (formatDate, formatEuro, formatEuroStr, formatYearMonth, formatYearMonthNumeric)
 
 import Config exposing (color)
 import Element exposing (Element, alignRight, el, text)
 import Element.Font as Font
 import Time.Date as Date exposing (Date)
+import Util.YearMonth as YearMonth exposing (YearMonth)
 
 
 formatEuroStr : Int -> String
@@ -59,8 +60,21 @@ formatDate date =
     String.join "-" <| List.map (String.fromInt >> String.padLeft 2 '0') <| [ Date.year date, Date.month date, Date.day date ]
 
 
-formatYearMonth : Date -> String
-formatYearMonth date =
+formatYearMonthNumeric : YearMonth -> String
+formatYearMonthNumeric yearMonth =
+    let
+        ( year, month ) =
+            YearMonth.components yearMonth
+    in
+    String.join "-" [ String.fromInt year, String.padLeft 2 '0' <| String.fromInt <| month ]
+
+
+formatYearMonth : YearMonth -> String
+formatYearMonth yearMonth =
+    let
+        date =
+            YearMonth.toDate yearMonth
+    in
     String.join " "
         [ case Date.month date of
             1 ->

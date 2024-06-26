@@ -5,13 +5,12 @@ import List.Extra
 import Persistence.Account exposing (Account)
 import Processing.Aggregator exposing (Aggregator)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit)
-import Time.Date as Date exposing (Date)
-import Util.Date as Date
 import Util.List exposing (partitionWith)
+import Util.YearMonth as YearMonth exposing (YearMonth)
 
 
 type alias MonthAggregate =
-    { month : Date
+    { month : YearMonth
     , columns : Dict String Int -- title -> Amount}
     }
 
@@ -31,21 +30,21 @@ startingBalances accounts =
         )
 
 
-startDate : List Account -> Date
+startDate : List Account -> YearMonth
 startDate accounts =
     accounts
-        |> List.map (\a -> Date.date a.start.year a.start.month 1)
-        |> List.Extra.minimumWith Date.compare
-        |> Maybe.withDefault (Date.date 2000 1 1)
+        |> List.map (.start >> .yearMonth)
+        |> List.Extra.minimumWith YearMonth.compare
+        |> Maybe.withDefault YearMonth.zero
 
 
-aggregate : Date -> Dict String Int -> List Aggregator -> List BookEntry -> Aggregate
+aggregate : YearMonth -> Dict String Int -> List Aggregator -> List BookEntry -> Aggregate
 aggregate start initialSums aggregators bookEntries =
     Aggregate (List.map .title aggregators)
         (aggregateMonthly start initialSums aggregators bookEntries)
 
 
-aggregateMonthly : Date -> Dict String Int -> List Aggregator -> List BookEntry -> List MonthAggregate
+aggregateMonthly : YearMonth -> Dict String Int -> List Aggregator -> List BookEntry -> List MonthAggregate
 aggregateMonthly month initialSums aggregators bookEntries =
     case bookEntries of
         [] ->
@@ -53,14 +52,14 @@ aggregateMonthly month initialSums aggregators bookEntries =
 
         nonEmpty ->
             let
-                ( earlier, currentMonth, rest ) =
-                    nonEmpty |> partitionWith (\e -> Date.compareMonths e.date month)
+                ( rest, currentMonth, earlier ) =
+                    nonEmpty |> partitionWith (.date >> YearMonth.fromDate >> YearMonth.compare month)
 
                 currentMonthResults =
                     aggregateAllWith aggregators currentMonth initialSums
             in
             [ MonthAggregate month currentMonthResults ]
-                ++ aggregateMonthly (Date.addMonths 1 month) currentMonthResults aggregators rest
+                ++ aggregateMonthly (YearMonth.add 1 month) currentMonthResults aggregators rest
 
 
 aggregateAllWith : List Aggregator -> List BookEntry -> Dict String Int -> Dict String Int
