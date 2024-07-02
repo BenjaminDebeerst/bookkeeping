@@ -53,7 +53,7 @@ page shared _ =
         , view = dataView shared "Book" view
         , subscriptions = \_ -> Sub.none
         }
-        |> Page.withLayout (\_ -> Layouts.Sidebar { dataSummary = dataSummary shared })
+        |> Page.withLayout (\_ -> Layouts.Tabs { dataSummary = dataSummary shared })
 
 
 type alias Model =

@@ -17,6 +17,7 @@ import Layouts
 import Page exposing (Page)
 import Persistence.Data as Data exposing (Data)
 import Route exposing (Route)
+import Route.Path as Path
 import Shared exposing (dataSummary)
 import Shared.Model exposing (Model(..))
 import Task
@@ -31,7 +32,7 @@ page shared _ =
         , view = view shared
         , subscriptions = \_ -> Sub.none
         }
-        |> Page.withLayout (\_ -> Layouts.Sidebar { dataSummary = dataSummary shared })
+        |> Page.withLayout (\_ -> Layouts.Tabs { dataSummary = dataSummary shared })
 
 
 type alias Model =
@@ -58,6 +59,7 @@ type Msg
     | GotFileName File
     | GotFileContent String String
     | SaveDataBase
+    | LoadBook
 
 
 update : Shared.Model -> Msg -> Model -> ( Model, Effect Msg )
@@ -79,6 +81,9 @@ update sharedModel msg model =
 
         SaveDataBase ->
             ( model, save sharedModel )
+
+        LoadBook ->
+            ( model, Effect.pushRoutePath Path.Book )
 
 
 
@@ -154,7 +159,7 @@ showDataSummary data =
             data.categories |> Dict.size |> String.fromInt
     in
     [ el [] <| text ([ "Database loaded. ", entries, " entries, ", accounts, " accounts, ", categories, " categories." ] |> String.concat)
-    , showActions [ LoadOther, Init, Save ]
+    , showActions [ LoadOther, Init, Save, Book ]
     ]
 
 
@@ -171,6 +176,7 @@ type Action
     | LoadOther
     | Init
     | Save
+    | Book
 
 
 showActions : List Action -> Element Msg
@@ -203,6 +209,12 @@ showActions buttons =
                             Input.button style.button
                                 { onPress = Just SaveDataBase
                                 , label = text "Save DB"
+                                }
+
+                        Book ->
+                            Input.button style.button
+                                { onPress = Just LoadBook
+                                , label = text "Book"
                                 }
                 )
         )

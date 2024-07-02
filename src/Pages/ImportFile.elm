@@ -51,7 +51,7 @@ page shared _ =
         , view = dataView shared "Import CSV File" view
         , subscriptions = \_ -> Sub.none
         }
-        |> Page.withLayout (\_ -> Layouts.Sidebar { dataSummary = dataSummary shared })
+        |> Page.withLayout (\_ -> Layouts.Tabs { dataSummary = dataSummary shared })
 
 
 

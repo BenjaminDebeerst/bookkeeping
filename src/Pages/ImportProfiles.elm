@@ -1,13 +1,12 @@
-module Pages.ImportProfiles exposing (Model, Msg, page)
+module Pages.ImportProfiles exposing (Model, Msg, init, page, update, view)
 
 import Components.Table as T
-import Config exposing (color, size, style)
+import Config exposing (color, paddingBottom, size, style)
 import Dict
 import Effect exposing (Effect)
 import Element exposing (Element, IndexedColumn, column, el, indexedTable, none, padding, paddingXY, row, shrink, spacing, text)
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelLeft, placeholder)
-import Layouts
 import Maybe.Extra
 import Page exposing (Page)
 import Persistence.Data exposing (Data)
@@ -15,7 +14,7 @@ import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile, import
 import Persistence.Storage as Storage
 import Processing.CsvParser as CsvParser
 import Route exposing (Route)
-import Shared exposing (dataSummary)
+import Shared
 import Util.Formats exposing (formatDate, formatEuroStr)
 import Util.Layout exposing (dataUpdate, dataView)
 
@@ -28,7 +27,6 @@ page shared _ =
         , view = dataView shared "Import Profiles" view
         , subscriptions = \_ -> Sub.none
         }
-        |> Page.withLayout (\_ -> Layouts.Sidebar { dataSummary = dataSummary shared })
 
 
 
@@ -197,7 +195,7 @@ validateImportProfile data model =
 
 view : Data -> Model -> Element Msg
 view data model =
-    column [ spacing size.m ]
+    column [ spacing size.m, paddingBottom size.m ]
         [ errorNotice model.error
         , editArea data model
         , showData data model
@@ -208,7 +206,9 @@ errorNotice : Maybe String -> Element Msg
 errorNotice error =
     case error of
         Nothing ->
-            Element.none
+            -- The nested none prevents a change in the dom structure when an errorNotice is shown,
+            -- which would cause losing the focus on the current input field
+            el [] Element.none
 
         Just message ->
             el [ Font.color color.red ] (text message)

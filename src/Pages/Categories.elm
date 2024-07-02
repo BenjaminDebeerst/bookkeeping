@@ -1,16 +1,15 @@
-module Pages.Categories exposing (Model, Msg, page)
+module Pages.Categories exposing (Model, Msg, init, page, update, view)
 
 import Components.Icons exposing (cross)
 import Components.Table as T
 import Components.Tooltip exposing (tooltip)
-import Config exposing (color, size, style)
+import Config exposing (color, paddingBottom, size, style)
 import Dict
 import Effect exposing (Effect)
-import Element exposing (Element, alignRight, below, column, el, fill, indexedTable, padding, paddingXY, px, row, spacing, text, width)
+import Element exposing (Element, alignRight, below, column, el, fill, indexedTable, padding, px, row, spacing, text, width)
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelHidden, labelLeft, placeholder)
-import Layouts
 import List.Extra
 import Page exposing (Page)
 import Parser
@@ -23,7 +22,7 @@ import Processing.Model exposing (getCategoryByShort, getEntries)
 import Processing.Ordering exposing (dateAsc)
 import Regex
 import Route exposing (Route)
-import Shared exposing (dataSummary)
+import Shared
 import String
 import Util.Layout exposing (dataUpdate, dataView)
 
@@ -36,7 +35,6 @@ page shared _ =
         , view = dataView shared "Categories" view
         , subscriptions = \_ -> Sub.none
         }
-        |> Page.withLayout (\_ -> Layouts.Sidebar { dataSummary = dataSummary shared })
 
 
 
@@ -238,7 +236,7 @@ invalidRegex s =
 
 view : Data -> Model -> Element Msg
 view data model =
-    column [ spacing size.m ]
+    column [ spacing size.m, paddingBottom size.m ]
         [ errorNotice model.error
         , editArea data model
         , showData data model
@@ -249,7 +247,8 @@ errorNotice : Maybe String -> Element Msg
 errorNotice error =
     case error of
         Nothing ->
-            -- The nested none prevents a change in the dom structure when an errorNotice is shown, which would cause losing the focus on the current input field
+            -- The nested none prevents a change in the dom structure when an errorNotice is shown,
+            -- which would cause losing the focus on the current input field
             el [] Element.none
 
         Just message ->

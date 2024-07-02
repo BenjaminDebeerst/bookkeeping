@@ -1,19 +1,18 @@
-module Pages.Accounts exposing (Model, Msg, page)
+module Pages.Accounts exposing (Model, Msg, init, initModel, page, update, view)
 
 import Components.Table as T
-import Config exposing (color, size, style)
+import Config exposing (color, paddingBottom, size, style)
 import Dict
 import Effect exposing (Effect)
 import Element exposing (Element, column, el, indexedTable, row, shrink, spacing, text)
 import Element.Font as Font
 import Element.Input as Input exposing (button, labelHidden, placeholder)
-import Layouts
 import Page exposing (Page)
 import Persistence.Account exposing (Account, AccountStart, account)
 import Persistence.Data exposing (Data)
 import Persistence.Storage as Storage
 import Route exposing (Route)
-import Shared exposing (dataSummary)
+import Shared
 import Time.Date as Date
 import Util.Formats exposing (formatEuro, formatYearMonth)
 import Util.Layout exposing (dataUpdate, dataView)
@@ -28,7 +27,6 @@ page shared _ =
         , view = dataView shared "Accounts" view
         , subscriptions = \_ -> Sub.none
         }
-        |> Page.withLayout (\_ -> Layouts.Sidebar { dataSummary = dataSummary shared })
 
 
 
@@ -163,7 +161,7 @@ validateAccount m =
 
 view : Data -> Model -> Element Msg
 view data model =
-    column [ spacing size.m ]
+    column [ spacing size.m, paddingBottom size.m ]
         [ errorNotice model.error
         , editArea data model
         , showData data model
@@ -174,7 +172,9 @@ errorNotice : Maybe String -> Element Msg
 errorNotice error =
     case error of
         Nothing ->
-            Element.none
+            -- The nested none prevents a change in the dom structure when an errorNotice is shown,
+            -- which would cause losing the focus on the current input field
+            el [] Element.none
 
         Just message ->
             el [ Font.color color.red ] (text message)
