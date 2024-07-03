@@ -27,25 +27,15 @@ import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (dateAsc)
 import Route exposing (Route)
 import Shared exposing (dataSummary)
-import Shared.Model exposing (Model(..))
 import Util.Formats exposing (formatEuro, formatYearMonth)
-import Util.Layout exposing (dataUpdate, dataView)
+import Util.Layout exposing (dataInit, dataUpdate, dataView)
 import Util.YearMonth exposing (YearMonth)
 
 
 page : Shared.Model -> Route () -> Page Model Msg
 page shared _ =
     Page.new
-        { init =
-            case shared of
-                None ->
-                    init [] []
-
-                Loaded data ->
-                    init (Dict.values data.accounts) (Dict.values data.rawEntries.entries)
-
-                Problem _ ->
-                    init [] []
+        { init = \_ -> dataInit shared (init [] []) initFromData
         , update = dataUpdate shared update
         , view = dataView shared "Monthly" view
         , subscriptions = \_ -> Sub.none
@@ -70,14 +60,17 @@ type alias Model =
     }
 
 
-init : List Account -> List RawEntry -> () -> ( Model, Effect Msg )
-init accounts entries _ =
-    ( { filters = Filter.init accounts [] (List.map .date entries) Filter
-      , tab = Overview
-      , edits = Nothing
-      }
-    , Effect.none
-    )
+initFromData : Data -> Model
+initFromData data =
+    init (Dict.values data.accounts) (Dict.values data.rawEntries.entries)
+
+
+init : List Account -> List RawEntry -> Model
+init accounts entries =
+    { filters = Filter.init accounts [] (List.map .date entries) Filter
+    , tab = Overview
+    , edits = Nothing
+    }
 
 
 

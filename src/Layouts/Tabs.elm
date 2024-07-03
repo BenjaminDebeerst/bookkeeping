@@ -54,17 +54,11 @@ view props path { toContentMsg, model, content } =
 pageTitles : Path -> String
 pageTitles path =
     case path of
-        Home_ ->
-            "Home"
-
         Book ->
-            "Book"
-
-        ImportFile ->
-            "Import File"
+            "Data"
 
         Monthly ->
-            "Monthly"
+            "Aggregation"
 
         Settings ->
             "Settings"
@@ -76,7 +70,7 @@ pageTitles path =
 mainColumn : View contentMsg -> Path -> (Msg -> contentMsg) -> Element contentMsg
 mainColumn content path toContentMsg =
     Components.Tabs.tabbedContent
-        { allTabs = [ Pages.Home_, Pages.ImportFile, Pages.Book, Pages.Monthly, Pages.Settings ]
+        { allTabs = [ Pages.Book, Pages.Monthly, Pages.Settings ]
         , selectedTab = path
         , tabTitles = pageTitles
         , tabMsg = ChangeTo >> toContentMsg

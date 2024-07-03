@@ -11,13 +11,13 @@ import Pages.ImportProfiles as ImportProfiles
 import Persistence.Data exposing (Data)
 import Route exposing (Route)
 import Shared exposing (dataSummary)
-import Util.Layout exposing (dataUpdate, dataView)
+import Util.Layout exposing (dataInit, dataUpdate, dataView)
 
 
 page : Shared.Model -> Route () -> Page Model Msg
 page shared route =
     Page.new
-        { init = init
+        { init = \_ -> dataInit shared init (\_ -> init)
         , update = dataUpdate shared update
         , subscriptions = \_ -> Sub.none
         , view = dataView shared "Settings" view
@@ -43,15 +43,13 @@ type Tab
     | ImportProfiles
 
 
-init : () -> ( Model, Effect Msg )
-init () =
-    ( Model
+init : Model
+init =
+    Model
         Accounts
         Accounts.initModel
         (Categories.init () |> Tuple.first)
         (ImportProfiles.init () |> Tuple.first)
-    , Effect.none
-    )
 
 
 

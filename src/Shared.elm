@@ -15,6 +15,7 @@ import Json.Decode exposing (Error)
 import Persistence.Data as Data exposing (Data)
 import Result.Extra
 import Route exposing (Route)
+import Route.Path as Path
 import Shared.Model exposing (Model(..))
 import Shared.Msg exposing (Msg(..))
 
@@ -63,18 +64,23 @@ update _ msg model =
             ( Loaded data, Effect.saveToLocalStorage data )
 
         TruncateDB ->
-            ( model, Effect.store Data.empty )
+            ( model, storeAndForward Data.empty )
 
         LoadDatabase db ->
             case db |> Json.Decode.decodeString Data.jsonDecoder |> toModel of
                 None ->
-                    ( model, Effect.store Data.empty )
+                    ( model, storeAndForward Data.empty )
 
                 Loaded data ->
-                    ( model, Effect.store data )
+                    ( model, storeAndForward data )
 
                 Problem error ->
                     ( Problem error, Effect.none )
+
+
+storeAndForward : Data -> Effect Msg
+storeAndForward data =
+    Effect.batch [ Effect.store data, Effect.pushRoutePath Path.Book ]
 
 
 toModel : Result Error Data -> Model

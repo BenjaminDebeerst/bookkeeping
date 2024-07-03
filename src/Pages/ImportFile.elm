@@ -1,4 +1,4 @@
-module Pages.ImportFile exposing (Model, Msg, page)
+module Pages.ImportFile exposing (Model, Msg, initialModel, page, update, view)
 
 import Array exposing (Array)
 import Components.Icons exposing (checkMark, folderPlus, infoMark, plusSquare, warnTriangle)
@@ -36,6 +36,7 @@ import Processing.CategoryParser as CategoryParser
 import Processing.CsvParser as CsvParser exposing (ParsedRow, toDate)
 import Processing.Model exposing (getCategoryByShort)
 import Route exposing (Route)
+import Route.Path as Path
 import Shared exposing (dataSummary)
 import Task
 import Time.Date
@@ -134,6 +135,7 @@ type Msg
     | CustomParser CustomParserMsg
     | Filter Bool String String
     | Abort
+    | AbortImport
     | Store Account ImportProfile (List String) (List ParsedRow)
 
 
@@ -200,6 +202,9 @@ update data msg model =
 
         Abort ->
             ( initialModel, Effect.none )
+
+        AbortImport ->
+            ( initialModel, Effect.pushRoutePath Path.Book )
 
         Store account profile newCats lines ->
             let
@@ -321,8 +326,8 @@ parseFile file profile filter =
 view : Data -> Model -> Element Msg
 view data model =
     column [ height fill, width fill, spacing size.m ]
-        ([ Notification.showNotification model.notification ]
-            ++ (case model.state of
+        (Input.button style.button { onPress = Just AbortImport, label = text "Done" }
+            :: (case model.state of
                     SelectFile hover ->
                         viewFilePicker hover
 

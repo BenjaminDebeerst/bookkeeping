@@ -1,24 +1,18 @@
 module Pages.Home_ exposing (Model, Msg, page)
 
-import Components.Icons exposing (loader)
 import Components.Notification as Notification exposing (Notification)
-import Config exposing (color, size, style)
-import Dict
+import Config exposing (size, style)
 import Effect exposing (Effect)
-import Element exposing (Element, column, el, fill, minimum, row, spacing, text, width)
+import Element exposing (Element, centerX, centerY, column, el, maximum, paragraph, row, shrink, spacing, text, width)
 import Element.Font as Font
 import Element.Input as Input
 import File exposing (File)
-import File.Download as Download
 import File.Select as Select
 import Json.Decode as Decode exposing (Error)
-import Json.Encode
-import Layouts
 import Page exposing (Page)
-import Persistence.Data as Data exposing (Data)
 import Route exposing (Route)
 import Route.Path as Path
-import Shared exposing (dataSummary)
+import Shared
 import Shared.Model exposing (Model(..))
 import Task
 import View exposing (View)
@@ -27,30 +21,25 @@ import View exposing (View)
 page : Shared.Model -> Route () -> Page Model Msg
 page shared _ =
     Page.new
-        { init = init
+        { init = \_ -> init shared
         , update = update shared
-        , view = view shared
+        , view = \model -> { title = "Bookkeeping", body = view shared model }
         , subscriptions = \_ -> Sub.none
         }
-        |> Page.withLayout (\_ -> Layouts.Tabs { dataSummary = dataSummary shared })
 
 
 type alias Model =
-    { notification : Notification Msg
-    }
+    {}
 
 
-init : () -> ( Model, Effect Msg )
-init _ =
-    ( emptyModel, Effect.none )
+init : Shared.Model -> ( Model, Effect Msg )
+init shared =
+    case shared of
+        Loaded _ ->
+            ( {}, Effect.pushRoutePath Path.Book )
 
-
-emptyModel =
-    { notification = Notification.None }
-
-
-
--- UPDATE
+        _ ->
+            ( {}, Effect.none )
 
 
 type Msg
@@ -58,163 +47,79 @@ type Msg
     | PickFile
     | GotFileName File
     | GotFileContent String String
-    | SaveDataBase
-    | LoadBook
 
 
 update : Shared.Model -> Msg -> Model -> ( Model, Effect Msg )
-update sharedModel msg model =
-    case msg of
-        PickFile ->
-            ( model
-            , Select.file [ "*" ] GotFileName |> Effect.sendCmd
-            )
+update shared msg model =
+    case shared of
+        Loaded _ ->
+            ( {}, Effect.pushRoutePath Path.Book )
 
-        GotFileName file ->
-            ( { model | notification = Notification.Info [ loader [ Font.color color.black ] size.m, text "Loading..." ] }, readFile file )
+        _ ->
+            case msg of
+                PickFile ->
+                    ( model
+                    , Select.file [ "*" ] GotFileName |> Effect.sendCmd
+                    )
 
-        GotFileContent name content ->
-            load name content
+                GotFileName file ->
+                    ( {}, Effect.sendCmd <| Task.perform (GotFileContent <| File.name file) <| File.toString file )
 
-        InitDatabase ->
-            ( emptyModel, Effect.truncateDatabase )
+                GotFileContent _ content ->
+                    ( {}, Effect.loadDatabase content )
 
-        SaveDataBase ->
-            ( model, save sharedModel )
-
-        LoadBook ->
-            ( model, Effect.pushRoutePath Path.Book )
-
-
-
--- MSG processing
-
-
-readFile : File -> Effect Msg
-readFile file =
-    Effect.sendCmd <| Task.perform (GotFileContent <| File.name file) <| File.toString file
-
-
-load : String -> String -> ( Model, Effect Msg )
-load fileName content =
-    ( { emptyModel | notification = Notification.Info [ text <| "Loaded " ++ fileName ] }
-    , Effect.loadDatabase content
-    )
-
-
-save : Shared.Model -> Effect Msg
-save model =
-    case model of
-        None ->
-            Effect.none
-
-        Loaded data ->
-            Download.string "bookkeeping.json" "application/json" (data |> Data.jsonEncoder |> Json.Encode.encode 0) |> Effect.sendCmd
-
-        Problem _ ->
-            Effect.none
+                InitDatabase ->
+                    ( {}, Effect.truncateDatabase )
 
 
 
 -- VIEW
 
 
-view : Shared.Model -> Model -> View Msg
+view : Shared.Model -> Model -> Element Msg
 view sharedModel model =
-    { title = "Home"
-    , body =
-        column [ spacing size.m ]
-            ([ Notification.showNotification model.notification ]
-                ++ (case sharedModel of
-                        None ->
-                            showStart
-
-                        Loaded data ->
-                            showDataSummary data
-
-                        Problem e ->
-                            showDataIssues e
-                   )
-            )
-    }
+    el [ centerX, centerY ] <|
+        column [ width <| maximum 600 shrink, spacing size.m, centerX, centerY ] (actionsFor sharedModel)
 
 
-showStart : List (Element Msg)
-showStart =
-    [ el [] <| text "Welcome to Bookkeeping. What do you want to do?"
-    , showActions [ Load, Init ]
-    ]
+actionsFor sharedModel =
+    case sharedModel of
+        Loaded _ ->
+            [ Element.none ]
+
+        None ->
+            [ Notification.showNotification <| Notification.Info [ text "Welcome to Bookkeeping. What do you want to do?" ]
+            , showActions [ loadButton "Load a DB json file.", initButton ]
+            ]
+
+        Problem error ->
+            let
+                errStr =
+                    Decode.errorToString error
+
+                extract =
+                    if String.length errStr > 250 then
+                        String.left 100 errStr
+                            ++ " [...] "
+                            ++ String.right 100 errStr
+
+                    else
+                        errStr
+            in
+            [ Notification.showNotification <| Notification.Error [ text "There was an issue loading the data from the DB!" ]
+            , el [] <| paragraph [] [ text extract ]
+            , showActions [ loadButton "Load another DB json file", initButton ]
+            ]
 
 
-showDataSummary : Data -> List (Element Msg)
-showDataSummary data =
-    let
-        entries =
-            data.rawEntries.entries |> Dict.size |> String.fromInt
-
-        accounts =
-            data.accounts |> Dict.size |> String.fromInt
-
-        categories =
-            data.categories |> Dict.size |> String.fromInt
-    in
-    [ el [] <| text ([ "Database loaded. ", entries, " entries, ", accounts, " accounts, ", categories, " categories." ] |> String.concat)
-    , showActions [ LoadOther, Init, Save, Book ]
-    ]
+loadButton label =
+    Input.button style.button { onPress = Just PickFile, label = text label }
 
 
-showDataIssues : Error -> List (Element Msg)
-showDataIssues error =
-    [ Notification.showNotification <| Notification.Error [ text "There was an issue loading the data from the DB!" ]
-    , el [] <| text <| Decode.errorToString error
-    , showActions [ LoadOther, Init ]
-    ]
+initButton =
+    Input.button style.button { onPress = Just InitDatabase, label = text "Initialize an empty DB" }
 
 
-type Action
-    = Load
-    | LoadOther
-    | Init
-    | Save
-    | Book
-
-
-showActions : List Action -> Element Msg
+showActions : List (Element Msg) -> Element Msg
 showActions buttons =
-    row
-        [ width <| minimum 600 fill, Font.size size.m, spacing size.s ]
-        (buttons
-            |> List.map
-                (\button ->
-                    case button of
-                        Load ->
-                            Input.button style.button
-                                { onPress = Just PickFile
-                                , label = text "Load a DB json file."
-                                }
-
-                        LoadOther ->
-                            Input.button style.button
-                                { onPress = Just PickFile
-                                , label = text "Load another DB json file"
-                                }
-
-                        Init ->
-                            Input.button style.button
-                                { onPress = Just InitDatabase
-                                , label = text "Initialize an empty DB"
-                                }
-
-                        Save ->
-                            Input.button style.button
-                                { onPress = Just SaveDataBase
-                                , label = text "Save DB"
-                                }
-
-                        Book ->
-                            Input.button style.button
-                                { onPress = Just LoadBook
-                                , label = text "Book"
-                                }
-                )
-        )
+    row [ Font.size size.m, spacing size.m, centerX, centerY ] buttons

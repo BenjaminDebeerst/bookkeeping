@@ -14,13 +14,15 @@ import Element exposing (Attribute, Column, Element, alignLeft, alignRight, belo
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelHidden)
+import File.Download as Download
+import Json.Encode
 import Layouts
 import List.Extra
 import Page exposing (Page)
 import Parser
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
-import Persistence.Data exposing (Data)
+import Persistence.Data as Data exposing (Data)
 import Persistence.RawEntry exposing (RawEntry)
 import Persistence.Storage exposing (editCategory, removeEntries, updateEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
@@ -29,26 +31,17 @@ import Processing.Model exposing (getCategoryByShort, getEntriesAndErrors)
 import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
 import Result.Extra
 import Route exposing (Route)
+import Route.Path as Path
 import Set
 import Shared exposing (dataSummary)
-import Shared.Model
 import Util.Formats exposing (formatDate, formatEuro, formatEuroStr)
-import Util.Layout exposing (dataUpdate, dataView)
+import Util.Layout exposing (dataInit, dataUpdate, dataView)
 
 
 page : Shared.Model -> Route () -> Page Model Msg
 page shared _ =
     Page.new
-        { init =
-            case shared of
-                Shared.Model.None ->
-                    init [] [] []
-
-                Shared.Model.Problem _ ->
-                    init [] [] []
-
-                Shared.Model.Loaded data ->
-                    init (Dict.values data.accounts) (Dict.values data.categories) (Dict.values data.rawEntries.entries)
+        { init = \_ -> dataInit shared (init [] [] []) initFromData
         , update = dataUpdate shared update
         , view = dataView shared "Book" view
         , subscriptions = \_ -> Sub.none
@@ -72,18 +65,21 @@ type CatAttempt
     | Known String Categorization
 
 
-init : List Account -> List Category -> List RawEntry -> () -> ( Model, Effect Msg )
-init accounts categories entries _ =
-    ( { notification = Notification.None
-      , ordering = dateAsc
-      , editing = False
-      , categoryEdits = Dict.empty
-      , commentEdits = Dict.empty
-      , filters = Filter.init accounts categories (List.map .date entries) Filter
-      , toBeDeleted = []
-      }
-    , Effect.none
-    )
+initFromData : Data -> Model
+initFromData data =
+    init (Dict.values data.accounts) (Dict.values data.categories) (Dict.values data.rawEntries.entries)
+
+
+init : List Account -> List Category -> List RawEntry -> Model
+init accounts categories entries =
+    { notification = Notification.None
+    , ordering = dateAsc
+    , editing = False
+    , categoryEdits = Dict.empty
+    , commentEdits = Dict.empty
+    , filters = Filter.init accounts categories (List.map .date entries) Filter
+    , toBeDeleted = []
+    }
 
 
 
@@ -105,6 +101,8 @@ type Msg
     | DeleteConfirm (List Int)
     | Restore Data Model
     | ClearNotification
+    | AddData
+    | SaveDatabase
 
 
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
@@ -226,6 +224,12 @@ update data msg model =
         ClearNotification ->
             ( { model | notification = Notification.None }, Effect.none )
 
+        AddData ->
+            ( model, Effect.pushRoutePath Path.ImportFile )
+
+        SaveDatabase ->
+            ( model, Effect.sendCmd <| Download.string "bookkeeping.json" "application/json" (Json.Encode.encode 0 (Data.jsonEncoder data)) )
+
 
 view : Data -> Model -> Element Msg
 view data model =
@@ -297,7 +301,11 @@ showActions model entryIds =
             ]
 
          else
-            [ Input.button style.button { onPress = Just (Delete entryIds), label = text "Delete Entries Shown" }, Input.button style.button { onPress = Just Edit, label = text "Edit" } ]
+            [ Input.button style.button { onPress = Just (Delete entryIds), label = text "Delete Entries Shown" }
+            , Input.button style.button { onPress = Just Edit, label = text "Edit" }
+            , Input.button style.button { onPress = Just AddData, label = text "Add Data" }
+            , Input.button style.button { onPress = Just SaveDatabase, label = text "Save Database" }
+            ]
         )
 
 
@@ -336,13 +344,13 @@ summary entries =
 
         capNotice =
             if n > bookDisplayCap then
-                [ "Only showing the first", String.fromInt bookDisplayCap, "entries." ]
+                [ "Only showing the first ", String.fromInt bookDisplayCap, " entries." ]
 
             else
                 []
     in
-    String.join " "
-        ([ "Found", n |> String.fromInt, "entries. Sum:", formatEuroStr sum, ". Average amount:", formatEuroStr avg, "." ]
+    String.join ""
+        ([ "Found ", n |> String.fromInt, " entries. Sum: ", formatEuroStr sum, ". Average amount: ", formatEuroStr avg, ". " ]
             ++ capNotice
         )
         |> text

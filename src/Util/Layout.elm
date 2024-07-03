@@ -1,12 +1,12 @@
 module Util.Layout exposing
-    ( dataUpdate
+    ( dataInit
+    , dataUpdate
     , dataView
     )
 
 import Effect exposing (Effect)
 import Element exposing (..)
 import Persistence.Data exposing (Data)
-import Route exposing (Route)
 import Route.Path
 import Shared exposing (Model)
 import Shared.Model exposing (Model(..))
@@ -36,11 +36,18 @@ type alias UpdateFn msg model =
 dataUpdate : Shared.Model -> (Data -> UpdateFn msg model) -> UpdateFn msg model
 dataUpdate shared update =
     case shared of
-        None ->
-            \_ model -> ( model, Effect.pushRoutePath Route.Path.Home_ )
-
-        Problem _ ->
-            \_ model -> ( model, Effect.pushRoutePath Route.Path.Home_ )
-
         Loaded data ->
             update data
+
+        _ ->
+            \_ model -> ( model, Effect.pushRoutePath Route.Path.Home_ )
+
+
+dataInit : Shared.Model -> model -> (Data -> model) -> ( model, Effect msg )
+dataInit shared dummy init =
+    case shared of
+        Loaded data ->
+            ( init data, Effect.none )
+
+        _ ->
+            ( dummy, Effect.pushRoutePath Route.Path.Home_ )
