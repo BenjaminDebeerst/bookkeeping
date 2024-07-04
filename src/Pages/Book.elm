@@ -14,15 +14,13 @@ import Element exposing (Attribute, Column, Element, alignLeft, alignRight, belo
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelHidden)
-import File.Download as Download
-import Json.Encode
 import Layouts
 import List.Extra
 import Page exposing (Page)
 import Parser
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
-import Persistence.Data as Data exposing (Data)
+import Persistence.Data exposing (Data)
 import Persistence.RawEntry exposing (RawEntry)
 import Persistence.Storage exposing (editCategory, removeEntries, updateEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
@@ -102,7 +100,6 @@ type Msg
     | Restore Data Model
     | ClearNotification
     | AddData
-    | SaveDatabase
 
 
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
@@ -227,9 +224,6 @@ update data msg model =
         AddData ->
             ( model, Effect.pushRoutePath Path.ImportFile )
 
-        SaveDatabase ->
-            ( model, Effect.sendCmd <| Download.string "bookkeeping.json" "application/json" (Json.Encode.encode 0 (Data.jsonEncoder data)) )
-
 
 view : Data -> Model -> Element Msg
 view data model =
@@ -304,7 +298,6 @@ showActions model entryIds =
             [ Input.button style.button { onPress = Just (Delete entryIds), label = text "Delete Entries Shown" }
             , Input.button style.button { onPress = Just Edit, label = text "Edit" }
             , Input.button style.button { onPress = Just AddData, label = text "Add Data" }
-            , Input.button style.button { onPress = Just SaveDatabase, label = text "Save Database" }
             ]
         )
 

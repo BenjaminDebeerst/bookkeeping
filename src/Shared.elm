@@ -77,6 +77,9 @@ update _ msg model =
                 Problem error ->
                     ( Problem error, Effect.none )
 
+        CloseDB ->
+            ( None, Effect.batch [ Effect.deleteDB, Effect.pushRoutePath Path.Home_ ] )
+
 
 storeAndForward : Data -> Effect Msg
 storeAndForward data =

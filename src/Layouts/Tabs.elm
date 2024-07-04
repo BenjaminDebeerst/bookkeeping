@@ -1,13 +1,19 @@
 module Layouts.Tabs exposing (..)
 
 import Components.Tabs
-import Config exposing (style)
+import Config exposing (color, size, style)
 import Effect exposing (Effect)
-import Element exposing (Attribute, Element, column, el, fill, height, text, width)
+import Element exposing (Attribute, Element, column, el, fill, height, paddingXY, row, spacing, text, width)
+import Element.Events exposing (onClick)
+import Element.Font as Font
+import File.Download as Download
+import Json.Encode
 import Layout exposing (Layout)
+import Persistence.Data as Data exposing (Data)
 import Route exposing (Route)
-import Route.Path as Pages exposing (Path(..))
+import Route.Path as Path exposing (..)
 import Shared
+import Util.Layout exposing (dataUpdate)
 import View exposing (View)
 
 
@@ -19,7 +25,7 @@ layout : Props -> Shared.Model -> Route () -> Layout () Model Msg contentMsg
 layout props shared route =
     Layout.new
         { init = \_ -> ( {}, Effect.none )
-        , update = update
+        , update = dataUpdate shared update
         , view = view props route.path
         , subscriptions = \_ -> Sub.none
         }
@@ -31,17 +37,21 @@ type alias Model =
 
 type Msg
     = ChangeTo Path
-    | Noop
+    | Save
+    | Close
 
 
-update : Msg -> Model -> ( Model, Effect Msg )
-update msg model =
+update : Data -> Msg -> Model -> ( Model, Effect Msg )
+update data msg model =
     case msg of
         ChangeTo path ->
             ( model, Effect.pushRoutePath path )
 
-        Noop ->
-            ( model, Effect.none )
+        Save ->
+            ( model, Effect.sendCmd <| Download.string "bookkeeping.json" "application/json" (Json.Encode.encode 0 (Data.jsonEncoder data)) )
+
+        Close ->
+            ( model, Effect.closeDatabase )
 
 
 view : Props -> Path -> { toContentMsg : Msg -> contentMsg, content : View contentMsg, model : Model } -> View contentMsg
@@ -74,12 +84,26 @@ pageTitles path =
 mainColumn : View contentMsg -> Path -> (Msg -> contentMsg) -> Element contentMsg
 mainColumn content path toContentMsg =
     Components.Tabs.tabbedContent
-        { allTabs = [ Pages.Book, Pages.Monthly, Pages.Settings ]
+        { allTabs = [ Path.Book, Path.Monthly, Path.Settings ]
         , selectedTab = path
         , tabTitles = pageTitles
         , tabMsg = ChangeTo >> toContentMsg
         , content = content.body
+        , rightCorner = globalMenu |> Element.map toContentMsg
         }
+
+
+globalMenu : Element Msg
+globalMenu =
+    row
+        [ spacing size.m
+        , paddingXY size.m 0
+        , Font.color color.white
+        , Font.semiBold
+        ]
+        [ el [ onClick Save ] <| text "Save DB"
+        , el [ onClick Close ] <| text "Close File"
+        ]
 
 
 footer : Props -> Element msg

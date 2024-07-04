@@ -2,6 +2,8 @@ port module Effect exposing
     ( Effect
     , back
     , batch
+    , closeDatabase
+    , deleteDB
     , loadDatabase
     , loadExternalUrl
     , map
@@ -44,6 +46,7 @@ type Effect msg
     | SendSharedMsg Shared.Msg.Msg
       -- LocalStorage store
     | SaveToLocalStorage Data
+    | EmptyLocalStorage
 
 
 port save : String -> Cmd msg
@@ -149,6 +152,16 @@ loadDatabase string =
     SendSharedMsg (LoadDatabase string)
 
 
+closeDatabase : Effect msg
+closeDatabase =
+    SendSharedMsg CloseDB
+
+
+deleteDB : Effect msg
+deleteDB =
+    EmptyLocalStorage
+
+
 truncateDatabase : Effect msg
 truncateDatabase =
     SendSharedMsg TruncateDB
@@ -205,6 +218,9 @@ map fn effect =
         SaveToLocalStorage data ->
             SaveToLocalStorage data
 
+        EmptyLocalStorage ->
+            EmptyLocalStorage
+
 
 {-| Elm Land depends on this function to perform your effects.
 -}
@@ -247,3 +263,6 @@ toCmd options effect =
 
         SaveToLocalStorage data ->
             data |> Data.jsonEncoder |> Json.Encode.encode 0 |> save
+
+        EmptyLocalStorage ->
+            save ""

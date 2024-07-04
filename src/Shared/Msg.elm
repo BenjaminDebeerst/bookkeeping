@@ -14,3 +14,4 @@ type Msg
     = TruncateDB
     | LoadDatabase String
     | Update Data
+    | CloseDB

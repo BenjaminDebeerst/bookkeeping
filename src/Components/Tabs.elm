@@ -1,7 +1,7 @@
 module Components.Tabs exposing (tabbedContent)
 
 import Config exposing (color, size)
-import Element exposing (Attribute, Element, alignLeft, alignTop, column, el, fill, height, padding, row, shrink, spacing, text, width)
+import Element exposing (Attribute, Element, alignLeft, alignRight, alignTop, column, el, fill, height, padding, row, shrink, spacing, text, width)
 import Element.Background as Background
 import Element.Events exposing (onClick)
 import Element.Font as Font
@@ -13,6 +13,7 @@ tabbedContent :
     , tabTitles : t -> String
     , tabMsg : t -> msg
     , content : Element msg
+    , rightCorner : Element msg
     }
     -> Element msg
 tabbedContent props =
@@ -20,7 +21,9 @@ tabbedContent props =
         [ height fill, width fill ]
         [ row
             [ alignLeft, alignTop, width fill, height shrink, Background.color color.black ]
-            (List.map (singleTab props.selectedTab props.tabTitles props.tabMsg) props.allTabs)
+            (List.map (singleTab props.selectedTab props.tabTitles props.tabMsg) props.allTabs
+                ++ [ el [ alignRight ] props.rightCorner ]
+            )
         , el contentBoxStyle props.content
         ]
 
