@@ -1,18 +1,20 @@
 module Pages.Monthly exposing (Model, Msg, page)
 
 import Components.Filter as Filter exposing (toAggregateFilter)
+import Components.Icons as Icons
 import Components.Table as T
 import Components.Tabs as Tabs
-import Config exposing (size, style)
+import Config exposing (size)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
-import Element exposing (Element, IndexedColumn, column, indexedTable, minimum, shrink, spacing, text, width)
+import Element exposing (Element, IndexedColumn, alignRight, column, fill, indexedTable, minimum, pointer, row, shrink, spacing, width)
 import Element.Background as Background
 import Element.Border as Border
-import Element.Input as Input exposing (labelHidden)
+import Element.Events exposing (onClick)
+import Element.Input as Input exposing (focusedOnLoad, labelHidden)
+import Html.Events
+import Json.Decode as Decode
 import Layouts
-import List.Extra
-import Maybe.Extra
 import Page exposing (Page)
 import Persistence.Account exposing (Account, Accounts)
 import Persistence.Audits as Audits exposing (Audits)
@@ -56,7 +58,7 @@ type Tab
 type alias Model =
     { filters : Filter.Model Msg
     , tab : Tab
-    , edits : Maybe (List ( YearMonth, String ))
+    , edit : Maybe ( YearMonth, String )
     }
 
 
@@ -69,7 +71,7 @@ init : List Account -> List RawEntry -> Model
 init accounts entries =
     { filters = Filter.init accounts [] (List.map .date entries) Filter
     , tab = Overview
-    , edits = Nothing
+    , edit = Nothing
     }
 
 
@@ -80,7 +82,6 @@ init accounts entries =
 type Msg
     = Filter Filter.Msg
     | TabSelection Tab
-    | StartEdit
     | Save
     | Abort
     | EditComment YearMonth String
@@ -99,42 +100,23 @@ update data msg model =
         TabSelection tab ->
             ( { model | tab = tab }, Effect.none )
 
-        StartEdit ->
-            ( { model | edits = Just [] }, Effect.none )
-
         EditComment ym comment ->
-            case model.edits of
-                Nothing ->
-                    ( model, Effect.none )
-
-                Just edits ->
-                    let
-                        edited : List ( YearMonth, String )
-                        edited =
-                            case List.Extra.findIndex (\( ym2, _ ) -> ym == ym2) edits of
-                                Just i ->
-                                    List.Extra.setAt i ( ym, comment ) edits
-
-                                Nothing ->
-                                    ( ym, comment ) :: edits
-                    in
-                    ( { model | edits = Just edited }, Effect.none )
+            ( { model | edit = Just ( ym, comment ) }, Effect.none )
 
         Save ->
             let
-                acc : ( YearMonth, String ) -> Audits -> Audits
-                acc ( ym, comment ) =
-                    Audits.update ym (\a -> { a | comment = comment })
+                updateFn =
+                    \( ym, comment ) -> Audits.update ym (\a -> { a | comment = comment }) data.audits
 
                 updated =
-                    model.edits
-                        |> Maybe.withDefault []
-                        |> List.foldl acc data.audits
+                    model.edit
+                        |> Maybe.map updateFn
+                        |> Maybe.withDefault data.audits
             in
-            ( { model | edits = Nothing }, updateAudits updated data |> Effect.store )
+            ( { model | edit = Nothing }, updateAudits updated data |> Effect.store )
 
         Abort ->
-            ( { model | edits = Nothing }, Effect.none )
+            ( { model | edit = Nothing }, Effect.none )
 
 
 
@@ -145,21 +127,8 @@ view : Data -> Model -> Element Msg
 view data model =
     column [ spacing size.m ]
         [ viewFilters model (Dict.values data.accounts)
-        , viewActions model
         , viewTabs data model
         ]
-
-
-viewActions : Model -> Element Msg
-viewActions model =
-    if model.edits |> Maybe.Extra.isJust then
-        Element.row [ spacing size.m ]
-            [ Input.button style.button { onPress = Just Save, label = text "Save" }
-            , Input.button style.button { onPress = Just Abort, label = text "Abort" }
-            ]
-
-    else
-        Input.button style.button { onPress = Just StartEdit, label = text "Edit" }
 
 
 viewTabs : Data -> Model -> Element Msg
@@ -259,7 +228,7 @@ showAggregations data model aggregators =
                 |> aggregate start startSums aggregators
                 |> toAggregateFilter model.filters
     in
-    showAggResults data.audits model.edits aggregatedData
+    showAggResults data.audits model.edit aggregatedData
 
 
 viewFilters : Model -> List Account -> Element Msg
@@ -270,54 +239,81 @@ viewFilters model accounts =
         ]
 
 
-showAggResults : Audits -> Maybe (List ( YearMonth, String )) -> Aggregate -> Element Msg
-showAggResults audits edits aggregation =
+showAggResults : Audits -> Maybe ( YearMonth, String ) -> Aggregate -> Element Msg
+showAggResults audits edit aggregation =
     indexedTable T.tableStyle
         { data = aggregation.rows
         , columns =
             T.textColumn "Month" (.month >> formatYearMonth)
                 :: aggregationColumns aggregation.aggregators
-                ++ [ T.styledColumn "Comment" (.month >> commentCell audits edits) ]
+                ++ [ T.styledColumn "Comment" (.month >> commentCell audits edit) ]
         }
 
 
-commentCell : Audits -> Maybe (List ( YearMonth, String )) -> YearMonth -> Element Msg
-commentCell audits edits yearMonth =
+commentCell : Audits -> Maybe ( YearMonth, String ) -> YearMonth -> Element Msg
+commentCell audits edit yearMonth =
     let
-        editing =
-            Maybe.Extra.isJust edits
-
-        findYM =
-            \( ym, c ) ->
-                if ym == yearMonth then
-                    Just c
-
-                else
-                    Nothing
-
         comment =
-            edits
-                |> Maybe.andThen (List.Extra.findMap findYM)
-                |> Maybe.withDefault (Audits.get yearMonth audits |> .comment)
-    in
-    if editing then
-        Input.text
-            [ Element.padding 1
-            , Border.rounded 3
-            , Background.color (Element.rgb 1 1 1)
-            , Border.width 0
-            , Element.spacing 0
-            , Element.width Element.fill
-            , Element.height Element.shrink
-            ]
-            { onChange = EditComment yearMonth
-            , text = comment
-            , placeholder = Nothing
-            , label = labelHidden "Comment"
-            }
+            Audits.get yearMonth audits |> .comment
 
-    else
-        Element.text comment
+        default =
+            row [ spacing size.m, width fill, onClick (EditComment yearMonth comment), pointer ]
+                [ Element.text comment
+                , Icons.edit [ alignRight, onClick (EditComment yearMonth comment), pointer ] size.m
+                ]
+    in
+    case edit of
+        Nothing ->
+            default
+
+        Just ( ym, edited ) ->
+            if ym /= yearMonth then
+                default
+
+            else
+                row [ spacing size.m, width fill ]
+                    [ Input.text
+                        [ Element.padding 1
+                        , Border.rounded 3
+                        , Background.color (Element.rgb 1 1 1)
+                        , Border.width 0
+                        , Element.spacing 0
+                        , Element.width Element.fill
+                        , Element.height Element.shrink
+                        , focusedOnLoad
+                        , onKey [ ( "Enter", Save ), ( "Escape", Abort ) ]
+                        ]
+                        { onChange = EditComment yearMonth
+                        , text = edited
+                        , placeholder = Nothing
+                        , label = labelHidden "Comment"
+                        }
+                    , Icons.checkMark [ alignRight, onClick Save, pointer ] size.m
+                    , Icons.cross [ alignRight, onClick Abort, pointer ] size.m
+                    ]
+
+
+onKey : List ( String, msg ) -> Element.Attribute msg
+onKey l =
+    Element.htmlAttribute
+        (Html.Events.on "keyup"
+            (Decode.field "key" Decode.string
+                |> Decode.andThen
+                    (\key ->
+                        l
+                            |> List.filterMap
+                                (\( k, m ) ->
+                                    if k == key then
+                                        Just (Decode.succeed m)
+
+                                    else
+                                        Nothing
+                                )
+                            |> List.head
+                            |> Maybe.withDefault (Decode.fail "Wrong key")
+                    )
+            )
+        )
 
 
 aggregationColumns : List String -> List (IndexedColumn MonthAggregate msg)
