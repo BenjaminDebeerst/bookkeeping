@@ -1,4 +1,4 @@
-module Components.Icons exposing (Icon, barChart, checkMark, copy, cross, edit, folderPlus, infoMark, loader, plusSquare, rows, save, settings, triangleDown, triangleLeft, triangleRight, triangleUp, wand, warnTriangle, x)
+module Components.Icons exposing (Icon, barChart, checkMark, copy, cross, edit, folder, folderPlus, infoMark, loader, plusSquare, rows, save, settings, triangleDown, triangleLeft, triangleRight, triangleUp, wand, warnTriangle, x)
 
 import Element exposing (Attribute, Element, el)
 import FeatherIcons as Feather
@@ -32,6 +32,11 @@ copy =
 edit : Icon msg
 edit =
     basicIcon Feather.edit
+
+
+folder : Icon msg
+folder =
+    basicIcon Feather.folder
 
 
 folderPlus : Icon msg

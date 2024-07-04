@@ -1,11 +1,14 @@
 module Pages.Home_ exposing (Model, Msg, page)
 
+import Components.Icons as Icons
 import Components.Notification as Notification exposing (Notification)
-import Config exposing (size, style)
+import Config exposing (color, size)
 import Effect exposing (Effect)
-import Element exposing (Element, centerX, centerY, column, el, maximum, paragraph, row, shrink, spacing, text, width)
+import Element exposing (Element, centerX, centerY, column, el, height, maximum, paragraph, pointer, px, row, shrink, spacing, text, width)
+import Element.Background as Background
+import Element.Border as Border
+import Element.Events exposing (onClick)
 import Element.Font as Font
-import Element.Input as Input
 import File exposing (File)
 import File.Select as Select
 import Json.Decode as Decode exposing (Error)
@@ -79,7 +82,13 @@ update shared msg model =
 view : Shared.Model -> Model -> Element Msg
 view sharedModel model =
     el [ centerX, centerY ] <|
-        column [ width <| maximum 600 shrink, spacing size.m, centerX, centerY ] (actionsFor sharedModel)
+        column
+            [ width <| maximum 600 shrink
+            , spacing size.m
+            , centerX
+            , centerY
+            ]
+            (actionsFor sharedModel)
 
 
 actionsFor sharedModel =
@@ -88,9 +97,7 @@ actionsFor sharedModel =
             [ Element.none ]
 
         None ->
-            [ Notification.showNotification <| Notification.Info [ text "Welcome to Bookkeeping. What do you want to do?" ]
-            , showActions [ loadButton "Load a DB json file.", initButton ]
-            ]
+            [ showActions [ loadButton "Open a database file", initButton ] ]
 
         Problem error ->
             let
@@ -106,18 +113,37 @@ actionsFor sharedModel =
                     else
                         errStr
             in
-            [ Notification.showNotification <| Notification.Error [ text "There was an issue loading the data from the DB!" ]
-            , el [] <| paragraph [] [ text extract ]
+            [ el [ centerX ] <| Notification.showNotification <| Notification.Error [ text "There was an issue loading the data from the DB!" ]
+            , el [ centerX ] <| paragraph [] [ text extract ]
             , showActions [ loadButton "Load another DB json file", initButton ]
             ]
 
 
 loadButton label =
-    Input.button style.button { onPress = Just PickFile, label = text label }
+    largeButton PickFile Icons.folder label
 
 
 initButton =
-    Input.button style.button { onPress = Just InitDatabase, label = text "Initialize an empty DB" }
+    largeButton InitDatabase Icons.plusSquare "Start from scratch"
+
+
+largeButton msg icon label =
+    el
+        [ onClick msg
+        , pointer
+        , width <| px 250
+        , height <| px 250
+        , Background.color color.extraBrightAccent
+        , Border.color color.brightAccent
+        , Border.width size.xxs
+        , Border.rounded size.m
+        , Font.color color.darkGrey
+        ]
+    <|
+        column [ centerX, centerY ]
+            [ icon [] 200
+            , el [ centerX ] <| text label
+            ]
 
 
 showActions : List (Element Msg) -> Element Msg

@@ -12,9 +12,9 @@ paddingBottom i =
 
 color =
     { black = rgb255 0x2E 0x34 0x36 -- charcoal
+    , darkGrey = rgb255 65 65 65 -- dark grey
     , grey = rgb255 0xC8 0xCE 0xD0 -- light grey
     , white = rgb255 0xF6 0xF2 0xEB -- light beige
-    , extraDarkAccent = rgb255 0x50 0x3D 0x2E -- brown
     , darkAccent = rgb255 0x05 0x87 0x89 -- blue
     , brightAccent = rgb255 0xE3 0xA7 0x2F -- yellow
     , extraBrightAccent = rgb255 0xF0 0xEC 0xC9 -- beige
