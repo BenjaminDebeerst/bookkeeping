@@ -1,9 +1,9 @@
 module Layouts.Tabs exposing (..)
 
 import Components.Tabs
-import Config exposing (size, style)
+import Config exposing (style)
 import Effect exposing (Effect)
-import Element exposing (Element, column, el, fill, height, paddingEach, text, width)
+import Element exposing (Attribute, Element, column, el, fill, height, text, width)
 import Layout exposing (Layout)
 import Route exposing (Route)
 import Route.Path as Pages exposing (Path(..))
@@ -31,6 +31,7 @@ type alias Model =
 
 type Msg
     = ChangeTo Path
+    | Noop
 
 
 update : Msg -> Model -> ( Model, Effect Msg )
@@ -39,13 +40,16 @@ update msg model =
         ChangeTo path ->
             ( model, Effect.pushRoutePath path )
 
+        Noop ->
+            ( model, Effect.none )
+
 
 view : Props -> Path -> { toContentMsg : Msg -> contentMsg, content : View contentMsg, model : Model } -> View contentMsg
 view props path { toContentMsg, model, content } =
     { title = content.title
     , body =
         column [ height fill, width fill ]
-            [ el [ paddingEach { top = 0, bottom = 0, right = 0, left = size.s }, height fill, width fill ] <| mainColumn content path toContentMsg
+            [ el [ height fill, width fill ] <| mainColumn content path toContentMsg
             , footer props
             ]
     }

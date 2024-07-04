@@ -1,9 +1,10 @@
 module Components.Tabs exposing (tabbedContent)
 
 import Config exposing (color, size)
-import Element exposing (Attribute, Element, alignLeft, alignTop, centerX, centerY, column, el, fill, height, padding, paddingEach, row, shrink, spacing, text, width)
-import Element.Border as Border
+import Element exposing (Attribute, Element, alignLeft, alignTop, column, el, fill, height, padding, row, shrink, spacing, text, width)
+import Element.Background as Background
 import Element.Events exposing (onClick)
+import Element.Font as Font
 
 
 tabbedContent :
@@ -18,23 +19,15 @@ tabbedContent props =
     column
         [ height fill, width fill ]
         [ row
-            [ alignLeft, alignTop, width fill, height shrink ]
-            (List.map (singleTab props.selectedTab props.tabTitles props.tabMsg) props.allTabs
-                ++ [ el fillTabStyle Element.none ]
-            )
+            [ alignLeft, alignTop, width fill, height shrink, Background.color color.black ]
+            (List.map (singleTab props.selectedTab props.tabTitles props.tabMsg) props.allTabs)
         , el contentBoxStyle props.content
         ]
 
 
 singleTab : t -> (t -> String) -> (t -> msg) -> t -> Element msg
 singleTab selected descr msg tab =
-    let
-        isSelected =
-            tab == selected
-    in
-    el (tabStyle isSelected (msg tab)) <|
-        el (tabTitleStyle isSelected) <|
-            text (descr tab)
+    el (tabStyle (tab == selected) (msg tab)) <| text (descr tab)
 
 
 
@@ -46,53 +39,17 @@ contentBoxStyle =
     [ spacing size.m
     , width fill
     , height fill
-    , Border.widthEach { left = size.tiny, top = 0, right = 0, bottom = 0 }
-    , Border.color color.darkAccent
     , padding size.m
+    , Background.color color.white
     ]
-
-
-borderWidth =
-    size.tiny
 
 
 tabStyle : Bool -> msg -> List (Attribute msg)
 tabStyle selected targetMsg =
-    if selected then
-        [ Border.widthEach { left = borderWidth, top = borderWidth, right = borderWidth, bottom = 0 }
-        , Border.roundEach { topLeft = size.m, topRight = size.m, bottomLeft = 0, bottomRight = 0 }
-        , Border.color color.darkAccent
-        , onClick targetMsg
-        ]
-
-    else
-        [ Border.widthEach { bottom = borderWidth, top = 0, left = 0, right = 0 }
-        , Border.roundEach { topLeft = size.m, topRight = size.m, bottomLeft = 0, bottomRight = 0 }
-        , Border.color color.darkAccent
-        , onClick targetMsg
-        ]
-
-
-fillTabStyle : List (Attribute msg)
-fillTabStyle =
-    [ Border.widthEach { bottom = borderWidth, top = 0, left = 0, right = 0 }
-    , Border.color color.darkAccent
-    , width fill
-    , height fill
-    ]
-
-
-tabTitleStyle : Bool -> List (Attribute msg)
-tabTitleStyle selected =
-    let
-        offset =
-            if selected then
-                0
+    [ Font.bold, onClick targetMsg, padding size.m ]
+        ++ (if selected then
+                [ Background.color color.white, Font.color color.black ]
 
             else
-                borderWidth
-    in
-    [ centerX
-    , centerY
-    , paddingEach { left = size.l, right = size.l, top = size.s + offset, bottom = size.s - offset }
-    ]
+                [ Background.color color.black, Font.color color.white ]
+           )

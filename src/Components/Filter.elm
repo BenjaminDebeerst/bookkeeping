@@ -20,8 +20,7 @@ import Persistence.Category exposing (Category, CategoryGroup(..), category)
 import Processing.BookEntry exposing (Categorization(..))
 import Processing.Filter as Filter exposing (AggregateFilter, any, filterAccount, filterAggregateDateRange, filterCategory, filterDateRange, filterDescription, filterDescriptionRegex)
 import Regex
-import Time.Date as Date exposing (Date)
-import Util.Date exposing (compareMonths)
+import Time.Date exposing (Date)
 import Util.Formats exposing (formatYearMonthNumeric)
 import Util.YearMonth as YearMonth exposing (YearMonth)
 
