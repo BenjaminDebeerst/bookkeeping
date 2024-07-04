@@ -113,6 +113,7 @@ view data model =
 
                     ImportProfiles ->
                         "Import Profiles"
+        , tabIcons = \_ -> Nothing
         , tabMsg = TabSelection
         , content =
             case model.tab of

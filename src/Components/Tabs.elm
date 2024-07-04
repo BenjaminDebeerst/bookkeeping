@@ -1,7 +1,8 @@
 module Components.Tabs exposing (Handle, tabbedContent)
 
+import Components.Icons as Icon exposing (Icon)
 import Config exposing (color, size)
-import Element exposing (Attribute, Element, alignLeft, alignRight, alignTop, column, el, fill, height, link, mouseOver, padding, paddingEach, pointer, row, shrink, spacing, text, width)
+import Element exposing (Attribute, Element, alignBottom, alignLeft, alignTop, centerY, column, el, fill, height, mouseOver, padding, paddingEach, pointer, row, shrink, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events exposing (onClick)
@@ -12,6 +13,7 @@ tabbedContent :
     { allTabs : List t
     , selectedTab : t
     , tabTitles : t -> String
+    , tabIcons : t -> Maybe (Icon msg)
     , tabMsg : t -> msg
     , content : Element msg
     , rightCorner : List (Handle msg)
@@ -21,9 +23,9 @@ tabbedContent props =
     column
         [ height fill, width fill ]
         [ row
-            [ alignLeft, alignTop, width fill, height shrink, Background.color color.black ]
+            [ alignLeft, alignTop, width fill, height shrink, Background.color color.black, paddingEach { left = 0, right = 0, bottom = 0, top = size.xs } ]
             ((props.allTabs
-                |> List.map (toHandle props.selectedTab props.tabTitles props.tabMsg >> viewHandle)
+                |> List.map (toHandle props.selectedTab props.tabTitles props.tabIcons props.tabMsg >> viewHandle)
              )
                 ++ [ el [ width fill ] Element.none ]
                 ++ (props.rightCorner |> List.map viewHandle)
@@ -32,21 +34,26 @@ tabbedContent props =
         ]
 
 
-toHandle : t -> (t -> String) -> (t -> msg) -> t -> Handle msg
-toHandle selected descr msg tab =
-    Handle (msg tab) (descr tab) (tab == selected)
+toHandle : t -> (t -> String) -> (t -> Maybe (Icon msg)) -> (t -> msg) -> t -> Handle msg
+toHandle selected descr icon msg tab =
+    Handle (msg tab) (descr tab) (tab == selected) (icon tab)
 
 
 type alias Handle msg =
     { action : msg
     , label : String
     , selected : Bool
+    , icon : Maybe (Icon.Icon msg)
     }
 
 
 viewHandle : Handle msg -> Element msg
 viewHandle handle =
-    el (tabStyle handle.selected handle.action) <| text handle.label
+    el (tabStyle handle.selected handle.action) <|
+        row [ spacing size.s ]
+            [ handle.icon |> Maybe.map (\i -> i [ centerY ] size.l) |> Maybe.withDefault Element.none
+            , el [ alignBottom ] <| text handle.label
+            ]
 
 
 
@@ -68,7 +75,7 @@ tabStyle selected targetMsg =
     [ Font.bold
     , onClick targetMsg
     , pointer
-    , paddingEach { left = size.l, top = size.m, right = size.l, bottom = size.s - size.xxs }
+    , paddingEach { left = size.l, top = size.s, right = size.l, bottom = size.s }
     , Border.widthEach { left = 0, top = 0, right = 0, bottom = size.xxs }
     , mouseOver [ Border.color color.brightAccent ]
     ]

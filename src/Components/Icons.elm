@@ -1,75 +1,102 @@
-module Components.Icons exposing (checkMark, copy, cross, edit, folderPlus, infoMark, loader, plusSquare, triangleDown, triangleLeft, triangleRight, triangleUp, wand, warnTriangle)
+module Components.Icons exposing (Icon, barChart, checkMark, copy, cross, edit, folderPlus, infoMark, loader, plusSquare, rows, save, settings, triangleDown, triangleLeft, triangleRight, triangleUp, wand, warnTriangle, x)
 
 import Element exposing (Attribute, Element, el)
-import FeatherIcons exposing (Icon, withStrokeWidth, withViewBox)
+import FeatherIcons as Feather
 import Svg exposing (Svg)
 import Svg.Attributes as Attributes exposing (d, fill)
 
 
+type alias Icon msg =
+    List (Attribute msg) -> Int -> Element msg
+
+
+barChart =
+    basicIcon Feather.barChart
+
+
+checkMark : Icon msg
+checkMark =
+    basicIcon Feather.check
+
+
+cross : Icon msg
+cross =
+    basicIcon Feather.xCircle
+
+
+copy : Icon msg
+copy =
+    basicIcon Feather.copy
+
+
+edit : Icon msg
+edit =
+    basicIcon Feather.edit
+
+
+folderPlus : Icon msg
+folderPlus =
+    basicIcon Feather.folderPlus
+
+
+infoMark : Icon msg
+infoMark =
+    basicIcon Feather.info
+
+
+loader : Icon msg
+loader =
+    basicIcon Feather.loader
+
+
+plusSquare : Icon msg
+plusSquare =
+    basicIcon Feather.plusSquare
+
+
+rows : Icon msg
+rows =
+    basicIcon Feather.alignJustify
+
+
+save : Icon msg
+save =
+    basicIcon Feather.save
+
+
+settings =
+    basicIcon Feather.settings
+
+
+triangleUp : Icon msg
 triangleUp attrs size =
     el attrs <|
         Element.html
-            (FeatherIcons.triangle
-                |> FeatherIcons.toHtml
+            (Feather.triangle
+                |> Feather.toHtml
                     [ Attributes.height <| String.fromInt size
                     ]
             )
 
 
+triangleDown : Icon msg
 triangleDown attrs size =
     el [ Element.rotate <| degrees 180 ] <| triangleUp attrs size
 
 
+triangleLeft : Icon msg
 triangleLeft attrs size =
     el [ Element.rotate <| degrees 270 ] <| triangleUp attrs size
 
 
+triangleRight : Icon msg
 triangleRight attrs size =
     el [ Element.rotate <| degrees 90 ] <| triangleUp attrs size
 
 
-checkMark : List (Attribute msg) -> Int -> Element msg
-checkMark =
-    basicIcon FeatherIcons.check
-
-
-infoMark : List (Attribute msg) -> Int -> Element msg
-infoMark =
-    basicIcon FeatherIcons.info
-
-
-warnTriangle : List (Attribute msg) -> Int -> Element msg
-warnTriangle =
-    basicIcon FeatherIcons.alertTriangle
-
-
-copy : List (Attribute msg) -> Int -> Element msg
-copy =
-    basicIcon FeatherIcons.copy
-
-
-folderPlus : List (Attribute msg) -> Int -> Element msg
-folderPlus =
-    basicIcon FeatherIcons.folderPlus
-
-
-loader : List (Attribute msg) -> Int -> Element msg
-loader =
-    basicIcon FeatherIcons.loader
-
-
-plusSquare : List (Attribute msg) -> Int -> Element msg
-plusSquare =
-    basicIcon FeatherIcons.plusSquare
-
-
-edit : List (Attribute msg) -> Int -> Element msg
-edit =
-    basicIcon FeatherIcons.edit
-
-
+wand : Icon msg
 wand =
-    basicIcon (FeatherIcons.customIcon wandSvg |> withStrokeWidth 0.3 |> withViewBox "-0.2 -0.2 16.4 16.4")
+    basicIcon (Feather.customIcon wandSvg |> Feather.withStrokeWidth 0.3 |> Feather.withViewBox "-0.2 -0.2 16.4 16.4")
 
 
 wandSvg : List (Svg Never)
@@ -85,16 +112,21 @@ wandSvg =
     ]
 
 
-cross : List (Attribute msg) -> Int -> Element msg
-cross =
-    basicIcon FeatherIcons.xCircle
+warnTriangle : Icon msg
+warnTriangle =
+    basicIcon Feather.alertTriangle
 
 
-basicIcon : Icon -> List (Attribute msg) -> Int -> Element msg
+x : Icon msg
+x =
+    basicIcon Feather.x
+
+
+basicIcon : Feather.Icon -> Icon msgS
 basicIcon icon attrs size =
     el attrs
         (Element.html
-            (FeatherIcons.toHtml
+            (Feather.toHtml
                 [ Attributes.height (String.fromInt size)
                 , Attributes.width (String.fromInt size)
                 ]

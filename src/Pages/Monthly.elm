@@ -178,6 +178,7 @@ viewTabs data model =
 
                     Overview ->
                         "Overview"
+        , tabIcons = \_ -> Nothing
         , tabMsg = TabSelection
         , content =
             case model.tab of

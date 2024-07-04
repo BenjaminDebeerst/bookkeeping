@@ -1,5 +1,6 @@
 module Layouts.Tabs exposing (..)
 
+import Components.Icons as Icons
 import Components.Tabs
 import Config exposing (style)
 import Effect exposing (Effect)
@@ -79,17 +80,33 @@ pageTitles path =
             "Other"
 
 
+pageIcons path =
+    case path of
+        Book ->
+            Just Icons.rows
+
+        Monthly ->
+            Just Icons.barChart
+
+        Settings ->
+            Just Icons.settings
+
+        _ ->
+            Nothing
+
+
 mainColumn : View contentMsg -> Path -> (Msg -> contentMsg) -> Element contentMsg
 mainColumn content path toContentMsg =
     Components.Tabs.tabbedContent
         { allTabs = [ Path.Book, Path.Monthly, Path.Settings ]
         , selectedTab = path
         , tabTitles = pageTitles
+        , tabIcons = pageIcons
         , tabMsg = ChangeTo >> toContentMsg
         , content = content.body
         , rightCorner =
-            [ Components.Tabs.Handle (toContentMsg Save) "Save DB" False
-            , Components.Tabs.Handle (toContentMsg Close) "Close DB" False
+            [ Components.Tabs.Handle (toContentMsg Save) "Save" False (Just Icons.save)
+            , Components.Tabs.Handle (toContentMsg Close) "Close" False (Just Icons.x)
             ]
         }
 
