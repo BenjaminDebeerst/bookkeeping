@@ -124,5 +124,5 @@ view data model =
 
                 ImportProfiles ->
                     ImportProfiles.view data model.profilesModel |> Element.map ProfileMsg
-        , rightCorner = Element.none
+        , rightCorner = []
         }

@@ -189,7 +189,7 @@ viewTabs data model =
 
                 Overview ->
                     overview data model
-        , rightCorner = Element.none
+        , rightCorner = []
         }
 
 

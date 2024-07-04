@@ -1,11 +1,9 @@
 module Layouts.Tabs exposing (..)
 
 import Components.Tabs
-import Config exposing (color, size, style)
+import Config exposing (style)
 import Effect exposing (Effect)
-import Element exposing (Attribute, Element, column, el, fill, height, paddingXY, row, spacing, text, width)
-import Element.Events exposing (onClick)
-import Element.Font as Font
+import Element exposing (Attribute, Element, column, el, fill, height, text, width)
 import File.Download as Download
 import Json.Encode
 import Layout exposing (Layout)
@@ -89,21 +87,11 @@ mainColumn content path toContentMsg =
         , tabTitles = pageTitles
         , tabMsg = ChangeTo >> toContentMsg
         , content = content.body
-        , rightCorner = globalMenu |> Element.map toContentMsg
+        , rightCorner =
+            [ Components.Tabs.Handle (toContentMsg Save) "Save DB" False
+            , Components.Tabs.Handle (toContentMsg Close) "Close DB" False
+            ]
         }
-
-
-globalMenu : Element Msg
-globalMenu =
-    row
-        [ spacing size.m
-        , paddingXY size.m 0
-        , Font.color color.white
-        , Font.semiBold
-        ]
-        [ el [ onClick Save ] <| text "Save DB"
-        , el [ onClick Close ] <| text "Close File"
-        ]
 
 
 footer : Props -> Element msg
