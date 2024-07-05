@@ -361,15 +361,15 @@ dataTable model entries =
                 (header (OrderBy (asc .amount)) (OrderBy (desc .amount)) "Amount")
                 (.amount >> formatEuro)
             , T.fullStyledColumn
+                (header (OrderBy (asc .description)) (OrderBy (desc .description)) "Description")
+                (.description >> text >> (\t -> paragraph [] [ t ]))
+                |> T.width fill
+            , T.fullStyledColumn
                 (header (OrderBy (asc <| .categorization >> categorizationString Full)) (OrderBy (desc <| .categorization >> categorizationString Full)) "Category")
                 (categoryCell model)
             , T.fullStyledColumn
                 (header (OrderBy (asc .comment)) (OrderBy (desc .comment)) "Comment")
                 (commentCell model)
-            , T.fullStyledColumn
-                (header (OrderBy (asc .description)) (OrderBy (desc .description)) "Description")
-                (.description >> text >> (\t -> paragraph [] [ t ]))
-                |> T.width fill
             , T.fullStyledColumn
                 (header (OrderBy (asc accountName)) (OrderBy (desc accountName)) "Account")
                 (.account >> .name >> text)
