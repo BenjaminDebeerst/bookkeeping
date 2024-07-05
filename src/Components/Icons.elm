@@ -1,4 +1,4 @@
-module Components.Icons exposing (Icon, barChart, checkMark, copy, cross, edit, folder, folderPlus, infoMark, loader, plusSquare, rows, save, settings, triangleDown, triangleLeft, triangleRight, triangleUp, wand, warnTriangle, x)
+module Components.Icons exposing (Icon, barChart, checkMark, copy, cross, edit, folder, folderPlus, infoMark, list, loader, plusSquare, save, settings, triangleDown, triangleLeft, triangleRight, triangleUp, wand, warnTriangle, x)
 
 import Element exposing (Attribute, Element, el)
 import FeatherIcons as Feather
@@ -49,6 +49,11 @@ infoMark =
     basicIcon Feather.info
 
 
+list : Icon msg
+list =
+    basicIcon Feather.list
+
+
 loader : Icon msg
 loader =
     basicIcon Feather.loader
@@ -57,11 +62,6 @@ loader =
 plusSquare : Icon msg
 plusSquare =
     basicIcon Feather.plusSquare
-
-
-rows : Icon msg
-rows =
-    basicIcon Feather.alignJustify
 
 
 save : Icon msg

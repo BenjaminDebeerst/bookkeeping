@@ -67,8 +67,11 @@ view props path { toContentMsg, model, content } =
 pageTitles : Path -> String
 pageTitles path =
     case path of
+        AddData ->
+            "Import Data"
+
         Book ->
-            "Data"
+            "Book"
 
         Monthly ->
             "Aggregation"
@@ -82,8 +85,11 @@ pageTitles path =
 
 pageIcons path =
     case path of
+        AddData ->
+            Just Icons.plusSquare
+
         Book ->
-            Just Icons.rows
+            Just Icons.list
 
         Monthly ->
             Just Icons.barChart
@@ -98,7 +104,7 @@ pageIcons path =
 mainColumn : View contentMsg -> Path -> (Msg -> contentMsg) -> Element contentMsg
 mainColumn content path toContentMsg =
     Components.Tabs.tabbedContent
-        { allTabs = [ Path.Book, Path.Monthly, Path.Settings ]
+        { allTabs = [ Path.AddData, Path.Book, Path.Monthly, Path.Settings ]
         , selectedTab = path
         , tabTitles = pageTitles
         , tabIcons = pageIcons

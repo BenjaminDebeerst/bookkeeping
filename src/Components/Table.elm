@@ -5,7 +5,7 @@ import Element exposing (Element, IndexedColumn, Length, el, shrink, spacing, te
 
 
 tableStyle =
-    [ spacing size.tiny ]
+    []
 
 
 textColumn : String -> (record -> String) -> IndexedColumn record msg

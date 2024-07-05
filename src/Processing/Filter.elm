@@ -4,7 +4,9 @@ import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
 import Processing.Aggregation exposing (Aggregate)
 import Processing.BookEntry exposing (BookEntry)
+import Processing.CsvParser exposing (ParsedRow)
 import Regex
+import Time.Date as Date exposing (Date)
 import Util.YearMonth as YearMonth exposing (YearMonth)
 
 
@@ -14,6 +16,10 @@ type alias EntryFilter =
 
 type alias AggregateFilter =
     Aggregate -> Aggregate
+
+
+type alias ParsedRowFilter =
+    ParsedRow -> Bool
 
 
 all : List EntryFilter -> EntryFilter
@@ -26,19 +32,29 @@ any l =
     \e -> List.any (\f -> f e) l
 
 
-inInclusiveRange : YearMonth -> YearMonth -> YearMonth -> Bool
-inInclusiveRange min max candidate =
+inInclusiveMonthRange : YearMonth -> YearMonth -> YearMonth -> Bool
+inInclusiveMonthRange min max candidate =
     not (YearMonth.compare min candidate == GT || YearMonth.compare max candidate == LT)
 
 
-filterDateRange : YearMonth -> YearMonth -> EntryFilter
-filterDateRange min max be =
-    inInclusiveRange min max (YearMonth.fromDate be.date)
+inInclusiveDateRange : Date -> Date -> Date -> Bool
+inInclusiveDateRange min max candidate =
+    not (Date.compare min candidate == GT || Date.compare max candidate == LT)
 
 
-filterAggregateDateRange : YearMonth -> YearMonth -> Aggregate -> Aggregate
-filterAggregateDateRange min max ag =
-    { ag | rows = ag.rows |> List.filter (.month >> inInclusiveRange min max) }
+filterEntryMonthRange : YearMonth -> YearMonth -> EntryFilter
+filterEntryMonthRange min max be =
+    inInclusiveMonthRange min max (YearMonth.fromDate be.date)
+
+
+filterAggregateMonthRange : YearMonth -> YearMonth -> Aggregate -> Aggregate
+filterAggregateMonthRange min max ag =
+    { ag | rows = ag.rows |> List.filter (.month >> inInclusiveMonthRange min max) }
+
+
+filterParsedRowDateRange : Date -> Date -> ParsedRowFilter
+filterParsedRowDateRange min max row =
+    inInclusiveDateRange min max row.date
 
 
 filterDescription : String -> EntryFilter

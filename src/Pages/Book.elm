@@ -29,7 +29,6 @@ import Processing.Model exposing (getCategoryByShort, getEntriesAndErrors)
 import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
 import Result.Extra
 import Route exposing (Route)
-import Route.Path as Path
 import Set
 import Shared exposing (dataSummary)
 import Util.Formats exposing (formatDate, formatEuro, formatEuroStr)
@@ -99,7 +98,6 @@ type Msg
     | DeleteConfirm (List Int)
     | Restore Data Model
     | ClearNotification
-    | AddData
 
 
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
@@ -221,9 +219,6 @@ update data msg model =
         ClearNotification ->
             ( { model | notification = Notification.None }, Effect.none )
 
-        AddData ->
-            ( model, Effect.pushRoutePath Path.ImportFile )
-
 
 view : Data -> Model -> Element Msg
 view data model =
@@ -297,7 +292,6 @@ showActions model entryIds =
          else
             [ Input.button style.button { onPress = Just (Delete entryIds), label = text "Delete Entries Shown" }
             , Input.button style.button { onPress = Just Edit, label = text "Edit" }
-            , Input.button style.button { onPress = Just AddData, label = text "Add Data" }
             ]
         )
 

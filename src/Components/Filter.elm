@@ -1,4 +1,4 @@
-module Components.Filter exposing (..)
+module Components.Filter exposing (Model, Msg, accountFilter, categoryFilter, dateRangeFilter, descriptionFilter, init, toAggregateFilter, toEntryFilter, update)
 
 import Components.Icons exposing (wand)
 import Components.Input exposing (button, disabledButton)
@@ -18,7 +18,7 @@ import Maybe.Extra
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category, CategoryGroup(..), category)
 import Processing.BookEntry exposing (Categorization(..))
-import Processing.Filter as Filter exposing (AggregateFilter, any, filterAccount, filterAggregateDateRange, filterCategory, filterDateRange, filterDescription, filterDescriptionRegex)
+import Processing.Filter as Filter exposing (AggregateFilter, any, filterAccount, filterAggregateMonthRange, filterCategory, filterDescription, filterDescriptionRegex, filterEntryMonthRange)
 import Regex
 import Time.Date exposing (Date)
 import Util.Formats exposing (formatYearMonthNumeric)
@@ -142,7 +142,7 @@ update msg model =
 toEntryFilter : Model msg -> List Filter.EntryFilter
 toEntryFilter model =
     []
-        ++ [ filterDateRange (RangeSlider.min model.dateRange) (RangeSlider.max model.dateRange) ]
+        ++ [ filterEntryMonthRange (RangeSlider.min model.dateRange) (RangeSlider.max model.dateRange) ]
         ++ [ if model.descrIsRegex then
                 filterDescriptionRegex model.descr
 
@@ -163,7 +163,7 @@ toEntryFilter model =
 
 toAggregateFilter : Model msg -> Filter.AggregateFilter
 toAggregateFilter model =
-    filterAggregateDateRange (RangeSlider.min model.dateRange) (RangeSlider.max model.dateRange)
+    filterAggregateMonthRange (RangeSlider.min model.dateRange) (RangeSlider.max model.dateRange)
 
 
 dateRangeFilter : Model msg -> Element msg

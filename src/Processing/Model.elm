@@ -1,4 +1,4 @@
-module Processing.Model exposing (getCategoryByShort, getEntries, getEntriesAndErrors)
+module Processing.Model exposing (getCategoryByShort, getCategoryForParsedRow, getEntries, getEntriesAndErrors)
 
 import Dict exposing (Dict)
 import Maybe.Extra
@@ -6,6 +6,7 @@ import Persistence.Category exposing (Category)
 import Persistence.Data exposing (Data)
 import Persistence.RawEntry as RawEntry exposing (RawEntry)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit)
+import Processing.CsvParser exposing (ParsedRow)
 import Processing.Filter exposing (EntryFilter, all)
 import Processing.Ordering exposing (Ordering)
 import Result.Extra
@@ -67,3 +68,13 @@ getCategoryByShort categories string =
     categories
         |> List.filter (\c -> c.short == searchShort)
         |> List.head
+
+
+getCategoryForParsedRow : (String -> Maybe Category) -> List Category -> ParsedRow -> Maybe Category
+getCategoryForParsedRow categorizationRules categories row =
+    case Maybe.andThen (getCategoryByShort categories) row.category of
+        Nothing ->
+            categorizationRules row.description
+
+        Just c ->
+            Just c

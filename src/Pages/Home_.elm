@@ -1,13 +1,11 @@
 module Pages.Home_ exposing (Model, Msg, page)
 
-import Components.Icons as Icons
+import Components.Icons as Icons exposing (Icon)
+import Components.Input exposing (largeButton)
 import Components.Notification as Notification exposing (Notification)
-import Config exposing (color, size)
+import Config exposing (size)
 import Effect exposing (Effect)
-import Element exposing (Element, centerX, centerY, column, el, height, maximum, paragraph, pointer, px, row, shrink, spacing, text, width)
-import Element.Background as Background
-import Element.Border as Border
-import Element.Events exposing (onClick)
+import Element exposing (Element, centerX, centerY, column, el, maximum, paragraph, row, shrink, spacing, text, width)
 import Element.Font as Font
 import File exposing (File)
 import File.Select as Select
@@ -125,25 +123,6 @@ loadButton label =
 
 initButton =
     largeButton InitDatabase Icons.plusSquare "Start from scratch"
-
-
-largeButton msg icon label =
-    el
-        [ onClick msg
-        , pointer
-        , width <| px 250
-        , height <| px 250
-        , Background.color color.extraBrightAccent
-        , Border.color color.brightAccent
-        , Border.width size.xxs
-        , Border.rounded size.m
-        , Font.color color.darkGrey
-        ]
-    <|
-        column [ centerX, centerY ]
-            [ icon [] 200
-            , el [ centerX ] <| text label
-            ]
 
 
 showActions : List (Element Msg) -> Element Msg

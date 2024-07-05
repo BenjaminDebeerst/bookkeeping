@@ -1,4 +1,4 @@
-module Processing.CsvParser exposing (ParsedRow, parse, parseCsvLine, toDate)
+module Processing.CsvParser exposing (ParsedRow, errorToString, parse, parseCsvLine, toDate)
 
 import Csv.Decode as Decode exposing (Decoder, Error(..), column, string)
 import Csv.Parser as Parser
@@ -208,3 +208,23 @@ toDateHelper split reverse string =
 
         _ ->
             Err <| "Date not of format " ++ String.join split format ++ ": " ++ string
+
+
+errorToString : Error -> String
+errorToString error =
+    case error of
+        Decode.DecodingErrors list ->
+            let
+                n =
+                    List.length list
+
+                prefix =
+                    String.join "" [ "There were ", String.fromInt n, " errors parsing the CSV. Showing the first few: " ]
+
+                errs =
+                    list |> List.take 10 |> List.map (\e -> Decode.DecodingErrors [ e ]) |> List.map Decode.errorToString
+            in
+            prefix :: errs |> String.join "\n"
+
+        other ->
+            other |> Decode.errorToString
