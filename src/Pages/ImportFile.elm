@@ -35,6 +35,7 @@ import Processing.CategorizationRules exposing (applyAllCategorizationRules)
 import Processing.CategoryParser as CategoryParser
 import Processing.CsvParser as CsvParser exposing (ParsedRow, toDate)
 import Processing.Model exposing (getCategoryByShort)
+import Result.Extra
 import Route exposing (Route)
 import Route.Path as Path
 import Shared exposing (dataSummary)
@@ -172,7 +173,9 @@ update data msg model =
             ( model, readFile filename |> Effect.sendCmd )
 
         GotFile name content ->
-            ( { model | state = Preview (SelectedFile name content) (parseFileForPreview Nothing content) }, Effect.none )
+            ( { model | state = Preview (SelectedFile name content) (parseFileForPreview Nothing content) }
+            , tryProfiles (SelectedFile name content) (Dict.values data.importProfiles)
+            )
 
         ChooseImportProfile profile ->
             case model.state of
@@ -239,6 +242,20 @@ update data msg model =
             ( { notification = storeConfirmation (List.length newEntries), state = SelectFile False }
             , newData |> Effect.store
             )
+
+
+tryProfiles : SelectedFile -> List ImportProfile -> Effect Msg
+tryProfiles fileContent importProfiles =
+    importProfiles
+        |> List.Extra.findMap
+            (\ip ->
+                if Result.Extra.isOk (parseFile fileContent ip emptyFilter).parsedRows then
+                    Just (Effect.sendMsg (ChooseImportProfile ip))
+
+                else
+                    Nothing
+            )
+        |> Maybe.withDefault Effect.none
 
 
 updateCustomParser : Data -> CustomParserMsg -> Model -> ( Model, Effect msg )
