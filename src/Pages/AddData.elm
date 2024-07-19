@@ -22,6 +22,7 @@ import Persistence.Data exposing (Data)
 import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile)
 import Persistence.RawEntry exposing (rawEntry)
 import Persistence.Storage as Storage
+import Process
 import Processing.Annotations exposing (AnnotatedRow, AnnotatedRows, Categorization(..), annotate, categoryCell)
 import Processing.CategorizationRules exposing (applyAllCategorizationRules)
 import Processing.CsvParser as CsvParser exposing (ParsedRow, errorToString)
@@ -29,6 +30,7 @@ import Processing.Model exposing (getCategoryForParsedRow)
 import Route exposing (Route)
 import Route.Path as Path
 import Shared exposing (dataSummary)
+import Task
 import Time.Date as Date exposing (Date)
 import Util.Formats as Formats exposing (formatDate, formatEuro)
 import Util.Layout exposing (dataInit, dataUpdate, dataView)
@@ -90,6 +92,7 @@ type Msg
     | FilterMsg (RangeSlider.Msg Date)
     | AbortImport
     | Store (List ParsedRow) (List String) Account ImportProfile
+    | Forward
 
 
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
@@ -129,11 +132,14 @@ updateDropArea data dropArea msg =
             in
             ( SetImportOptions loaded, Effect.none )
 
+        Forward ->
+            ( initialModel, Effect.pushRoutePath Path.Book )
+
         _ ->
             ( initialModel, Effect.none )
 
 
-updateLoaded : Data -> LoadedFile -> Msg -> ( Model, Effect msg )
+updateLoaded : Data -> LoadedFile -> Msg -> ( Model, Effect Msg )
 updateLoaded data loaded msg =
     case msg of
         ChooseImportProfile profile ->
@@ -170,7 +176,12 @@ updateLoaded data loaded msg =
             -- TODO add a (global) notification about the entries added
             -- model | notification = storeConfirmation (List.length newEntries)
             ( initialModel
-            , Effect.batch [ Effect.store newData, Effect.pushRoutePath Path.Book ]
+            , Effect.batch
+                [ Effect.store newData
+                , Process.sleep 10
+                    |> Task.perform (\_ -> Forward)
+                    |> Effect.sendCmd
+                ]
             )
 
         _ ->
