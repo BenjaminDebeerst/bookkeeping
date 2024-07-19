@@ -9,7 +9,7 @@ import Effect exposing (Effect)
 import Element exposing (Element, alignRight, column, fill, paddingEach, paddingXY, row, spacing, text, width)
 import Element.Events exposing (onClick)
 import Element.Input as Input exposing (labelLeft, placeholder)
-import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile, importProfile)
+import Persistence.ImportProfile as ImportProfile exposing (AmountField, DateFormat(..), ImportProfile, importProfile)
 
 
 type Msg
@@ -17,7 +17,9 @@ type Msg
     | Select Int
     | DateColumn Int
     | DateFormat DateFormat
-    | AmountColumn Int
+    | SimpleAmount Int
+    | CreditAmount Int
+    | DebitAmount Int
     | AddDescrColumn Int
     | RemoveDescrColumn Int
     | CategoryColumn Int
@@ -36,11 +38,17 @@ type alias Model msg =
     , separator : Char
     , dateColumn : Maybe Int
     , dateFormat : Maybe DateFormat
-    , amountColumn : Maybe Int
+    , amountColumn : AmountColumn
     , descriptionColumns : List Int
     , categoryColumn : Maybe Int
     , selected : Maybe Int
     }
+
+
+type AmountColumn
+    = NoneSelected
+    | Simple Int
+    | CreditDebit (Maybe Int) (Maybe Int)
 
 
 init : String -> String -> msg -> (ImportProfile -> msg) -> Model msg
@@ -55,7 +63,7 @@ init fileName content abort store =
         ','
         Nothing
         Nothing
-        Nothing
+        NoneSelected
         []
         Nothing
         Nothing
@@ -76,8 +84,24 @@ update msg model =
         DateFormat format ->
             ( { model | dateFormat = Just format, selected = Nothing }, Effect.none )
 
-        AmountColumn i ->
-            ( { model | amountColumn = Just i, selected = Nothing }, Effect.none )
+        SimpleAmount i ->
+            ( { model | amountColumn = Simple i, selected = Nothing }, Effect.none )
+
+        CreditAmount i ->
+            case model.amountColumn of
+                CreditDebit _ d ->
+                    ( { model | amountColumn = CreditDebit (Just i) d, selected = Nothing }, Effect.none )
+
+                _ ->
+                    ( { model | amountColumn = CreditDebit (Just i) Nothing, selected = Nothing }, Effect.none )
+
+        DebitAmount i ->
+            case model.amountColumn of
+                CreditDebit c _ ->
+                    ( { model | amountColumn = CreditDebit c (Just i), selected = Nothing }, Effect.none )
+
+                _ ->
+                    ( { model | amountColumn = CreditDebit Nothing (Just i), selected = Nothing }, Effect.none )
 
         AddDescrColumn i ->
             ( { model | descriptionColumns = model.descriptionColumns ++ [ i ], selected = Nothing }, Effect.none )
@@ -123,7 +147,7 @@ viewActions model =
             }
         , text "Selected Columns:"
         , text <| "Date: " ++ (model.dateColumn |> Maybe.map String.fromInt |> Maybe.withDefault "None")
-        , text <| "Amount: " ++ (model.amountColumn |> Maybe.map String.fromInt |> Maybe.withDefault "None")
+        , text <| "Amount: " ++ amountColumnString model.amountColumn
         , text <| "Description: " ++ (model.descriptionColumns |> List.map String.fromInt |> String.join ", ")
         , Input.text [ spacing size.m ]
             { onChange = Name
@@ -164,7 +188,9 @@ headCell model i title =
 
                     else
                         [ brightButton (DateColumn i) "Set as date"
-                        , brightButton (AmountColumn i) "Set as amount"
+                        , brightButton (SimpleAmount i) "Set as amount"
+                        , brightButton (CreditAmount i) "Set as credit amount"
+                        , brightButton (DebitAmount i) "Set as debit amount"
                         , brightButton (AddDescrColumn i) "Add to description"
                         , brightButton (RemoveDescrColumn i) "Remove from description"
                         , brightButton (CategoryColumn i) "Set as category"
@@ -188,4 +214,34 @@ buildProfile model =
             )
             model.dateColumn
             model.dateFormat
-            model.amountColumn
+            (amountField model.amountColumn)
+
+
+amountField : AmountColumn -> Maybe AmountField
+amountField amountColumm =
+    case amountColumm of
+        NoneSelected ->
+            Nothing
+
+        Simple i ->
+            Just (ImportProfile.Simple i)
+
+        CreditDebit c d ->
+            Maybe.map2 ImportProfile.Split c d
+
+
+amountColumnString : AmountColumn -> String
+amountColumnString amountColumn =
+    let
+        maybe =
+            Maybe.map String.fromInt >> Maybe.withDefault "None"
+    in
+    case amountColumn of
+        NoneSelected ->
+            "None"
+
+        Simple i ->
+            "Column " ++ String.fromInt i
+
+        CreditDebit c d ->
+            String.concat [ "Credit column: ", maybe c, ", ", "Debit column: ", maybe d ]

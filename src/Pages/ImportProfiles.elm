@@ -10,7 +10,7 @@ import Element.Input as Input exposing (button, labelLeft, placeholder)
 import Maybe.Extra
 import Page exposing (Page)
 import Persistence.Data exposing (Data)
-import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile, importProfile)
+import Persistence.ImportProfile exposing (AmountField(..), DateFormat(..), ImportProfile, importProfile)
 import Persistence.Storage as Storage
 import Processing.CsvParser as CsvParser
 import Route exposing (Route)
@@ -121,7 +121,13 @@ update data msg model =
                 , dateColumn = String.fromInt p.dateField
                 , dateFormat = p.dateFormat
                 , descrColumns = p.descrFields |> List.map String.fromInt |> String.join " "
-                , amountColumn = String.fromInt p.amountField
+                , amountColumn =
+                    case p.amountField of
+                        Simple i ->
+                            String.fromInt i
+
+                        Split c d ->
+                            String.join " " [ String.fromInt c, String.fromInt d ]
                 , categoryColumn = p.categoryField |> Maybe.map String.fromInt |> Maybe.withDefault ""
               }
             , Effect.none
@@ -178,7 +184,7 @@ validateImportProfile data model =
         |> andMap (Ok model.splitChar)
         |> andMap (String.toInt model.dateColumn |> Result.fromMaybe "Date column is not an integer")
         |> andMap (model.descrColumns |> String.split " " |> List.map String.trim |> List.filter (not << String.isEmpty) |> List.map String.toInt |> Maybe.Extra.combine |> Result.fromMaybe "Description columns must be integers")
-        |> andMap (String.toInt model.amountColumn |> Result.fromMaybe "Amount column is not an integer")
+        |> andMap (String.toInt model.amountColumn |> Maybe.map Simple |> Result.fromMaybe "Amount column is not an integer")
         |> andMap (Ok model.dateFormat)
         |> andMap
             (if String.isEmpty <| String.trim model.categoryColumn then
@@ -326,8 +332,18 @@ showData data _ =
                 , T.textColumn "Name" .name
                 , T.textColumn "Split Char" (.splitAt >> String.fromChar)
                 , T.textColumn "Date Field" (.dateField >> String.fromInt)
-                , T.textColumn "Amount Field" (.amountField >> String.fromInt)
+                , T.textColumn "Amount Field" (.amountField >> amountFieldString)
                 , T.textColumn "Description Fields" (.descrFields >> List.map String.fromInt >> String.join " ")
                 , T.textColumn "Category Field" (.categoryField >> Maybe.map String.fromInt >> Maybe.withDefault "none")
                 ]
             }
+
+
+amountFieldString : AmountField -> String
+amountFieldString amountField =
+    case amountField of
+        Simple i ->
+            "Column " ++ String.fromInt i
+
+        Split c d ->
+            String.concat [ "Credit column: ", String.fromInt c, ", ", "Debit column: ", String.fromInt d ]

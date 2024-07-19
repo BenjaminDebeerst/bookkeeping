@@ -2,7 +2,7 @@ module Processing.CsvParser exposing (ParsedRow, errorToString, parse, parseCsvL
 
 import Csv.Decode as Decode exposing (Decoder, Error(..), column, string)
 import Csv.Parser as Parser
-import Persistence.ImportProfile exposing (DateFormat(..), ImportProfile)
+import Persistence.ImportProfile exposing (AmountField(..), DateFormat(..), ImportProfile)
 import Time.Date as Date exposing (Date)
 
 
@@ -76,7 +76,7 @@ rowDecoder profile =
     Decode.into ParsedRow
         |> Decode.pipeline (column profile.dateField <| dateDecoder profile.dateFormat)
         |> Decode.pipeline (combinedTextColumns profile.descrFields)
-        |> Decode.pipeline (column profile.amountField twoDigitFloatToIntDecoder)
+        |> Decode.pipeline (amountDecoder profile.amountField)
         |> Decode.pipeline (maybeColumn profile.categoryField)
         -- Since Csv.Decode provides no way to lay hands on the entire row in a generic way,
         -- the CSV is parsed in raw format separately in order to populate this field.
@@ -105,6 +105,28 @@ dateDecoder : DateFormat -> Decoder Date
 dateDecoder df =
     Decode.string
         |> Decode.andThen (Decode.fromResult << toDate df)
+
+
+amountDecoder : AmountField -> Decoder Int
+amountDecoder af =
+    let
+        emptyStringToZero s =
+            if s == "" then
+                Decode.succeed 0
+
+            else
+                Decode.fail "Not a number"
+
+        orZeroIfEmpty decoder =
+            Decode.oneOf decoder [ Decode.string |> Decode.andThen emptyStringToZero ]
+    in
+    case af of
+        Simple i ->
+            column i twoDigitFloatToIntDecoder
+
+        Split credit debit ->
+            Decode.oneOf (column credit twoDigitFloatToIntDecoder)
+                [ column debit twoDigitFloatToIntDecoder |> Decode.map (\a -> -a) ]
 
 
 twoDigitFloatToIntDecoder : Decoder Int
