@@ -235,7 +235,7 @@ view data model =
         filterModel =
             model.filters
     in
-    column [ spacing size.m, width fill ]
+    column [ spacing size.m, width fill, padding size.m ]
         [ Notification.showNotification model.notification
         , showFilters { filterModel | filterCategories = filteredCategories } (Dict.values data.accounts)
         , showActions model (entries |> List.map .id)
@@ -267,7 +267,7 @@ undo data model message =
 
 showFilters : Filter.Model Msg -> List Account -> Element Msg
 showFilters model accounts =
-    column [ spacing size.s ]
+    column [ spacing size.m ]
         [ Filter.accountFilter accounts model
         , Filter.dateRangeFilter model
         , Filter.descriptionFilter ApplyPattern SavePattern model

@@ -11,7 +11,7 @@ import Csv.Decode exposing (Error)
 import Csv.Parser exposing (Problem(..))
 import Dict exposing (Dict)
 import Effect exposing (Effect)
-import Element exposing (Attribute, Color, Element, IndexedColumn, alignRight, alignTop, clipY, column, el, fill, height, indexedTable, paddingXY, paragraph, row, scrollbarX, spacing, text, width)
+import Element exposing (Attribute, Color, Element, IndexedColumn, alignRight, alignTop, clipY, column, el, fill, height, indexedTable, padding, paddingXY, paragraph, row, scrollbarX, spacing, text, width)
 import Element.Input as Input
 import Layouts
 import List.Extra
@@ -259,7 +259,7 @@ isParseSuccess file =
 
 view : Data -> Model -> Element Msg
 view data model =
-    el [ height fill, width fill, spacing size.m ]
+    el [ height fill, width fill, spacing size.m, padding size.m ]
         (case model of
             SelectFile area ->
                 FileDropArea.view area

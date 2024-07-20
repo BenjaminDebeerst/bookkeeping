@@ -1,8 +1,9 @@
 module Pages.Settings exposing (Model, Msg, page)
 
 import Components.Tabs as Tabs
+import Config exposing (size)
 import Effect exposing (Effect)
-import Element exposing (Element)
+import Element exposing (Element, el, fill, padding, spacing, width)
 import Layouts
 import Page exposing (Page)
 import Pages.Accounts as Accounts
@@ -99,31 +100,32 @@ update data msg model =
 
 view : Data -> Model -> Element Msg
 view data model =
-    Tabs.tabbedContent
-        { allTabs = [ Accounts, Categories, ImportProfiles ]
-        , selectedTab = model.tab
-        , tabTitles =
-            \tab ->
-                case tab of
+    el [ spacing size.m, width fill, padding size.m ] <|
+        Tabs.tabbedContent
+            { allTabs = [ Accounts, Categories, ImportProfiles ]
+            , selectedTab = model.tab
+            , tabTitles =
+                \tab ->
+                    case tab of
+                        Accounts ->
+                            "Accounts"
+
+                        Categories ->
+                            "Categories"
+
+                        ImportProfiles ->
+                            "Import Profiles"
+            , tabIcons = \_ -> Nothing
+            , tabMsg = TabSelection
+            , content =
+                case model.tab of
                     Accounts ->
-                        "Accounts"
+                        Accounts.view data model.accountsModel |> Element.map AccountMsg
 
                     Categories ->
-                        "Categories"
+                        Categories.view data model.categoriesModel |> Element.map CategoryMsg
 
                     ImportProfiles ->
-                        "Import Profiles"
-        , tabIcons = \_ -> Nothing
-        , tabMsg = TabSelection
-        , content =
-            case model.tab of
-                Accounts ->
-                    Accounts.view data model.accountsModel |> Element.map AccountMsg
-
-                Categories ->
-                    Categories.view data model.categoriesModel |> Element.map CategoryMsg
-
-                ImportProfiles ->
-                    ImportProfiles.view data model.profilesModel |> Element.map ProfileMsg
-        , rightCorner = []
-        }
+                        ImportProfiles.view data model.profilesModel |> Element.map ProfileMsg
+            , rightCorner = []
+            }

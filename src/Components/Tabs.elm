@@ -65,7 +65,6 @@ contentBoxStyle =
     [ spacing size.m
     , width fill
     , height fill
-    , padding size.m
     , Background.color color.white
     ]
 

@@ -7,7 +7,7 @@ import Components.Tabs as Tabs
 import Config exposing (size)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
-import Element exposing (Element, IndexedColumn, alignRight, column, fill, indexedTable, minimum, pointer, row, shrink, spacing, width)
+import Element exposing (Element, IndexedColumn, alignRight, column, el, fill, indexedTable, minimum, padding, paddingXY, pointer, row, scrollbarX, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events exposing (onClick)
@@ -125,7 +125,7 @@ update data msg model =
 
 view : Data -> Model -> Element Msg
 view data model =
-    column [ spacing size.m ]
+    column [ spacing size.m, width fill, padding size.m ]
         [ viewFilters model (Dict.values data.accounts)
         , viewTabs data model
         ]
@@ -233,7 +233,7 @@ showAggregations data model aggregators =
 
 viewFilters : Model -> List Account -> Element Msg
 viewFilters model accounts =
-    column [ spacing size.m, width (shrink |> minimum 800) ]
+    column [ spacing size.m ]
         [ Filter.accountFilter accounts model.filters
         , Filter.dateRangeFilter model.filters
         ]
@@ -241,13 +241,14 @@ viewFilters model accounts =
 
 showAggResults : Audits -> Maybe ( YearMonth, String ) -> Aggregate -> Element Msg
 showAggResults audits edit aggregation =
-    indexedTable T.tableStyle
-        { data = aggregation.rows
-        , columns =
-            T.textColumn "Month" (.month >> formatYearMonth)
-                :: aggregationColumns aggregation.aggregators
-                ++ [ T.styledColumn "Comment" (.month >> commentCell audits edit) ]
-        }
+    el [ width fill, paddingXY 0 size.m ] <|
+        indexedTable (T.tableStyle ++ [ scrollbarX, width fill ])
+            { data = aggregation.rows
+            , columns =
+                T.textColumn "Month" (.month >> formatYearMonth)
+                    :: aggregationColumns aggregation.aggregators
+                    ++ [ T.styledColumn "Comment" (.month >> commentCell audits edit) |> T.width fill ]
+            }
 
 
 commentCell : Audits -> Maybe ( YearMonth, String ) -> YearMonth -> Element Msg
@@ -257,8 +258,8 @@ commentCell audits edit yearMonth =
             Audits.get yearMonth audits |> .comment
 
         default =
-            row [ spacing size.m, width fill, onClick (EditComment yearMonth comment), pointer ]
-                [ Element.text comment
+            row [ spacing size.m, width (fill |> minimum 500), onClick (EditComment yearMonth comment), pointer ]
+                [ Element.paragraph [] [ text comment ]
                 , Icons.edit [ alignRight, onClick (EditComment yearMonth comment), pointer ] size.m
                 ]
     in
@@ -272,7 +273,7 @@ commentCell audits edit yearMonth =
 
             else
                 row [ spacing size.m, width fill ]
-                    [ Input.text
+                    [ Input.multiline
                         [ Element.padding 1
                         , Border.rounded 3
                         , Background.color (Element.rgb 1 1 1)
@@ -287,6 +288,7 @@ commentCell audits edit yearMonth =
                         , text = edited
                         , placeholder = Nothing
                         , label = labelHidden "Comment"
+                        , spellcheck = False
                         }
                     , Icons.checkMark [ alignRight, onClick Save, pointer ] size.m
                     , Icons.cross [ alignRight, onClick Abort, pointer ] size.m
