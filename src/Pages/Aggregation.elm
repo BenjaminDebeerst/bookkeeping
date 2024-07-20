@@ -1,4 +1,4 @@
-module Pages.Monthly exposing (Model, Msg, page)
+module Pages.Aggregation exposing (Model, Msg, page)
 
 import Components.Filter as Filter exposing (toAggregateFilter)
 import Components.Icons as Icons

@@ -73,7 +73,7 @@ pageTitles path =
         Book ->
             "Book"
 
-        Monthly ->
+        Aggregation ->
             "Aggregation"
 
         Settings ->
@@ -91,7 +91,7 @@ pageIcons path =
         Book ->
             Just Icons.list
 
-        Monthly ->
+        Aggregation ->
             Just Icons.barChart
 
         Settings ->
@@ -104,7 +104,7 @@ pageIcons path =
 mainColumn : View contentMsg -> Path -> (Msg -> contentMsg) -> Element contentMsg
 mainColumn content path toContentMsg =
     Components.Tabs.tabbedContent
-        { allTabs = [ Path.AddData, Path.Book, Path.Monthly, Path.Settings ]
+        { allTabs = [ Path.AddData, Path.Book, Path.Aggregation, Path.Settings ]
         , selectedTab = path
         , tabTitles = pageTitles
         , tabIcons = pageIcons
