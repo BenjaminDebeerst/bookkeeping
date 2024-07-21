@@ -1,17 +1,20 @@
 module Pages.Aggregation exposing (Model, Msg, page)
 
+import Components.Dropdown as Dropdown
 import Components.Filter as Filter exposing (toAggregateFilter)
-import Components.Icons as Icons
+import Components.Icons as Icons exposing (plusSquare, xSquare)
+import Components.Input exposing (button, disabledButton)
 import Components.Table as T
 import Components.Tabs as Tabs
-import Config exposing (size)
+import Config exposing (color, size)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
-import Element exposing (Element, IndexedColumn, alignRight, column, el, fill, indexedTable, minimum, padding, paddingXY, pointer, row, scrollbarX, spacing, text, width)
+import Element exposing (Element, IndexedColumn, alignRight, below, column, el, fill, indexedTable, minimum, padding, paddingXY, pointer, px, row, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events exposing (onClick)
-import Element.Input as Input exposing (focusedOnLoad, labelHidden)
+import Element.Font as Font
+import Element.Input as Input exposing (focusedOnLoad, labelHidden, placeholder)
 import Html.Events
 import Json.Decode as Decode
 import Layouts
@@ -59,7 +62,41 @@ type alias Model =
     { filters : Filter.Model Msg
     , tab : Tab
     , edit : Maybe ( YearMonth, String )
+    , aggregationBuilder : Maybe Builder
+    , customAggregators : List Aggregator
     }
+
+
+type alias Builder =
+    { name : String
+    , dropdown : Dropdown.Model Category Msg
+    }
+
+
+initBuilder : Data -> Builder
+initBuilder data =
+    { name = ""
+    , dropdown =
+        Dropdown.initMulti
+            { id = "group-builder"
+            , items = data.categories |> Dict.values
+            , prompt = prompt
+            , label = .name
+            , lift = CategoryDropdown
+            }
+    }
+
+
+prompt : List Category -> String
+prompt items =
+    if List.isEmpty items then
+        "Select at least 1 category"
+
+    else
+        String.concat
+            [ List.length items |> String.fromInt
+            , " categories selected"
+            ]
 
 
 initFromData : Data -> Model
@@ -72,6 +109,8 @@ init accounts entries =
     { filters = Filter.init accounts [] (List.map .date entries) Filter
     , tab = Overview
     , edit = Nothing
+    , aggregationBuilder = Nothing
+    , customAggregators = []
     }
 
 
@@ -82,28 +121,32 @@ init accounts entries =
 type Msg
     = Filter Filter.Msg
     | TabSelection Tab
-    | Save
-    | Abort
     | EditComment YearMonth String
+    | SaveComment
+    | BuildAggregation
+    | AggregationName String
+    | CategoryDropdown (Dropdown.Msg Category)
+    | SaveAggregation String (List Category)
+    | Abort
 
 
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
 update data msg model =
-    case msg of
-        Filter filterMsg ->
+    case ( msg, model.aggregationBuilder ) of
+        ( Filter filterMsg, _ ) ->
             let
                 ( filters, effect ) =
                     Filter.update filterMsg model.filters
             in
             ( { model | filters = filters }, effect )
 
-        TabSelection tab ->
+        ( TabSelection tab, _ ) ->
             ( { model | tab = tab }, Effect.none )
 
-        EditComment ym comment ->
-            ( { model | edit = Just ( ym, comment ) }, Effect.none )
+        ( EditComment ym comment, _ ) ->
+            ( { model | edit = Just ( ym, comment ), aggregationBuilder = Nothing }, Effect.none )
 
-        Save ->
+        ( SaveComment, _ ) ->
             let
                 updateFn =
                     \( ym, comment ) -> Audits.update ym (\a -> { a | comment = comment }) data.audits
@@ -115,8 +158,30 @@ update data msg model =
             in
             ( { model | edit = Nothing }, updateAudits updated data |> Effect.store )
 
-        Abort ->
-            ( { model | edit = Nothing }, Effect.none )
+        ( BuildAggregation, Nothing ) ->
+            ( { model | aggregationBuilder = Just (initBuilder data) }, Effect.none )
+
+        ( BuildAggregation, Just _ ) ->
+            ( { model | aggregationBuilder = Nothing }, Effect.none )
+
+        ( AggregationName name, Just builder ) ->
+            ( { model | aggregationBuilder = Just { builder | name = name } }, Effect.none )
+
+        ( CategoryDropdown submsg, Just builder ) ->
+            let
+                ( dropdown, effect ) =
+                    Dropdown.update submsg builder.dropdown
+            in
+            ( { model | aggregationBuilder = Just { builder | dropdown = dropdown } }, effect )
+
+        ( SaveAggregation name categories, Just _ ) ->
+            ( { model | aggregationBuilder = Nothing, customAggregators = model.customAggregators ++ [ Aggregator.fromCategories name categories ] }, Effect.none )
+
+        ( Abort, _ ) ->
+            ( { model | edit = Nothing, aggregationBuilder = Nothing }, Effect.none )
+
+        _ ->
+            ( model, Effect.none )
 
 
 
@@ -168,13 +233,16 @@ overview data model =
     showAggregations
         data
         model
-        [ Aggregator.all True "Balance"
-        , Aggregator.all False "Sum"
-        , Aggregator.fromCategoryGroup Income
-        , Aggregator.fromCategoryGroup Expense
-        , Aggregator.fromCategoryGroup Internal
-        , Aggregator.uncategorized
-        ]
+        ([ Aggregator.all True "Balance"
+         , Aggregator.all False "Sum"
+         , Aggregator.fromCategoryGroup Income
+         , Aggregator.fromCategoryGroup Expense
+         , Aggregator.fromCategoryGroup Internal
+         , Aggregator.uncategorized
+         ]
+            ++ model.customAggregators
+        )
+        (groupCreationColumn model)
 
 
 byCategory : Data -> Model -> Element Msg
@@ -187,6 +255,7 @@ byCategory data model =
          ]
             ++ (Dict.values data.categories |> List.sortWith Category.order |> List.map Aggregator.fromCategory)
         )
+        []
 
 
 byAccount : Data -> Model -> Element Msg
@@ -199,14 +268,73 @@ byAccount data model =
          ]
             ++ (model.filters.accounts |> List.sortBy .name |> List.map (Aggregator.fromAccount True))
         )
+        []
+
+
+
+-- GROUP CREATION
+
+
+groupCreationColumn : Model -> List (IndexedColumn a Msg)
+groupCreationColumn model =
+    [ T.fullStyledColumn
+        (case model.aggregationBuilder of
+            -- "below" needs to be attr of a parent to the clickable icon, otherwise the whole "below" is clickable
+            Nothing ->
+                el [] <| plusSquare [ pointer, onClick BuildAggregation ] size.m
+
+            Just builder ->
+                el [ below (createGroupDialog builder) ] <| xSquare [ pointer, onClick BuildAggregation ] size.m
+        )
+        (\_ -> Element.none)
+    ]
+
+
+createGroupDialog : Builder -> Element Msg
+createGroupDialog builder =
+    el [ padding size.xxs ] <|
+        column
+            [ spacing size.m
+            , width (px 300)
+            , padding size.s
+            , Border.width 2
+            , Border.color color.darkAccent
+            , Background.color color.white
+            , Font.light
+            ]
+            [ text "Add aggregation column"
+            , Input.text []
+                { onChange = AggregationName
+                , text = builder.name
+                , placeholder = Just <| placeholder [] <| text "Title"
+                , label = labelHidden "Title"
+                }
+            , Dropdown.view builder.dropdown
+            , row [ spacing size.m, width fill ]
+                [ button Abort "Abort"
+                , el [ width fill ] Element.none
+                , aggregationGroup builder
+                    |> Maybe.map (\( s, c ) -> button (SaveAggregation s c) "Save")
+                    |> Maybe.withDefault (disabledButton "Save")
+                ]
+            ]
+
+
+aggregationGroup : Builder -> Maybe ( String, List Category )
+aggregationGroup builder =
+    if builder.name == "" || (builder.dropdown.selected |> List.isEmpty) then
+        Nothing
+
+    else
+        Just ( builder.name, builder.dropdown.selected )
 
 
 
 -- AGGREGATION TABLE
 
 
-showAggregations : Data -> Model -> List Aggregator -> Element Msg
-showAggregations data model aggregators =
+showAggregations : Data -> Model -> List Aggregator -> List (IndexedColumn MonthAggregate Msg) -> Element Msg
+showAggregations data model aggregators extraColumns =
     let
         start =
             startDate model.filters.accounts
@@ -228,7 +356,7 @@ showAggregations data model aggregators =
                 |> aggregate start startSums aggregators
                 |> toAggregateFilter model.filters
     in
-    showAggResults data.audits model.edit aggregatedData
+    showAggResults data.audits model.edit aggregatedData extraColumns
 
 
 viewFilters : Model -> List Account -> Element Msg
@@ -239,15 +367,16 @@ viewFilters model accounts =
         ]
 
 
-showAggResults : Audits -> Maybe ( YearMonth, String ) -> Aggregate -> Element Msg
-showAggResults audits edit aggregation =
+showAggResults : Audits -> Maybe ( YearMonth, String ) -> Aggregate -> List (IndexedColumn MonthAggregate Msg) -> Element Msg
+showAggResults audits edit aggregation extraColumns =
     el [ width fill, paddingXY 0 size.m ] <|
-        indexedTable (T.tableStyle ++ [ scrollbarX, width fill ])
+        indexedTable T.style.fullWidthTable
             { data = aggregation.rows
             , columns =
                 T.textColumn "Month" (.month >> formatYearMonth)
                     :: aggregationColumns aggregation.aggregators
-                    ++ [ T.styledColumn "Comment" (.month >> commentCell audits edit) |> T.width fill ]
+                    ++ extraColumns
+                    ++ [ T.styledColumn "Comment" (.month >> commentCell audits edit) |> T.withColumnWidth fill ]
             }
 
 
@@ -282,7 +411,7 @@ commentCell audits edit yearMonth =
                         , Element.width Element.fill
                         , Element.height Element.shrink
                         , focusedOnLoad
-                        , onKey [ ( "Enter", Save ), ( "Escape", Abort ) ]
+                        , onKey [ ( "Enter", SaveComment ), ( "Escape", Abort ) ]
                         ]
                         { onChange = EditComment yearMonth
                         , text = edited
@@ -290,7 +419,7 @@ commentCell audits edit yearMonth =
                         , label = labelHidden "Comment"
                         , spellcheck = False
                         }
-                    , Icons.checkMark [ alignRight, onClick Save, pointer ] size.m
+                    , Icons.checkMark [ alignRight, onClick SaveComment, pointer ] size.m
                     , Icons.cross [ alignRight, onClick Abort, pointer ] size.m
                     ]
 

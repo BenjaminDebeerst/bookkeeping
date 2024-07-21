@@ -58,7 +58,7 @@ previewTable csv customHeaders =
     in
     -- workaround: it's necessary to wrap `indexedTable` in an `el` to get table width attribute to apply when using scrollbarX
     el [ width fill, height fill ] <|
-        indexedTable (T.tableStyle ++ [ width fill, scrollbarX, clipY ])
+        indexedTable T.style.fullWidthTable
             { data = csv |> List.drop 1
             , columns = headers |> List.indexedMap column
             }

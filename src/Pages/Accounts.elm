@@ -230,14 +230,14 @@ showData data _ =
         text "There are no accounts defined yet"
 
     else
-        indexedTable T.tableStyle
+        indexedTable T.style.table
             { data = Dict.values data.accounts
             , columns =
-                [ { header = el style.header <| text "Actions"
+                [ { header = el T.style.header <| text "Actions"
                   , width = shrink
                   , view =
                         \i a ->
-                            row (style.row i ++ [ spacing size.xs ])
+                            row (T.style.row i ++ [ spacing size.xs ])
                                 [ Input.button style.button { onPress = Just (EditExisting a), label = text "Edit" }
                                 , Input.button style.button { onPress = Just (Delete a), label = text "Delete" }
                                 ]

@@ -333,7 +333,7 @@ showData data _ =
         text "There are no categories defined yet"
 
     else
-        indexedTable T.tableStyle
+        indexedTable T.style.table
             { data = Dict.values data.categories
             , columns =
                 [ T.styledColumn "Actions"

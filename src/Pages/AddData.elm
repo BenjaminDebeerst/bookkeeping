@@ -372,7 +372,7 @@ viewParsedFile annotated =
 
     else
         el [ width fill, height fill ] <|
-            indexedTable (T.tableStyle ++ [ width fill, scrollbarX, clipY ])
+            indexedTable T.style.fullWidthTable
                 { data = annotated.filteredRows
                 , columns =
                     [ T.textColumn "Date" (.parsedRow >> .date >> formatDate)

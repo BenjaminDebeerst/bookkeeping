@@ -1,5 +1,6 @@
-module Processing.Aggregator exposing (Aggregator, all, fromAccount, fromCategory, fromCategoryGroup, uncategorized)
+module Processing.Aggregator exposing (Aggregator, all, fromAccount, fromCategories, fromCategory, fromCategoryGroup, uncategorized)
 
+import List.Extra
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category, CategoryGroup(..))
 import Processing.BookEntry exposing (BookEntry, Categorization(..))
@@ -54,9 +55,14 @@ fromCategoryGroup group =
     }
 
 
-fromCategory : Category -> Aggregator
-fromCategory category =
-    { title = category.name
+fromCategories : String -> List Category -> Aggregator
+fromCategories title categories =
+    let
+        isAggregated : Category -> Bool
+        isAggregated cat =
+            List.map .id categories |> List.filter (\i -> cat.id == i) |> List.isEmpty |> not
+    in
+    { title = title
     , amount =
         \bookEntry ->
             case bookEntry.categorization of
@@ -64,7 +70,7 @@ fromCategory category =
                     0
 
                 Single cat ->
-                    if category.id == cat.id then
+                    if isAggregated cat then
                         bookEntry.amount
 
                     else
@@ -72,11 +78,16 @@ fromCategory category =
 
                 Split entries ->
                     entries
-                        |> List.filter (\e -> e.category.id == category.id)
+                        |> List.filter (\e -> isAggregated e.category)
                         |> List.map .amount
                         |> List.sum
     , runningSum = False
     }
+
+
+fromCategory : Category -> Aggregator
+fromCategory category =
+    fromCategories category.name [ category ]
 
 
 uncategorized : Aggregator
