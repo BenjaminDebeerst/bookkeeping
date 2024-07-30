@@ -20,13 +20,14 @@ import Json.Decode as Decode
 import Layouts
 import Page exposing (Page)
 import Persistence.Account exposing (Account, Accounts)
+import Persistence.AggregationGroups as AggregationGroups exposing (AggregationGroup, getAll)
 import Persistence.Audits as Audits exposing (Audits)
 import Persistence.Category as Category exposing (Category, CategoryGroup(..))
 import Persistence.Data exposing (Data)
 import Persistence.RawEntry exposing (RawEntry)
 import Persistence.Storage exposing (updateAudits)
 import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate, startDate, startingBalances)
-import Processing.Aggregator as Aggregator exposing (Aggregator)
+import Processing.Aggregator as Aggregator exposing (Aggregator, fromAggregationGroup)
 import Processing.Filter as Filter exposing (EntryFilter)
 import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (dateAsc)
@@ -40,7 +41,7 @@ import Util.YearMonth exposing (YearMonth)
 page : Shared.Model -> Route () -> Page Model Msg
 page shared _ =
     Page.new
-        { init = \_ -> dataInit shared (init [] []) initFromData
+        { init = \_ -> dataInit shared (init [] [] []) initFromData
         , update = dataUpdate shared update
         , view = dataView shared "Monthly" view
         , subscriptions = \_ -> Sub.none
@@ -101,16 +102,16 @@ prompt items =
 
 initFromData : Data -> Model
 initFromData data =
-    init (Dict.values data.accounts) (Dict.values data.rawEntries.entries)
+    init (Dict.values data.accounts) (getAll data.aggregationGroups) (Dict.values data.rawEntries.entries)
 
 
-init : List Account -> List RawEntry -> Model
-init accounts entries =
+init : List Account -> List AggregationGroup -> List RawEntry -> Model
+init accounts groups entries =
     { filters = Filter.init accounts [] (List.map .date entries) Filter
     , tab = Overview
     , edit = Nothing
     , aggregationBuilder = Nothing
-    , customAggregators = []
+    , customAggregators = List.map fromAggregationGroup groups
     }
 
 
@@ -175,7 +176,13 @@ update data msg model =
             ( { model | aggregationBuilder = Just { builder | dropdown = dropdown } }, effect )
 
         ( SaveAggregation name categories, Just _ ) ->
-            ( { model | aggregationBuilder = Nothing, customAggregators = model.customAggregators ++ [ Aggregator.fromCategories name categories ] }, Effect.none )
+            let
+                updatedAggregationGroups =
+                    AggregationGroups.add name categories data.aggregationGroups
+            in
+            ( { model | aggregationBuilder = Nothing, customAggregators = updatedAggregationGroups |> getAll |> List.map fromAggregationGroup }
+            , { data | aggregationGroups = updatedAggregationGroups } |> Effect.store
+            )
 
         ( Abort, _ ) ->
             ( { model | edit = Nothing, aggregationBuilder = Nothing }, Effect.none )

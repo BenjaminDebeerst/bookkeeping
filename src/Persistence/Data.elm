@@ -9,6 +9,7 @@ import Dict exposing (Dict)
 import Json.Decode
 import Json.Encode exposing (Value)
 import Persistence.Account as Account exposing (AccountV0, Accounts)
+import Persistence.AggregationGroups as AggreationGroup exposing (AggregationGroups)
 import Persistence.Audits as Audits exposing (Audits)
 import Persistence.Category as Category exposing (Categories, CategoryV0)
 import Persistence.ImportProfile as ImportProfile exposing (ImportProfileV0, ImportProfiles)
@@ -17,7 +18,18 @@ import Serialize as S exposing (Error)
 
 
 type alias Data =
-    DataV3
+    DataV4
+
+
+type alias DataV4 =
+    { rawEntries : RawEntries
+    , accounts : Accounts
+    , categories : Categories
+    , importProfiles : ImportProfiles
+    , audits : Audits
+    , aggregationGroups : AggregationGroups
+    , autoIncrement : Int
+    }
 
 
 type alias DataV3 =
@@ -55,6 +67,18 @@ type alias DataV0 =
     , importProfiles : Dict Int ImportProfileV0
     , autoIncrement : Int
     }
+
+
+v3v4 : DataV3 -> DataV4
+v3v4 v3 =
+    DataV4
+        v3.rawEntries
+        v3.accounts
+        v3.categories
+        v3.importProfiles
+        v3.audits
+        AggreationGroup.empty
+        v3.autoIncrement
 
 
 v2v3 : DataV2 -> DataV3
@@ -95,6 +119,7 @@ empty =
     , categories = Dict.empty
     , importProfiles = Dict.empty
     , audits = Audits.empty
+    , aggregationGroups = AggreationGroup.empty
     , autoIncrement = 0
     }
 
@@ -118,12 +143,13 @@ type StorageVersions
     | V1 DataV1
     | V2 DataV2
     | V3 DataV3
+    | V4 DataV4
 
 
 dataCodec : S.Codec e Data
 dataCodec =
     S.customType
-        (\v0Encoder v1Encoder v2Encoder v3Encoder value ->
+        (\v0Encoder v1Encoder v2Encoder v3Encoder v4Encoder value ->
             case value of
                 V0 record ->
                     v0Encoder record
@@ -136,28 +162,48 @@ dataCodec =
 
                 V3 record ->
                     v3Encoder record
+
+                V4 record ->
+                    v4Encoder record
         )
         |> S.variant1 V0 v0Codec
         |> S.variant1 V1 v1Codec
         |> S.variant1 V2 v2Codec
         |> S.variant1 V3 v3Codec
+        |> S.variant1 V4 v4Codec
         |> S.finishCustomType
         |> S.map
             (\value ->
                 case value of
                     V0 storage ->
-                        (v0v1 >> v1v2 >> v2v3) storage
+                        (v0v1 >> v1v2 >> v2v3 >> v3v4) storage
 
                     V1 storage ->
-                        (v1v2 >> v2v3) storage
+                        (v1v2 >> v2v3 >> v3v4) storage
 
                     V2 storage ->
-                        v2v3 storage
+                        (v2v3 >> v3v4) storage
 
                     V3 storage ->
+                        v3v4 storage
+
+                    V4 storage ->
                         storage
             )
-            V3
+            V4
+
+
+v4Codec : S.Codec e DataV4
+v4Codec =
+    S.record DataV4
+        |> S.field .rawEntries RawEntry.codec
+        |> S.field .accounts Account.codec
+        |> S.field .categories Category.codec
+        |> S.field .importProfiles ImportProfile.codec
+        |> S.field .audits Audits.codec
+        |> S.field .aggregationGroups AggreationGroup.codec
+        |> S.field .autoIncrement S.int
+        |> S.finishRecord
 
 
 v3Codec : S.Codec e DataV3
