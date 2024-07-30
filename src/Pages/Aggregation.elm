@@ -25,7 +25,6 @@ import Persistence.Audits as Audits exposing (Audits)
 import Persistence.Category as Category exposing (Category, CategoryGroup(..))
 import Persistence.Data exposing (Data)
 import Persistence.RawEntry exposing (RawEntry)
-import Persistence.Storage exposing (updateAudits)
 import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate, startDate, startingBalances)
 import Processing.Aggregator as Aggregator exposing (Aggregator, fromAggregationGroup)
 import Processing.Filter as Filter exposing (EntryFilter)
@@ -157,7 +156,7 @@ update data msg model =
                         |> Maybe.map updateFn
                         |> Maybe.withDefault data.audits
             in
-            ( { model | edit = Nothing }, updateAudits updated data |> Effect.store )
+            ( { model | edit = Nothing }, { data | audits = updated } |> Effect.store )
 
         ( BuildAggregation, Nothing ) ->
             ( { model | aggregationBuilder = Just (initBuilder data) }, Effect.none )

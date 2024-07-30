@@ -11,17 +11,14 @@ module Persistence.Storage exposing
     , editCategory
     , editImportProfile
     , removeEntries
-    , truncate
-    , updateAudits
     , updateEntries
     )
 
 import Dict exposing (Dict)
 import Dict.Extra
 import Persistence.Account exposing (Account)
-import Persistence.Audits exposing (Audits)
 import Persistence.Category exposing (Category)
-import Persistence.Data exposing (Data, empty)
+import Persistence.Data exposing (Data)
 import Persistence.ImportProfile exposing (ImportProfile)
 import Persistence.RawEntry exposing (RawEntries, RawEntry)
 import Set
@@ -134,13 +131,3 @@ editImportProfile profile data =
 deleteImportProfile : ImportProfile -> Data -> Data
 deleteImportProfile profile data =
     { data | importProfiles = Dict.remove profile.id data.importProfiles }
-
-
-updateAudits : Audits -> Data -> Data
-updateAudits audits data =
-    { data | audits = audits }
-
-
-truncate : Data
-truncate =
-    empty
