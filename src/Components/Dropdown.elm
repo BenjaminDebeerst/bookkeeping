@@ -38,14 +38,15 @@ type Msg item
 initMulti :
     { id : String
     , items : List item
+    , selected : List item
     , prompt : List item -> String
     , label : item -> String
     , lift : Msg item -> msg
     }
     -> Model item msg
-initMulti { id, items, prompt, label, lift } =
+initMulti { id, items, selected, prompt, label, lift } =
     { all = items
-    , selected = []
+    , selected = selected
     , state = D.init id
     , lift = lift
     , config = Config (multiConfig prompt label)

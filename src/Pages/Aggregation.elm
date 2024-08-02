@@ -2,7 +2,7 @@ module Pages.Aggregation exposing (Model, Msg, page)
 
 import Components.Dropdown as Dropdown
 import Components.Filter as Filter exposing (toAggregateFilter)
-import Components.Icons as Icons exposing (plusSquare, xSquare)
+import Components.Icons as Icons exposing (edit, plusSquare, xSquare)
 import Components.Input exposing (button, disabledButton)
 import Components.Table as T
 import Components.Tabs as Tabs
@@ -18,6 +18,7 @@ import Element.Input as Input exposing (focusedOnLoad, labelHidden, placeholder)
 import Html.Events
 import Json.Decode as Decode
 import Layouts
+import Maybe.Extra
 import Page exposing (Page)
 import Persistence.Account exposing (Account, Accounts)
 import Persistence.AggregationGroups as AggregationGroups exposing (AggregationGroup, getAll)
@@ -69,17 +70,32 @@ type alias Model =
 
 type alias Builder =
     { name : String
+    , id : Maybe Int
     , dropdown : Dropdown.Model Category Msg
     }
 
 
-initBuilder : Data -> Builder
-initBuilder data =
-    { name = ""
+initBuilder : Data -> Maybe AggregationGroup -> Builder
+initBuilder data group =
+    let
+        name =
+            Maybe.map .name group |> Maybe.withDefault ""
+
+        categories : List Category
+        categories =
+            group
+                |> Maybe.map .categories
+                |> Maybe.Extra.toList
+                |> List.concat
+                |> List.filterMap (\id -> Dict.get id data.categories)
+    in
+    { name = name
+    , id = Maybe.map .id group
     , dropdown =
         Dropdown.initMulti
             { id = "group-builder"
             , items = data.categories |> Dict.values
+            , selected = categories
             , prompt = prompt
             , label = .name
             , lift = CategoryDropdown
@@ -101,7 +117,7 @@ prompt items =
 
 initFromData : Data -> Model
 initFromData data =
-    init (Dict.values data.accounts) (getAll data.aggregationGroups) (Dict.values data.rawEntries.entries)
+    init (Dict.values data.accounts) [] (Dict.values data.rawEntries.entries)
 
 
 init : List Account -> List AggregationGroup -> List RawEntry -> Model
@@ -124,9 +140,11 @@ type Msg
     | EditComment YearMonth String
     | SaveComment
     | BuildAggregation
+    | EditAggregation Int
     | AggregationName String
     | CategoryDropdown (Dropdown.Msg Category)
     | SaveAggregation String (List Category)
+    | DeleteAggregation Int
     | Abort
 
 
@@ -159,7 +177,10 @@ update data msg model =
             ( { model | edit = Nothing }, { data | audits = updated } |> Effect.store )
 
         ( BuildAggregation, Nothing ) ->
-            ( { model | aggregationBuilder = Just (initBuilder data) }, Effect.none )
+            ( { model | aggregationBuilder = Just (initBuilder data Nothing) }, Effect.none )
+
+        ( EditAggregation id, _ ) ->
+            ( { model | aggregationBuilder = Just (initBuilder data (AggregationGroups.get id data.aggregationGroups)) }, Effect.none )
 
         ( BuildAggregation, Just _ ) ->
             ( { model | aggregationBuilder = Nothing }, Effect.none )
@@ -174,12 +195,26 @@ update data msg model =
             in
             ( { model | aggregationBuilder = Just { builder | dropdown = dropdown } }, effect )
 
-        ( SaveAggregation name categories, Just _ ) ->
+        ( SaveAggregation name categories, Just builder ) ->
             let
                 updatedAggregationGroups =
-                    AggregationGroups.add name categories data.aggregationGroups
+                    case builder.id of
+                        Nothing ->
+                            AggregationGroups.add name categories data.aggregationGroups
+
+                        Just id ->
+                            AggregationGroups.update id name categories data.aggregationGroups
             in
-            ( { model | aggregationBuilder = Nothing, customAggregators = updatedAggregationGroups |> getAll |> List.map fromAggregationGroup }
+            ( { model | aggregationBuilder = Nothing }
+            , { data | aggregationGroups = updatedAggregationGroups } |> Effect.store
+            )
+
+        ( DeleteAggregation id, _ ) ->
+            let
+                updatedAggregationGroups =
+                    AggregationGroups.remove id data.aggregationGroups
+            in
+            ( { model | aggregationBuilder = Nothing }
             , { data | aggregationGroups = updatedAggregationGroups } |> Effect.store
             )
 
@@ -239,15 +274,14 @@ overview data model =
     showAggregations
         data
         model
-        ([ Aggregator.all True "Balance"
-         , Aggregator.all False "Sum"
-         , Aggregator.fromCategoryGroup Income
-         , Aggregator.fromCategoryGroup Expense
-         , Aggregator.fromCategoryGroup Internal
-         , Aggregator.uncategorized
-         ]
-            ++ model.customAggregators
-        )
+        [ Aggregator.all True "Balance"
+        , Aggregator.all False "Sum"
+        , Aggregator.fromCategoryGroup Income
+        , Aggregator.fromCategoryGroup Expense
+        , Aggregator.fromCategoryGroup Internal
+        , Aggregator.uncategorized
+        ]
+        (getAll data.aggregationGroups)
         (groupCreationColumn model)
 
 
@@ -262,6 +296,7 @@ byCategory data model =
             ++ (Dict.values data.categories |> List.sortWith Category.order |> List.map Aggregator.fromCategory)
         )
         []
+        []
 
 
 byAccount : Data -> Model -> Element Msg
@@ -275,6 +310,7 @@ byAccount data model =
             ++ (model.filters.accounts |> List.sortBy .name |> List.map (Aggregator.fromAccount True))
         )
         []
+        []
 
 
 
@@ -283,14 +319,25 @@ byAccount data model =
 
 groupCreationColumn : Model -> List (IndexedColumn a Msg)
 groupCreationColumn model =
+    let
+        idle =
+            el [] <| plusSquare [ pointer, onClick BuildAggregation ] size.m
+
+        editing builder =
+            el [ below (createGroupDialog builder) ] <| xSquare [ pointer, onClick BuildAggregation ] size.m
+    in
     [ T.fullStyledColumn
         (case model.aggregationBuilder of
             -- "below" needs to be attr of a parent to the clickable icon, otherwise the whole "below" is clickable
             Nothing ->
-                el [] <| plusSquare [ pointer, onClick BuildAggregation ] size.m
+                idle
 
             Just builder ->
-                el [ below (createGroupDialog builder) ] <| xSquare [ pointer, onClick BuildAggregation ] size.m
+                if Maybe.Extra.isJust builder.id then
+                    idle
+
+                else
+                    editing builder
         )
         (\_ -> Element.none)
     ]
@@ -317,12 +364,21 @@ createGroupDialog builder =
                 }
             , Dropdown.view builder.dropdown
             , row [ spacing size.m, width fill ]
-                [ button Abort "Abort"
-                , el [ width fill ] Element.none
-                , aggregationGroup builder
-                    |> Maybe.map (\( s, c ) -> button (SaveAggregation s c) "Save")
-                    |> Maybe.withDefault (disabledButton "Save")
-                ]
+                ([ button Abort "Abort"
+                 , el [ width fill ] Element.none
+                 ]
+                    ++ (case builder.id of
+                            Just id ->
+                                [ button (DeleteAggregation id) "Remove" ]
+
+                            Nothing ->
+                                []
+                       )
+                    ++ [ aggregationGroup builder
+                            |> Maybe.map (\( s, c ) -> button (SaveAggregation s c) "Save")
+                            |> Maybe.withDefault (disabledButton "Save")
+                       ]
+                )
             ]
 
 
@@ -339,8 +395,8 @@ aggregationGroup builder =
 -- AGGREGATION TABLE
 
 
-showAggregations : Data -> Model -> List Aggregator -> List (IndexedColumn MonthAggregate Msg) -> Element Msg
-showAggregations data model aggregators extraColumns =
+showAggregations : Data -> Model -> List Aggregator -> List AggregationGroup -> List (IndexedColumn MonthAggregate Msg) -> Element Msg
+showAggregations data model aggregators aggregationGroups extraColumns =
     let
         start =
             startDate model.filters.accounts
@@ -359,10 +415,15 @@ showAggregations data model aggregators extraColumns =
         aggregatedData : Aggregate
         aggregatedData =
             getEntries data entryFilters dateAsc
-                |> aggregate start startSums aggregators
+                |> aggregate start startSums (aggregators ++ List.map fromAggregationGroup aggregationGroups)
                 |> toAggregateFilter model.filters
+
+        columns =
+            aggregationColumns (List.map .title aggregators)
+                ++ groupColumns model.aggregationBuilder aggregationGroups
+                ++ extraColumns
     in
-    showAggResults data.audits model.edit aggregatedData extraColumns
+    showAggResults data.audits model.edit aggregatedData columns
 
 
 viewFilters : Model -> List Account -> Element Msg
@@ -380,8 +441,7 @@ showAggResults audits edit aggregation extraColumns =
             { data = aggregation.rows
             , columns =
                 T.textColumn "Month" (.month >> formatYearMonth)
-                    :: aggregationColumns aggregation.aggregators
-                    ++ extraColumns
+                    :: extraColumns
                     ++ [ T.styledColumn "Comment" (.month >> commentCell audits edit) |> T.withColumnWidth fill ]
             }
 
@@ -459,4 +519,44 @@ aggregationColumns aggregationNames =
         |> List.map
             (\agg ->
                 T.styledColumn agg (.columns >> Dict.get agg >> Maybe.withDefault 0 >> formatEuro)
+            )
+
+
+groupColumns : Maybe Builder -> List AggregationGroup -> List (IndexedColumn MonthAggregate Msg)
+groupColumns maybeBuilder groups =
+    let
+        idle group =
+            row [ spacing size.m, width fill ]
+                [ text group.name
+                , el [ alignRight ] <| edit [ pointer, onClick (EditAggregation group.id) ] size.m
+                ]
+
+        editing group builder =
+            row [ spacing size.m, width fill ]
+                [ text group.name
+                , el [ alignRight, below (createGroupDialog builder) ] <| edit [] size.m
+                ]
+    in
+    groups
+        |> List.map
+            (\group ->
+                T.fullStyledColumn
+                    (case maybeBuilder of
+                        -- "below" needs to be attr of a parent to the clickable icon, otherwise the whole "below" is clickable
+                        Nothing ->
+                            idle group
+
+                        Just builder ->
+                            case builder.id of
+                                Just theId ->
+                                    if theId == group.id then
+                                        editing group builder
+
+                                    else
+                                        idle group
+
+                                Nothing ->
+                                    idle group
+                    )
+                    (.columns >> Dict.get group.name >> Maybe.withDefault 0 >> formatEuro)
             )

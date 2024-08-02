@@ -1,4 +1,4 @@
-module Persistence.AggregationGroups exposing (AggregationGroup, AggregationGroups, add, codec, empty, getAll)
+module Persistence.AggregationGroups exposing (AggregationGroup, AggregationGroups, add, codec, empty, get, getAll, remove, update)
 
 import Dict exposing (Dict)
 import Persistence.Category exposing (Category)
@@ -37,9 +37,35 @@ add name categories (AggregationGroupsV0 autoInc data) =
         )
 
 
+update : Int -> String -> List Category -> AggregationGroups -> AggregationGroups
+update id name categories (AggregationGroupsV0 autoInc data) =
+    AggregationGroupsV0 autoInc
+        (Dict.update id
+            (\_ ->
+                Just
+                    (AggregationGroupV0
+                        id
+                        name
+                        (List.map .id categories)
+                    )
+            )
+            data
+        )
+
+
+remove : Int -> AggregationGroups -> AggregationGroups
+remove id (AggregationGroupsV0 autoInc data) =
+    AggregationGroupsV0 autoInc (Dict.remove id data)
+
+
 getAll : AggregationGroups -> List AggregationGroup
 getAll (AggregationGroupsV0 _ data) =
     Dict.values data
+
+
+get : Int -> AggregationGroups -> Maybe AggregationGroup
+get id (AggregationGroupsV0 _ data) =
+    Dict.get id data
 
 
 empty : AggregationGroupsV0
