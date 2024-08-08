@@ -1,7 +1,7 @@
 module CsvParser exposing (..)
 
 import Expect
-import Persistence.ImportProfile exposing (DateFormat(..))
+import Persistence.ImportProfile exposing (AmountField(..), DateFormat(..))
 import Processing.CsvParser as Csv
 import Test exposing (Test, describe, test)
 import Time.Date as Date
@@ -13,7 +13,7 @@ profile =
     , splitAt = ';'
     , dateField = 4
     , descrFields = [ 6, 9, 10 ]
-    , amountField = 11
+    , amountField = Simple 11
     , dateFormat = DDMMYYYY '.'
     , categoryField = Nothing
     }
