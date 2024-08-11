@@ -11,7 +11,6 @@ import Dict exposing (Dict)
 import Dict.Extra
 import Effect exposing (Effect)
 import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, paragraph, row, spacing, text, width)
-import Element.Background as Background
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelHidden)
@@ -71,7 +70,7 @@ initFromData data =
 init : List Account -> List Category -> List RawEntry -> Model
 init accounts categories entries =
     { notification = Notification.None
-    , ordering = dateAsc
+    , ordering = dateDesc
     , editing = False
     , categoryEdits = Dict.empty
     , commentEdits = Dict.empty
