@@ -4,13 +4,13 @@ import Components.Filter as Filter
 import Components.Icons exposing (checkMark, edit, triangleDown, triangleUp, warnTriangle)
 import Components.Input exposing (button)
 import Components.Notification as Notification exposing (Notification, delay)
-import Components.Table as T
+import Components.Table as T exposing (withHeaderActions)
 import Components.Tooltip exposing (tooltip)
 import Config exposing (color, size, style)
 import Dict exposing (Dict)
 import Dict.Extra
 import Effect exposing (Effect)
-import Element exposing (Attribute, Column, Element, alignLeft, alignRight, below, centerX, column, el, fill, height, indexedTable, padding, paragraph, row, spacing, text, width)
+import Element exposing (Attribute, Column, Element, below, centerX, column, el, fill, indexedTable, padding, paragraph, pointer, row, spacing, text, width)
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (labelHidden)
@@ -26,7 +26,7 @@ import Persistence.Storage exposing (editCategory, removeEntries, updateEntries)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit, toPersistence)
 import Processing.CategoryParser as Parser exposing (categorizationParser)
 import Processing.Model exposing (getCategoryByShort, getEntriesAndErrors)
-import Processing.Ordering exposing (Ordering, asc, dateAsc, dateDesc, desc)
+import Processing.Ordering exposing (Ordering, asc, bookEntryDate, desc)
 import Result.Extra
 import Route exposing (Route)
 import Set
@@ -70,7 +70,7 @@ initFromData data =
 init : List Account -> List Category -> List RawEntry -> Model
 init accounts categories entries =
     { notification = Notification.None
-    , ordering = dateDesc
+    , ordering = desc bookEntryDate
     , editing = False
     , categoryEdits = Dict.empty
     , commentEdits = Dict.empty
@@ -349,25 +349,19 @@ dataTable model entries =
             T.style.fullWidthTable
             { data = List.take bookDisplayCap entries
             , columns =
-                [ T.fullStyledColumn
-                    (header (OrderBy dateAsc) (OrderBy dateDesc) "Date")
-                    (.date >> formatDate >> text)
-                , T.fullStyledColumn
-                    (header (OrderBy (asc .amount)) (OrderBy (desc .amount)) "Amount")
-                    (.amount >> formatEuro)
-                , T.fullStyledColumn
-                    (header (OrderBy (asc .description)) (OrderBy (desc .description)) "Description")
-                    (.description >> text >> (\t -> paragraph [] [ t ]))
+                [ T.styledColumn "Date" (.date >> formatDate >> text)
+                    |> withHeaderActions (sortActions (asc bookEntryDate) (desc bookEntryDate))
+                , T.styledColumn "Amount" (.amount >> formatEuro)
+                    |> withHeaderActions (sortActions (asc .amount) (desc .amount))
+                , T.styledColumn "Description" (.description >> text >> (\t -> paragraph [] [ t ]))
+                    |> withHeaderActions (sortActions (asc .description) (desc .description))
                     |> T.withColumnWidth fill
-                , T.fullStyledColumn
-                    (header (OrderBy (asc <| .categorization >> categorizationString Full)) (OrderBy (desc <| .categorization >> categorizationString Full)) "Category")
-                    (categoryCell model)
-                , T.fullStyledColumn
-                    (header (OrderBy (asc .comment)) (OrderBy (desc .comment)) "Comment")
-                    (commentCell model)
-                , T.fullStyledColumn
-                    (header (OrderBy (asc accountName)) (OrderBy (desc accountName)) "Account")
-                    (.account >> .name >> text)
+                , T.styledColumn "Category" (categoryCell model)
+                    |> withHeaderActions (sortActions (asc <| .categorization >> categorizationString Full) (desc <| .categorization >> categorizationString Full))
+                , T.styledColumn "Comment" (commentCell model)
+                    |> withHeaderActions (sortActions (asc .comment) (desc .comment))
+                , T.styledColumn "Account" (.account >> .name >> text)
+                    |> withHeaderActions (sortActions (asc accountName) (desc accountName))
                 ]
             }
 
@@ -483,16 +477,11 @@ maybeNoEntries n =
         Element.none
 
 
-header : msg -> msg -> String -> Element msg
-header up down s =
-    Element.row []
-        [ el [ alignLeft, width fill ] <| text s
-        , column
-            [ alignRight, height fill, spacing size.xxs ]
-            [ triangleUp [ onClick up ] size.s
-            , triangleDown [ onClick down ] size.s
-            ]
-        ]
+sortActions : Ordering BookEntry -> Ordering BookEntry -> List (Element Msg)
+sortActions up down =
+    [ triangleUp [ pointer, onClick <| OrderBy up ] size.s
+    , triangleDown [ pointer, onClick <| OrderBy down ] size.s
+    ]
 
 
 parseCategorization : Data -> Int -> String -> CatAttempt

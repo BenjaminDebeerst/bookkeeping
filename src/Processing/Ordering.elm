@@ -1,26 +1,30 @@
-module Processing.Ordering exposing (..)
+module Processing.Ordering exposing (Ordering, aggregateMonth, asc, bookEntryDate, desc)
 
+import Processing.Aggregation exposing (Aggregate, MonthAggregate)
 import Processing.BookEntry exposing (BookEntry)
 import Time.Date as Date
+import Util.YearMonth as YearMonth exposing (YearMonth)
 
 
 type alias Ordering a =
     a -> a -> Basics.Order
 
 
-asc : (BookEntry -> comparable) -> Ordering BookEntry
-asc f =
-    \e1 e2 -> compare (f e1) (f e2)
+asc : (a -> comparable) -> Ordering a
+asc f a1 a2 =
+    compare (f a1) (f a2)
 
 
-desc : (BookEntry -> comparable) -> Ordering BookEntry
-desc f =
-    \e1 e2 -> compare (f e2) (f e1)
+desc : (a -> comparable) -> Ordering a
+desc f a1 a2 =
+    compare (f a2) (f a1)
 
 
-dateAsc =
-    asc (\e -> Date.toTuple e.date)
+bookEntryDate : BookEntry -> ( Int, Int, Int )
+bookEntryDate =
+    .date >> Date.toTuple
 
 
-dateDesc =
-    desc (\e -> Date.toTuple e.date)
+aggregateMonth : MonthAggregate -> ( Int, Int )
+aggregateMonth =
+    .month >> YearMonth.components

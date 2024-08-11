@@ -19,11 +19,12 @@ import Persistence.Storage as Storage
 import Processing.CategoryParser exposing (categoryShortNameOnly)
 import Processing.Filter exposing (filterCategory)
 import Processing.Model exposing (getCategoryByShort, getEntries)
-import Processing.Ordering exposing (dateAsc)
+import Processing.Ordering exposing (asc, bookEntryDate)
 import Regex
 import Route exposing (Route)
 import Shared
 import String
+import Time.Date as Date
 import Util.Layout exposing (dataUpdate, dataView)
 
 
@@ -149,7 +150,7 @@ update data msg model =
         Delete cat ->
             let
                 n =
-                    List.length <| getEntries data [ filterCategory cat ] dateAsc
+                    List.length <| getEntries data [ filterCategory cat ] (asc bookEntryDate)
             in
             if n > 0 then
                 ( { model | error = Just ("Cannot delete the category '" ++ cat.name ++ "', it has " ++ String.fromInt n ++ " entries associated.") }, Effect.none )

@@ -2,9 +2,9 @@ module Pages.Aggregation exposing (Model, Msg, page)
 
 import Components.Dropdown as Dropdown
 import Components.Filter as Filter exposing (toAggregateFilter)
-import Components.Icons as Icons exposing (edit, plusSquare, xSquare)
+import Components.Icons as Icons exposing (edit, plusSquare, triangleDown, triangleUp, xSquare)
 import Components.Input exposing (button, disabledButton)
-import Components.Table as T
+import Components.Table as T exposing (withHeaderActions)
 import Components.Tabs as Tabs
 import Config exposing (color, size)
 import Dict exposing (Dict)
@@ -30,7 +30,7 @@ import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate, st
 import Processing.Aggregator as Aggregator exposing (Aggregator, fromAggregationGroup)
 import Processing.Filter as Filter exposing (EntryFilter)
 import Processing.Model exposing (getEntries)
-import Processing.Ordering exposing (dateAsc)
+import Processing.Ordering exposing (Ordering, aggregateMonth, asc, bookEntryDate, desc)
 import Route exposing (Route)
 import Shared exposing (dataSummary)
 import Util.Formats exposing (formatEuro, formatYearMonth)
@@ -61,6 +61,7 @@ type Tab
 
 type alias Model =
     { filters : Filter.Model Msg
+    , ordering : Ordering MonthAggregate
     , tab : Tab
     , edit : Maybe ( YearMonth, String )
     , aggregationBuilder : Maybe Builder
@@ -123,6 +124,7 @@ initFromData data =
 init : List Account -> List AggregationGroup -> List RawEntry -> Model
 init accounts groups entries =
     { filters = Filter.init accounts [] (List.map .date entries) Filter
+    , ordering = desc aggregateMonth
     , tab = Overview
     , edit = Nothing
     , aggregationBuilder = Nothing
@@ -136,6 +138,7 @@ init accounts groups entries =
 
 type Msg
     = Filter Filter.Msg
+    | OrderBy (Ordering MonthAggregate)
     | TabSelection Tab
     | EditComment YearMonth String
     | SaveComment
@@ -157,6 +160,9 @@ update data msg model =
                     Filter.update filterMsg model.filters
             in
             ( { model | filters = filters }, effect )
+
+        ( OrderBy ordering, _ ) ->
+            ( { model | ordering = ordering }, Effect.none )
 
         ( TabSelection tab, _ ) ->
             ( { model | tab = tab }, Effect.none )
@@ -414,9 +420,10 @@ showAggregations data model aggregators aggregationGroups extraColumns =
         -- We discard out-of-range dates only after aggregation
         aggregatedData : Aggregate
         aggregatedData =
-            getEntries data entryFilters dateAsc
+            getEntries data entryFilters (asc bookEntryDate)
                 |> aggregate start startSums (aggregators ++ List.map fromAggregationGroup aggregationGroups)
                 |> toAggregateFilter model.filters
+                |> sortWith model.ordering
 
         columns =
             aggregationColumns (List.map .title aggregators)
@@ -424,6 +431,11 @@ showAggregations data model aggregators aggregationGroups extraColumns =
                 ++ extraColumns
     in
     showAggResults data.audits model.edit aggregatedData columns
+
+
+sortWith : Ordering MonthAggregate -> Aggregate -> Aggregate
+sortWith ordering agg =
+    { agg | rows = agg.rows |> List.sortWith ordering }
 
 
 viewFilters : Model -> List Account -> Element Msg
@@ -440,7 +452,12 @@ showAggResults audits edit aggregation extraColumns =
         indexedTable T.style.fullWidthTable
             { data = aggregation.rows
             , columns =
-                T.textColumn "Month" (.month >> formatYearMonth)
+                (T.textColumn "Month" (.month >> formatYearMonth)
+                    |> withHeaderActions
+                        [ triangleUp [ pointer, onClick (OrderBy (asc aggregateMonth)) ] size.s
+                        , triangleDown [ pointer, onClick (OrderBy (desc aggregateMonth)) ] size.s
+                        ]
+                )
                     :: extraColumns
                     ++ [ T.styledColumn "Comment" (.month >> commentCell audits edit) |> T.withColumnWidth fill ]
             }

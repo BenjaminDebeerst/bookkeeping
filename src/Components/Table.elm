@@ -1,7 +1,7 @@
-module Components.Table exposing (fullStyledColumn, style, styledColumn, textColumn, withColumnWidth)
+module Components.Table exposing (fullStyledColumn, style, styledColumn, textColumn, withColumnWidth, withHeaderActions)
 
 import Config exposing (color, size, style)
-import Element exposing (Element, IndexedColumn, Length, clipY, el, fill, height, padding, scrollbarX, shrink, spacing, text, width)
+import Element exposing (Element, IndexedColumn, Length, clipY, el, fill, height, padding, paddingXY, row, scrollbarX, shrink, spacing, text, width)
 import Element.Background as Background
 import Element.Font as Font
 
@@ -9,16 +9,8 @@ import Element.Font as Font
 style =
     { table = [ spacing size.tiny ]
     , fullWidthTable = [ spacing size.tiny, width fill, scrollbarX, clipY ]
-    , header =
-        [ Background.color color.brightAccent
-        , Font.bold
-        , Font.color color.black
-        , Font.size size.m
-        , padding size.xs
-        , spacing size.xs
-        , width fill
-        , height fill
-        ]
+    , header = [ padding size.xs, spacing size.xs ] ++ headerColors
+    , headerColors = headerColors
     , row =
         \i ->
             let
@@ -34,6 +26,16 @@ style =
             , padding size.xs
             ]
     }
+
+
+headerColors =
+    [ Background.color color.brightAccent
+    , Font.bold
+    , Font.color color.black
+    , Font.size size.m
+    , width fill
+    , height fill
+    ]
 
 
 textColumn : String -> (record -> String) -> IndexedColumn record msg
@@ -57,3 +59,15 @@ fullStyledColumn header elementFromRow =
 withColumnWidth : Length -> IndexedColumn record msg -> IndexedColumn record msg
 withColumnWidth size indexedColumn =
     { indexedColumn | width = size }
+
+
+withHeaderActions : List (Element msg) -> IndexedColumn record msg -> IndexedColumn record msg
+withHeaderActions actions column =
+    { header =
+        row style.headerColors
+            [ column.header
+            , row [ paddingXY size.xs 0 ] actions
+            ]
+    , width = column.width
+    , view = column.view
+    }
