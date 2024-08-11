@@ -125,7 +125,7 @@ view label format model =
                 [ text label
                 , text (format m.min)
                 , row
-                    [ width fill, height (px size.xl), behindContent track ]
+                    [ width fill, height (px size.l), behindContent track ]
                     [ sliderMin
                     , el [ width (fillPortion pad) ] Element.none
                     , sliderMax
@@ -160,29 +160,33 @@ onChange values msg selection =
 {-| Thumb size and icon size need to be aligned in order for the highlighting / handling to look and feel right
 -}
 thumbSize =
-    20
+    size.m
 
 
 thumbIconSize =
-    32
+    size.l
+
+
+diffCorrection =
+    (thumbIconSize - thumbSize) / 2
 
 
 slider : Side -> Int -> Int -> Int -> Int -> (Float -> Msg a) -> Element (Msg a)
-slider side size minIdx maxIdx valIdx onChangeMsg =
+slider side n minIdx maxIdx valIdx onChangeMsg =
     let
         ( label, handle ) =
             case side of
                 Min ->
                     ( "Min"
-                    , triangleRight [ moveLeft 6, moveDown 2, Font.color color.brightAccent ] thumbIconSize
+                    , triangleRight [ moveDown 2, moveLeft diffCorrection, Font.color color.brightAccent ] thumbIconSize
                     )
 
                 Max ->
                     ( "Max"
-                    , triangleLeft [ moveLeft -6, moveDown -2, Font.color color.brightAccent ] thumbIconSize
+                    , triangleLeft [ moveDown (-2 - diffCorrection), moveLeft -diffCorrection, Font.color color.brightAccent ] thumbIconSize
                     )
     in
-    Input.slider [ width (fillPortion size |> minimum thumbSize), height fill, centerY ]
+    Input.slider [ width (fillPortion n |> minimum thumbSize), height fill, centerY ]
         { onChange = onChangeMsg
         , label = labelHidden label
         , min = toFloat minIdx

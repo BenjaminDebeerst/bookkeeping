@@ -73,15 +73,8 @@ settings =
     basicIcon Feather.settings
 
 
-triangleUp : Icon msg
 triangleUp attrs size =
-    el attrs <|
-        Element.html
-            (Feather.triangle
-                |> Feather.toHtml
-                    [ Attributes.height <| String.fromInt size
-                    ]
-            )
+    basicIcon Feather.triangle attrs size
 
 
 triangleDown : Icon msg
