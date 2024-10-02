@@ -1,4 +1,4 @@
-module Components.RangeSlider exposing (Model, Msg, init, max, min, update, view)
+module Components.RangeSlider exposing (Model, Selection(..), init, max, min, update, view)
 
 {-| A slider input with two thumbs.
 
@@ -13,17 +13,19 @@ each other and make it hard to change focus from one slider to the other.
 -}
 
 import Components.Icons exposing (circle, circleFill)
+import Components.Input exposing (button, disabledButton)
 import Config exposing (color, size)
 import Cons exposing (Cons)
-import Element exposing (Attribute, Element, behindContent, centerX, centerY, el, fill, fillPortion, height, inFront, moveLeft, px, row, spaceEvenly, spacing, text, width)
+import Element exposing (Attribute, Element, alignTop, behindContent, centerX, centerY, column, el, fill, fillPortion, height, inFront, moveLeft, px, row, shrink, spaceEvenly, spacing, text, width)
 import Element.Background as Background
 import Element.Font as Font
 import Element.Input as Input exposing (Label, Thumb, labelHidden)
 
 
-type Msg a
-    = SetMin Int a
-    | SetMax Int a
+type Selection
+    = All
+    | Last Int
+    | Range Int Int
 
 
 type Side
@@ -34,69 +36,84 @@ type Side
 type Model a
     = Model
         { options : Cons a
-        , min : a
-        , max : a
-        , iMin : Int
-        , iMax : Int
         , focus : Side
-        , optionCount : Int
+        , min : Int
+        , max : Int
+        , showQuickSelect : Bool
         }
+
+
+type alias SelectedRange a =
+    { min : a
+    , max : a
+    }
 
 
 min : Model a -> a
-min model =
-    case model of
-        Model m ->
-            m.min
+min (Model m) =
+    get m.options m.min
 
 
 max : Model a -> a
-max model =
-    case model of
-        Model m ->
-            m.max
+max (Model m) =
+    get m.options m.max
 
 
-init : a -> List a -> Model a
-init head tail =
+init : a -> List a -> Bool -> Selection -> Model a
+init head tail showQuickSelect initialSelection =
     let
-        options =
-            Cons.cons head tail
-
-        size =
-            Cons.length options
+        ( lower, upper ) =
+            range initialSelection (List.length tail + 1)
     in
     Model
-        { options = options
-        , min = head
-        , max = Cons.reverse options |> Cons.head
-        , iMin = 0
-        , iMax = size - 1
+        { options = Cons.cons head tail
         , focus = Min
-        , optionCount = size
+        , min = lower
+        , max = upper
+        , showQuickSelect = showQuickSelect
         }
 
 
-update : Msg a -> Model a -> Model a
-update msg model =
-    case ( msg, model ) of
-        ( SetMin i a, Model m ) ->
-            Model { m | min = a, iMin = i, focus = Min }
+update : Selection -> Model a -> Model a
+update msg (Model m) =
+    let
+        ( lower, upper ) =
+            range msg (Cons.length m.options)
+    in
+    Model { m | min = lower, max = upper }
 
-        ( SetMax i a, Model m ) ->
-            Model { m | max = a, iMax = i, focus = Max }
+
+range : Selection -> Int -> ( Int, Int )
+range selection n =
+    case selection of
+        All ->
+            ( 0, n - 1 )
+
+        Last count ->
+            ( Basics.max 0 (n - count), n - 1 )
+
+        Range l u ->
+            ( l, u )
 
 
-view : String -> (a -> String) -> Model a -> Element (Msg a)
+get : Cons a -> Int -> a
+get options i =
+    options |> Cons.drop i |> List.head |> Maybe.withDefault (Cons.head options)
+
+
+view : String -> (a -> String) -> Model a -> Element Selection
 view label format model =
     case model of
         Model m ->
             let
+                n =
+                    Cons.length m.options
+
                 trackParts =
-                    ( m.iMin, m.iMax - m.iMin + 1, m.optionCount - m.iMax - 1 )
+                    ( m.min, m.max - m.min + 1, n - m.max - 1 )
 
                 pad =
-                    if m.iMin == m.iMax then
+                    if m.min == m.max then
                         1
 
                     else
@@ -105,35 +122,58 @@ view label format model =
                 ( lSize, rSize ) =
                     case m.focus of
                         Min ->
-                            ( m.iMax, m.optionCount - m.iMax - pad )
+                            ( m.max, n - m.max - pad )
 
                         Max ->
-                            ( m.iMin + 1 - pad, m.optionCount - m.iMin - 1 )
+                            ( m.min + 1 - pad, n - m.min - 1 )
 
                 ( lMax, rMin ) =
                     case m.focus of
                         Min ->
-                            ( m.iMax, m.iMax - 1 + pad )
+                            ( m.max, m.max - 1 + pad )
 
                         Max ->
-                            ( m.iMin + 1 - pad, m.iMin )
+                            ( m.min + 1 - pad, m.min )
 
                 sliderMin =
-                    slider Min lSize 0 lMax m.iMin (onChange m.options SetMin)
+                    slider Min lSize 0 lMax m.min (round >> (\i -> Range i m.max))
 
                 sliderMax =
-                    slider Max rSize rMin (m.optionCount - 1) m.iMax (onChange m.options SetMax)
+                    slider Max rSize rMin (n - 1) m.max (round >> (\i -> Range m.min i))
+
+                btn msg s =
+                    if ( m.min, m.max ) == range msg (Cons.length m.options) then
+                        disabledButton s
+
+                    else
+                        button msg s
             in
             row [ width fill, spacing size.m ]
-                [ text label
-                , text (format m.min)
-                , row
-                    [ width fill, height (px size.l), behindContent (track trackParts) ]
-                    [ sliderMin
-                    , el [ width (fillPortion pad), height fill ] Element.none
-                    , sliderMax
+                [ el [ alignTop, width shrink ] <| text label
+                , column [ width fill, spacing size.m ]
+                    [ row [ width fill, spacing size.m ]
+                        [ text (format <| get m.options m.min)
+                        , row
+                            [ width fill, height (px size.l), behindContent (track trackParts) ]
+                            [ sliderMin
+                            , el [ width (fillPortion pad) ] Element.none
+                            , sliderMax
+                            ]
+                        , text (format <| get m.options m.max)
+                        ]
+                    , if m.showQuickSelect then
+                        row [ width fill, spacing size.m ]
+                            [ text "Quick select:"
+                            , btn All "All"
+                            , btn (Last 12) "Last Year"
+                            , btn (Last 6) "Last 6 Months"
+                            , btn (Last 3) "Last 3 Months"
+                            , btn (Last 1) "Last Month"
+                            ]
+
+                      else
+                        Element.none
                     ]
-                , text (format m.max)
                 ]
 
 
@@ -148,23 +188,11 @@ type alias Slider msg =
     }
 
 
-onChange : Cons a -> (Int -> a -> Msg a) -> (Float -> Msg a)
-onChange values msg selection =
-    let
-        i =
-            round selection
-
-        a =
-            Cons.take (i + 1) values |> List.reverse |> List.head |> Maybe.withDefault (Cons.head values)
-    in
-    msg i a
-
-
 thumbSize =
     size.m
 
 
-slider : Side -> Int -> Int -> Int -> Int -> (Float -> Msg a) -> Element (Msg a)
+slider : Side -> Int -> Int -> Int -> Int -> (Float -> Selection) -> Element Selection
 slider side n minIdx maxIdx valIdx onChangeMsg =
     let
         ( label, handle ) =

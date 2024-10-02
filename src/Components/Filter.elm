@@ -2,7 +2,7 @@ module Components.Filter exposing (Model, Msg, accountFilter, categoryFilter, da
 
 import Components.Icons exposing (wand)
 import Components.Input exposing (button, disabledButton)
-import Components.RangeSlider as RangeSlider
+import Components.RangeSlider as RangeSlider exposing (Selection(..))
 import Components.Tooltip exposing (tooltip)
 import Config exposing (color, size)
 import Dropdown exposing (withPromptElement, withSearchAttributes)
@@ -45,7 +45,7 @@ init accounts categories dates lift =
         ( dateRangeStart, tail ) =
             dateRange dates accounts |> List.Extra.uncons |> Maybe.withDefault ( YearMonth.zero, [] )
     in
-    { dateRange = RangeSlider.init dateRangeStart tail
+    { dateRange = RangeSlider.init dateRangeStart tail True (Last 12)
     , descr = ""
     , descrIsRegex = False
     , creatingPattern = Nothing
@@ -67,7 +67,7 @@ dateRange dates accounts =
 
 
 type Msg
-    = DateRange (RangeSlider.Msg YearMonth)
+    = DateRange RangeSlider.Selection
     | Descr String
     | DescrRegex Bool
     | PatternCreateStart

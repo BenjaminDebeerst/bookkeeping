@@ -17,7 +17,7 @@ button msg label =
 
 disabledButton : String -> Element msg
 disabledButton label =
-    Input.button (style.button ++ [ Background.color color.grey ]) { onPress = Nothing, label = text label }
+    Input.button (style.button ++ [ Background.color color.grey, pointer ]) { onPress = Nothing, label = text label }
 
 
 brightButton : msg -> String -> Element msg

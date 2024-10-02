@@ -4,14 +4,14 @@ import Components.CsvView as CsvView
 import Components.FileDropArea as FileDropArea
 import Components.Input exposing (button, disabledButton)
 import Components.ProfileBuilder as ProfileBuilder
-import Components.RangeSlider as RangeSlider
+import Components.RangeSlider as RangeSlider exposing (Selection(..))
 import Components.Table as T
 import Config exposing (size, style)
 import Csv.Decode exposing (Error)
 import Csv.Parser exposing (Problem(..))
 import Dict exposing (Dict)
 import Effect exposing (Effect)
-import Element exposing (Attribute, Color, Element, IndexedColumn, alignRight, alignTop, clipY, column, el, fill, height, indexedTable, padding, paddingXY, paragraph, row, scrollbarX, spacing, text, width)
+import Element exposing (Attribute, Color, Element, IndexedColumn, alignRight, alignTop, column, el, fill, height, indexedTable, padding, paddingXY, paragraph, row, spacing, text, width)
 import Element.Input as Input
 import Layouts
 import List.Extra
@@ -89,7 +89,7 @@ type Msg
     | StoreNewProfile ImportProfile
     | ProfileBuilderMsg ProfileBuilder.Msg
     | ChooseAccount Account
-    | FilterMsg (RangeSlider.Msg Date)
+    | FilterMsg RangeSlider.Selection
     | AbortImport
     | Store (List ParsedRow) (List String) Account ImportProfile
     | Forward
@@ -397,7 +397,7 @@ dateFilter dates =
                 |> List.Extra.uncons
                 |> Maybe.withDefault ( Date.date 1970 1 1, [] )
     in
-    RangeSlider.init head tail
+    RangeSlider.init head tail False All
 
 
 filterFromData : Result Error (List ParsedRow) -> RangeSlider.Model Date
