@@ -12,10 +12,10 @@ each other and make it hard to change focus from one slider to the other.
 
 -}
 
-import Components.Icons exposing (triangleLeft, triangleRight)
+import Components.Icons exposing (circle, circleFill)
 import Config exposing (color, size)
 import Cons exposing (Cons)
-import Element exposing (Element, behindContent, centerY, el, fill, fillPortion, height, inFront, minimum, moveDown, moveLeft, px, row, spacing, text, width)
+import Element exposing (Attribute, Element, behindContent, centerX, centerY, el, fill, fillPortion, height, inFront, moveLeft, px, row, spaceEvenly, spacing, text, width)
 import Element.Background as Background
 import Element.Font as Font
 import Element.Input as Input exposing (Label, Thumb, labelHidden)
@@ -92,6 +92,9 @@ view label format model =
     case model of
         Model m ->
             let
+                trackParts =
+                    ( m.iMin, m.iMax - m.iMin + 1, m.optionCount - m.iMax - 1 )
+
                 pad =
                     if m.iMin == m.iMax then
                         1
@@ -125,9 +128,9 @@ view label format model =
                 [ text label
                 , text (format m.min)
                 , row
-                    [ width fill, height (px size.l), behindContent track ]
+                    [ width fill, height (px size.l), behindContent (track trackParts) ]
                     [ sliderMin
-                    , el [ width (fillPortion pad) ] Element.none
+                    , el [ width (fillPortion pad), height fill ] Element.none
                     , sliderMax
                     ]
                 , text (format m.max)
@@ -157,18 +160,8 @@ onChange values msg selection =
     msg i a
 
 
-{-| Thumb size and icon size need to be aligned in order for the highlighting / handling to look and feel right
--}
 thumbSize =
     size.m
-
-
-thumbIconSize =
-    size.l
-
-
-diffCorrection =
-    (thumbIconSize - thumbSize) / 2
 
 
 slider : Side -> Int -> Int -> Int -> Int -> (Float -> Msg a) -> Element (Msg a)
@@ -178,24 +171,40 @@ slider side n minIdx maxIdx valIdx onChangeMsg =
             case side of
                 Min ->
                     ( "Min"
-                    , triangleRight [ moveDown 2, moveLeft diffCorrection, Font.color color.brightAccent ] thumbIconSize
+                    , circle [ moveLeft (thumbSize / 2), Font.color color.brightAccent ] thumbSize
                     )
 
                 Max ->
                     ( "Max"
-                    , triangleLeft [ moveDown (-2 - diffCorrection), moveLeft -diffCorrection, Font.color color.brightAccent ] thumbIconSize
+                    , circle [ moveLeft (thumbSize / 2), Font.color color.brightAccent ] thumbSize
                     )
     in
-    Input.slider [ width (fillPortion n |> minimum thumbSize), height fill, centerY ]
+    Input.slider [ width (fillPortion n), height fill, centerY ]
         { onChange = onChangeMsg
         , label = labelHidden label
         , min = toFloat minIdx
         , max = toFloat maxIdx
         , value = toFloat valIdx
-        , thumb = Input.thumb [ width (px thumbSize), height (px thumbSize), inFront handle ]
+        , thumb = Input.thumb [ width (px 0), height (px size.m), inFront handle ]
         , step = Just 1
         }
 
 
-track =
-    el [ width fill, height (px 1), centerY, Background.color color.darkAccent ] Element.none
+track ( a, b, c ) =
+    let
+        dot clr =
+            el [ width (px 0) ] <| circleFill [ centerX, Font.color clr ] size.s
+
+        dots =
+            []
+                ++ List.repeat a (dot color.grey)
+                ++ List.repeat (b + 1) (dot color.darkAccent)
+                ++ List.repeat c (dot color.grey)
+
+        bar size clr =
+            el [ width (fillPortion size), height fill, Background.color clr ] Element.none
+
+        bars =
+            row [ width fill, height (px 3), centerY ] [ bar a color.grey, bar b color.brightAccent, bar c color.grey ]
+    in
+    row [ width fill, height fill, behindContent bars, spaceEvenly ] dots

@@ -1,9 +1,9 @@
-module Components.Icons exposing (Icon, barChart, checkMark, copy, cross, edit, folder, folderPlus, infoMark, list, loader, plusSquare, save, settings, triangleDown, triangleLeft, triangleRight, triangleUp, wand, warnTriangle, x, xSquare)
+module Components.Icons exposing (Icon, barChart, checkMark, circle, circleFill, copy, cross, edit, folder, folderPlus, infoMark, list, plusSquare, save, settings, triangleDown, triangleLeft, triangleRight, triangleUp, wand, warnTriangle, x, xSquare)
 
 import Element exposing (Attribute, Element, el)
 import FeatherIcons as Feather
 import Svg exposing (Svg)
-import Svg.Attributes as Attributes exposing (d, fill)
+import Svg.Attributes as Attributes exposing (cx, cy, d, fill, r)
 
 
 type alias Icon msg =
@@ -12,6 +12,16 @@ type alias Icon msg =
 
 barChart =
     basicIcon Feather.barChart
+
+
+circle : Icon msg
+circle =
+    basicIcon (Feather.circle |> Feather.withStrokeWidth 4)
+
+
+circleFill : Icon msg
+circleFill =
+    basicIcon (Feather.customIcon [ Svg.circle [ fill "currentColor", cx "12", cy "12", r "10" ] [] ] |> Feather.withStrokeWidth 4)
 
 
 checkMark : Icon msg
@@ -52,11 +62,6 @@ infoMark =
 list : Icon msg
 list =
     basicIcon Feather.list
-
-
-loader : Icon msg
-loader =
-    basicIcon Feather.loader
 
 
 plusSquare : Icon msg
