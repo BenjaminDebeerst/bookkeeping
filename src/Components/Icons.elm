@@ -1,9 +1,9 @@
-module Components.Icons exposing (Icon, barChart, checkMark, circle, circleFill, copy, cross, edit, folder, folderPlus, infoMark, list, plusSquare, save, settings, triangleDown, triangleLeft, triangleRight, triangleUp, wand, warnTriangle, x, xSquare)
+module Components.Icons exposing (Icon, barChart, checkMark, circle, circleFill, copy, cross, edit, folder, folderPlus, graph, infoMark, list, plusSquare, save, settings, triangleDown, triangleLeft, triangleRight, triangleUp, wand, warnTriangle, x, xSquare)
 
 import Element exposing (Attribute, Element, el)
 import FeatherIcons as Feather
 import Svg exposing (Svg)
-import Svg.Attributes as Attributes exposing (cx, cy, d, fill, r)
+import Svg.Attributes as Attributes exposing (cx, cy, d, fill, r, strokeLinecap, strokeWidth)
 
 
 type alias Icon msg =
@@ -115,6 +115,15 @@ wandSvg =
     ]
 
 
+graph : Icon msg
+graph =
+    [ Svg.path [ d "M 1 1 V 9 H 9 M 1 7.5 L 3.5 4.5 L 6 6.5 L 8.5 3" ] [] ]
+        |> Feather.customIcon
+        |> Feather.withStrokeWidth 1
+        |> Feather.withViewBox "0 0 10 10"
+        |> basicIcon
+
+
 warnTriangle : Icon msg
 warnTriangle =
     basicIcon Feather.alertTriangle
@@ -130,7 +139,7 @@ xSquare =
     basicIcon Feather.xSquare
 
 
-basicIcon : Feather.Icon -> Icon msgS
+basicIcon : Feather.Icon -> Icon msg
 basicIcon icon attrs size =
     el attrs
         (Element.html

@@ -111,8 +111,8 @@ mainColumn content path toContentMsg =
         , tabMsg = ChangeTo >> toContentMsg
         , content = content.body
         , rightCorner =
-            [ Components.Tabs.Handle (toContentMsg Save) "Save" False (Just Icons.save)
-            , Components.Tabs.Handle (toContentMsg Close) "Close" False (Just Icons.x)
+            [ Components.Tabs.Handle (toContentMsg Save) (Just "Save") False (Just Icons.save)
+            , Components.Tabs.Handle (toContentMsg Close) (Just "Close") False (Just Icons.x)
             ]
         }
 

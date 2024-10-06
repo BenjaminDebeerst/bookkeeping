@@ -1,7 +1,10 @@
 module Pages.Aggregation exposing (Model, Msg, page)
 
+import Browser.Dom
+import Browser.Events
 import Components.Dropdown as Dropdown
 import Components.Filter as Filter exposing (toAggregateFilter)
+import Components.Graph as Graph exposing (Datum)
 import Components.Icons as Icons exposing (edit, plusSquare, triangleDown, triangleUp, xSquare)
 import Components.Input exposing (button, disabledButton)
 import Components.Table as T exposing (withHeaderActions)
@@ -9,7 +12,7 @@ import Components.Tabs as Tabs
 import Config exposing (color, size)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
-import Element exposing (Element, IndexedColumn, alignRight, below, column, el, fill, indexedTable, minimum, padding, paddingXY, pointer, px, row, spacing, text, width)
+import Element exposing (Element, IndexedColumn, alignRight, below, column, el, fill, height, indexedTable, minimum, padding, paddingXY, pointer, px, row, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events exposing (onClick)
@@ -33,6 +36,7 @@ import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (Ordering, aggregateMonth, asc, bookEntryDate, desc)
 import Route exposing (Route)
 import Shared exposing (dataSummary)
+import Task
 import Util.Formats exposing (formatEuro, formatYearMonth)
 import Util.Layout exposing (dataInit, dataUpdate, dataView)
 import Util.YearMonth exposing (YearMonth)
@@ -44,7 +48,7 @@ page shared _ =
         { init = \_ -> dataInit shared (init [] [] []) initFromData
         , update = dataUpdate shared update
         , view = dataView shared "Monthly" view
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
         }
         |> Page.withLayout (\_ -> Layouts.Tabs { dataSummary = dataSummary shared })
 
@@ -63,9 +67,11 @@ type alias Model =
     { filters : Filter.Model Msg
     , ordering : Ordering MonthAggregate
     , tab : Tab
+    , display : Display
     , edit : Maybe ( YearMonth, String )
     , aggregationBuilder : Maybe Builder
     , customAggregators : List Aggregator
+    , graphDimensions : ( Float, Float )
     }
 
 
@@ -126,9 +132,11 @@ init accounts groups entries =
     { filters = Filter.init accounts [] (List.map .date entries) Filter
     , ordering = desc aggregateMonth
     , tab = Overview
+    , display = Table
     , edit = Nothing
     , aggregationBuilder = Nothing
     , customAggregators = List.map fromAggregationGroup groups
+    , graphDimensions = ( 0, 0 )
     }
 
 
@@ -140,6 +148,9 @@ type Msg
     = Filter Filter.Msg
     | OrderBy (Ordering MonthAggregate)
     | TabSelection Tab
+    | DisplaySelection Display
+    | WindowResized
+    | GotGraphElement (Result Browser.Dom.Error Browser.Dom.Element)
     | EditComment YearMonth String
     | SaveComment
     | BuildAggregation
@@ -149,6 +160,11 @@ type Msg
     | SaveAggregation String (List Category)
     | DeleteAggregation Int
     | Abort
+
+
+type Display
+    = Table
+    | Graph
 
 
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
@@ -166,6 +182,24 @@ update data msg model =
 
         ( TabSelection tab, _ ) ->
             ( { model | tab = tab }, Effect.none )
+
+        ( DisplaySelection vis, _ ) ->
+            ( { model | display = vis }
+            , if vis == Graph then
+                Browser.Dom.getElement "graph" |> Task.attempt GotGraphElement |> Effect.sendCmd
+
+              else
+                Effect.none
+            )
+
+        ( WindowResized, _ ) ->
+            -- the element containing the graph has height=fill and would not shrink after resize
+            -- if the containing graph has a set size. Set the graph to 0 height in order for all
+            -- elements to move to their right place and size, then trigger recalculation
+            ( { model | graphDimensions = ( 0, 0 ) }, Effect.sendMsg (DisplaySelection model.display) )
+
+        ( GotGraphElement (Ok graph), _ ) ->
+            ( { model | graphDimensions = ( graph.element.width, graph.element.height ) }, Effect.none )
 
         ( EditComment ym comment, _ ) ->
             ( { model | edit = Just ( ym, comment ), aggregationBuilder = Nothing }, Effect.none )
@@ -237,7 +271,7 @@ update data msg model =
 
 view : Data -> Model -> Element Msg
 view data model =
-    column [ spacing size.m, width fill, padding size.m ]
+    column [ spacing size.m, width fill, height fill, padding size.m ]
         [ viewFilters model (Dict.values data.accounts)
         , viewTabs data model
         ]
@@ -271,7 +305,10 @@ viewTabs data model =
 
                 Overview ->
                     overview data model
-        , rightCorner = []
+        , rightCorner =
+            [ Tabs.Handle (DisplaySelection Table) Nothing (model.display == Table) (Just Icons.list)
+            , Tabs.Handle (DisplaySelection Graph) Nothing (model.display == Graph) (Just Icons.graph)
+            ]
         }
 
 
@@ -430,7 +467,12 @@ showAggregations data model aggregators aggregationGroups extraColumns =
                 ++ groupColumns model.aggregationBuilder aggregationGroups
                 ++ extraColumns
     in
-    showAggResults data.audits model.edit aggregatedData columns
+    el [ width fill, height fill, paddingXY 0 size.m ] <|
+        if model.display == Table then
+            showAggTable data.audits model.edit aggregatedData columns
+
+        else
+            showAggGraph aggregatedData model.graphDimensions
 
 
 sortWith : Ordering MonthAggregate -> Aggregate -> Aggregate
@@ -446,21 +488,20 @@ viewFilters model accounts =
         ]
 
 
-showAggResults : Audits -> Maybe ( YearMonth, String ) -> Aggregate -> List (IndexedColumn MonthAggregate Msg) -> Element Msg
-showAggResults audits edit aggregation extraColumns =
-    el [ width fill, paddingXY 0 size.m ] <|
-        indexedTable T.style.fullWidthTable
-            { data = aggregation.rows
-            , columns =
-                (T.textColumn "Month" (.month >> formatYearMonth)
-                    |> withHeaderActions
-                        [ triangleUp [ pointer, onClick (OrderBy (asc aggregateMonth)) ] size.s
-                        , triangleDown [ pointer, onClick (OrderBy (desc aggregateMonth)) ] size.s
-                        ]
-                )
-                    :: extraColumns
-                    ++ [ T.styledColumn "Comment" (.month >> commentCell audits edit) |> T.withColumnWidth fill ]
-            }
+showAggTable : Audits -> Maybe ( YearMonth, String ) -> Aggregate -> List (IndexedColumn MonthAggregate Msg) -> Element Msg
+showAggTable audits edit aggregation extraColumns =
+    indexedTable T.style.fullWidthTable
+        { data = aggregation.rows
+        , columns =
+            (T.textColumn "Month" (.month >> formatYearMonth)
+                |> withHeaderActions
+                    [ triangleUp [ pointer, onClick (OrderBy (asc aggregateMonth)) ] size.s
+                    , triangleDown [ pointer, onClick (OrderBy (desc aggregateMonth)) ] size.s
+                    ]
+            )
+                :: extraColumns
+                ++ [ T.styledColumn "Comment" (.month >> commentCell audits edit) |> T.withColumnWidth fill ]
+        }
 
 
 commentCell : Audits -> Maybe ( YearMonth, String ) -> YearMonth -> Element Msg
@@ -577,3 +618,27 @@ groupColumns maybeBuilder groups =
                     )
                     (.columns >> Dict.get group.name >> Maybe.withDefault 0 >> formatEuro)
             )
+
+
+showAggGraph : Aggregate -> ( Float, Float ) -> Element Msg
+showAggGraph agg dimensions =
+    Graph.view (toTimeSeries agg) dimensions
+
+
+toTimeSeries : Aggregate -> List Datum
+toTimeSeries aggregate =
+    aggregate.rows
+        |> List.map
+            (\a ->
+                { month = a.month, values = a.columns }
+            )
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    if model.display == Graph then
+        -- the actual window size is irrelevant, re-trigger graph dimension re-calculation
+        Browser.Events.onResize (\_ _ -> WindowResized)
+
+    else
+        Sub.none

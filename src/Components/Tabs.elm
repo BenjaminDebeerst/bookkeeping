@@ -36,12 +36,12 @@ tabbedContent props =
 
 toHandle : t -> (t -> String) -> (t -> Maybe (Icon msg)) -> (t -> msg) -> t -> Handle msg
 toHandle selected descr icon msg tab =
-    Handle (msg tab) (descr tab) (tab == selected) (icon tab)
+    Handle (msg tab) (Just (descr tab)) (tab == selected) (icon tab)
 
 
 type alias Handle msg =
     { action : msg
-    , label : String
+    , label : Maybe String
     , selected : Bool
     , icon : Maybe (Icon.Icon msg)
     }
@@ -52,7 +52,7 @@ viewHandle handle =
     el (tabStyle handle.selected handle.action) <|
         row [ spacing size.s ]
             [ handle.icon |> Maybe.map (\i -> i [ centerY ] size.l) |> Maybe.withDefault Element.none
-            , el [ alignBottom ] <| text handle.label
+            , handle.label |> Maybe.map (\s -> el [ alignBottom ] <| text s) |> Maybe.withDefault Element.none
             ]
 
 
@@ -77,6 +77,7 @@ tabStyle selected targetMsg =
     , paddingEach { left = size.l, top = size.s, right = size.l, bottom = size.s }
     , Border.widthEach { left = 0, top = 0, right = 0, bottom = size.xxs }
     , mouseOver [ Border.color color.brightAccent ]
+    , alignBottom
     ]
         ++ (if selected then
                 [ Background.color color.white, Border.color color.white, Font.color color.black ]
