@@ -26,7 +26,7 @@ startingBalances accounts =
     Dict.fromList
         ([]
             ++ (accounts |> List.map (\a -> ( a.name, a.start.amount )))
-            ++ (accounts |> List.map (.start >> .amount) |> List.sum |> (\s -> [ ( "Balance", s ) ]))
+            ++ (accounts |> List.map (.start >> .amount) |> List.sum |> (\s -> [ ( "Month-End Balance", s ) ]))
         )
 
 

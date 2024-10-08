@@ -4,7 +4,7 @@ import Browser.Dom
 import Browser.Events
 import Components.Dropdown as Dropdown
 import Components.Filter as Filter exposing (toAggregateFilter)
-import Components.Graph as Graph exposing (Datum)
+import Components.Graph as Graph exposing (Datum, Msg(..))
 import Components.Icons as Icons exposing (edit, plusSquare, triangleDown, triangleUp, xSquare)
 import Components.Input exposing (button, disabledButton)
 import Components.Table as T exposing (withHeaderActions)
@@ -12,12 +12,13 @@ import Components.Tabs as Tabs
 import Config exposing (color, size)
 import Dict exposing (Dict)
 import Effect exposing (Effect)
-import Element exposing (Element, IndexedColumn, alignRight, below, column, el, fill, height, indexedTable, minimum, padding, paddingXY, pointer, px, row, spacing, text, width)
+import Element exposing (Element, IndexedColumn, alignRight, below, column, el, fill, height, htmlAttribute, indexedTable, minimum, padding, paddingXY, pointer, px, row, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events exposing (onClick)
 import Element.Font as Font
 import Element.Input as Input exposing (focusedOnLoad, labelHidden, placeholder)
+import Html.Attributes exposing (id)
 import Html.Events
 import Json.Decode as Decode
 import Layouts
@@ -71,7 +72,7 @@ type alias Model =
     , edit : Maybe ( YearMonth, String )
     , aggregationBuilder : Maybe Builder
     , customAggregators : List Aggregator
-    , graphDimensions : ( Float, Float )
+    , graph : Graph.Model
     }
 
 
@@ -136,7 +137,7 @@ init accounts groups entries =
     , edit = Nothing
     , aggregationBuilder = Nothing
     , customAggregators = List.map fromAggregationGroup groups
-    , graphDimensions = ( 0, 0 )
+    , graph = Graph.init
     }
 
 
@@ -151,6 +152,7 @@ type Msg
     | DisplaySelection Display
     | WindowResized
     | GotGraphElement (Result Browser.Dom.Error Browser.Dom.Element)
+    | GraphMsg Graph.Msg
     | EditComment YearMonth String
     | SaveComment
     | BuildAggregation
@@ -196,10 +198,13 @@ update data msg model =
             -- the element containing the graph has height=fill and would not shrink after resize
             -- if the containing graph has a set size. Set the graph to 0 height in order for all
             -- elements to move to their right place and size, then trigger recalculation
-            ( { model | graphDimensions = ( 0, 0 ) }, Effect.sendMsg (DisplaySelection model.display) )
+            ( { model | graph = Graph.update (SetDimensions 0 0) model.graph }, Effect.sendMsg (DisplaySelection model.display) )
 
         ( GotGraphElement (Ok graph), _ ) ->
-            ( { model | graphDimensions = ( graph.element.width, graph.element.height ) }, Effect.none )
+            ( { model | graph = Graph.update (SetDimensions graph.element.width graph.element.height) model.graph }, Effect.none )
+
+        ( GraphMsg subMsg, _ ) ->
+            ( { model | graph = Graph.update subMsg model.graph }, Effect.none )
 
         ( EditComment ym comment, _ ) ->
             ( { model | edit = Just ( ym, comment ), aggregationBuilder = Nothing }, Effect.none )
@@ -317,8 +322,8 @@ overview data model =
     showAggregations
         data
         model
-        [ Aggregator.all True "Balance"
-        , Aggregator.all False "Sum"
+        [ Aggregator.all True "Month-End Balance"
+        , Aggregator.all False "Monthly Gain"
         , Aggregator.fromCategoryGroup Income
         , Aggregator.fromCategoryGroup Expense
         , Aggregator.fromCategoryGroup Internal
@@ -333,7 +338,7 @@ byCategory data model =
     showAggregations
         data
         model
-        ([ Aggregator.all True "Balance"
+        ([ Aggregator.all True "Month-End Balance"
          , Aggregator.all False "Diff"
          ]
             ++ (Dict.values data.categories |> List.sortWith Category.order |> List.map Aggregator.fromCategory)
@@ -347,8 +352,8 @@ byAccount data model =
     showAggregations
         data
         model
-        ([ Aggregator.all True "Balance"
-         , Aggregator.all False "Sum"
+        ([ Aggregator.all True "Month-End Balance"
+         , Aggregator.all False "Monthly Gain"
          ]
             ++ (model.filters.accounts |> List.sortBy .name |> List.map (Aggregator.fromAccount True))
         )
@@ -472,7 +477,7 @@ showAggregations data model aggregators aggregationGroups extraColumns =
             showAggTable data.audits model.edit aggregatedData columns
 
         else
-            showAggGraph aggregatedData model.graphDimensions
+            showAggGraph aggregatedData model.graph
 
 
 sortWith : Ordering MonthAggregate -> Aggregate -> Aggregate
@@ -620,9 +625,11 @@ groupColumns maybeBuilder groups =
             )
 
 
-showAggGraph : Aggregate -> ( Float, Float ) -> Element Msg
-showAggGraph agg dimensions =
-    Graph.view (toTimeSeries agg) dimensions
+showAggGraph : Aggregate -> Graph.Model -> Element Msg
+showAggGraph agg graph =
+    el [ htmlAttribute (id "graph"), Element.width fill, Element.height fill ] <|
+        Element.map GraphMsg <|
+            Graph.view graph (toTimeSeries agg)
 
 
 toTimeSeries : Aggregate -> List Datum
