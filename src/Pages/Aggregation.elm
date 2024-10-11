@@ -1,7 +1,7 @@
 module Pages.Aggregation exposing (Model, Msg, page)
 
 import Components.Dropdown as Dropdown
-import Components.Filter as Filter exposing (toAggregateFilter)
+import Components.Filter as Filter exposing (toAggregateDateFilter)
 import Components.Icons as Icons exposing (edit, plusSquare, triangleDown, triangleUp, xSquare)
 import Components.Input exposing (button, disabledButton)
 import Components.Table as T exposing (withHeaderActions)
@@ -26,7 +26,7 @@ import Persistence.Audits as Audits exposing (Audits)
 import Persistence.Category as Category exposing (Category, CategoryGroup(..))
 import Persistence.Data exposing (Data)
 import Persistence.RawEntry exposing (RawEntry)
-import Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate, startDate, startingBalances)
+import Processing.Aggregation exposing (CellValue, MonthAggregate, aggregate, startDate)
 import Processing.Aggregator as Aggregator exposing (Aggregator, fromAggregationGroup)
 import Processing.Filter as Filter exposing (EntryFilter)
 import Processing.Model exposing (getEntries)
@@ -275,13 +275,18 @@ viewTabs data model =
         }
 
 
+initialBalance : List Account -> Int
+initialBalance accounts =
+    accounts |> List.map (.start >> .amount) |> List.sum
+
+
 overview : Data -> Model -> Element Msg
 overview data model =
     showAggregations
         data
         model
-        [ Aggregator.all True "Balance"
-        , Aggregator.all False "Sum"
+        [ Aggregator.all (Just (initialBalance model.filters.accounts)) "Balance"
+        , Aggregator.all Nothing "Sum"
         , Aggregator.fromCategoryGroup Income
         , Aggregator.fromCategoryGroup Expense
         , Aggregator.fromCategoryGroup Internal
@@ -296,8 +301,8 @@ byCategory data model =
     showAggregations
         data
         model
-        ([ Aggregator.all True "Balance"
-         , Aggregator.all False "Diff"
+        ([ Aggregator.all (Just (initialBalance model.filters.accounts)) "Balance"
+         , Aggregator.all Nothing "Diff"
          ]
             ++ (Dict.values data.categories |> List.sortWith Category.order |> List.map Aggregator.fromCategory)
         )
@@ -310,10 +315,10 @@ byAccount data model =
     showAggregations
         data
         model
-        ([ Aggregator.all True "Balance"
-         , Aggregator.all False "Sum"
+        ([ Aggregator.all (Just (initialBalance model.filters.accounts)) "Balance"
+         , Aggregator.all Nothing "Sum"
          ]
-            ++ (model.filters.accounts |> List.sortBy .name |> List.map (Aggregator.fromAccount True))
+            ++ (model.filters.accounts |> List.sortBy .name |> List.map Aggregator.fromAccount)
         )
         []
         []
@@ -407,8 +412,9 @@ showAggregations data model aggregators aggregationGroups extraColumns =
         start =
             startDate model.filters.accounts
 
-        startSums =
-            startingBalances model.filters.accounts
+        aggregations : List Aggregator
+        aggregations =
+            aggregators ++ List.map fromAggregationGroup aggregationGroups
 
         -- This is a bit special: The date filtering is not applied here, because the
         -- book entries prior to the selected range are required to calculate the
@@ -418,24 +424,20 @@ showAggregations data model aggregators aggregationGroups extraColumns =
             [ model.filters.accounts |> List.map Filter.filterAccount |> Filter.any ]
 
         -- We discard out-of-range dates only after aggregation
-        aggregatedData : Aggregate
+        aggregatedData : List MonthAggregate
         aggregatedData =
             getEntries data entryFilters (asc bookEntryDate)
-                |> aggregate start startSums (aggregators ++ List.map fromAggregationGroup aggregationGroups)
-                |> toAggregateFilter model.filters
-                |> sortWith model.ordering
+                |> aggregate start aggregations
+                |> List.filter (toAggregateDateFilter model.filters)
+                |> List.sortWith model.ordering
 
+        columns : List (IndexedColumn MonthAggregate Msg)
         columns =
             aggregationColumns (List.map .title aggregators)
                 ++ groupColumns model.aggregationBuilder aggregationGroups
                 ++ extraColumns
     in
     showAggResults data.audits model.edit aggregatedData columns
-
-
-sortWith : Ordering MonthAggregate -> Aggregate -> Aggregate
-sortWith ordering agg =
-    { agg | rows = agg.rows |> List.sortWith ordering }
 
 
 viewFilters : Model -> List Account -> Element Msg
@@ -446,11 +448,11 @@ viewFilters model accounts =
         ]
 
 
-showAggResults : Audits -> Maybe ( YearMonth, String ) -> Aggregate -> List (IndexedColumn MonthAggregate Msg) -> Element Msg
+showAggResults : Audits -> Maybe ( YearMonth, String ) -> List MonthAggregate -> List (IndexedColumn MonthAggregate Msg) -> Element Msg
 showAggResults audits edit aggregation extraColumns =
     el [ width fill, paddingXY 0 size.m ] <|
         indexedTable T.style.fullWidthTable
-            { data = aggregation.rows
+            { data = aggregation
             , columns =
                 (T.textColumn "Month" (.month >> formatYearMonth)
                     |> withHeaderActions
@@ -533,10 +535,22 @@ onKey l =
 aggregationColumns : List String -> List (IndexedColumn MonthAggregate msg)
 aggregationColumns aggregationNames =
     aggregationNames
-        |> List.map
-            (\agg ->
-                T.styledColumn agg (.columns >> Dict.get agg >> Maybe.withDefault 0 >> formatEuro)
+        |> List.map (\agg -> T.styledColumn agg (cellForName agg))
+
+
+cellForName : String -> MonthAggregate -> Element msg
+cellForName name ma =
+    ma.values
+        |> List.filterMap
+            (\cv ->
+                if cv.label == name then
+                    Just (formatEuro cv.value)
+
+                else
+                    Nothing
             )
+        |> List.head
+        |> Maybe.withDefault Element.none
 
 
 groupColumns : Maybe Builder -> List AggregationGroup -> List (IndexedColumn MonthAggregate Msg)
@@ -575,5 +589,5 @@ groupColumns maybeBuilder groups =
                                 Nothing ->
                                     idle group
                     )
-                    (.columns >> Dict.get group.name >> Maybe.withDefault 0 >> formatEuro)
+                    (cellForName group.name)
             )

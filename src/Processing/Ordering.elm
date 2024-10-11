@@ -1,6 +1,6 @@
 module Processing.Ordering exposing (Ordering, aggregateMonth, asc, bookEntryDate, desc)
 
-import Processing.Aggregation exposing (Aggregate, MonthAggregate)
+import Processing.Aggregation exposing (MonthAggregate)
 import Processing.BookEntry exposing (BookEntry)
 import Time.Date as Date
 import Util.YearMonth as YearMonth exposing (YearMonth)

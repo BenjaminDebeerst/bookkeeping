@@ -1,39 +1,68 @@
-module Processing.Aggregator exposing (Aggregator, all, fromAccount, fromAggregationGroup, fromCategories, fromCategory, fromCategoryGroup, uncategorized)
+module Processing.Aggregator exposing (AggregationType(..), Aggregator, all, fromAccount, fromAggregationGroup, fromCategories, fromCategory, fromCategoryGroup, uncategorized)
 
-import List.Extra
+import Maybe.Extra
 import Persistence.Account exposing (Account)
 import Persistence.AggregationGroups exposing (AggregationGroup)
-import Persistence.Category exposing (Category, CategoryGroup(..))
+import Persistence.Category as CategoryGroup exposing (Category, CategoryGroup(..))
 import Processing.BookEntry exposing (BookEntry, Categorization(..))
 
 
 type alias Aggregator =
     { title : String
+    , aggregationType : AggregationType
     , amount : BookEntry -> Int
-    , runningSum : Bool
+    , runningSum : Maybe Int
     }
 
 
-all : Bool -> String -> Aggregator
+type AggregationType
+    = Balance
+    | Diff
+    | Income
+    | Expense
+    | Other String
+
+
+all : Maybe Int -> String -> Aggregator
 all runningSum title =
     { title = title
+    , aggregationType =
+        if Maybe.Extra.isJust runningSum then
+            Balance
+
+        else
+            Diff
     , amount = \e -> e.amount
     , runningSum = runningSum
     }
+
+
+typeFromCategoryGroup : CategoryGroup -> AggregationType
+typeFromCategoryGroup categoryGroup =
+    case categoryGroup of
+        CategoryGroup.Income ->
+            Income
+
+        CategoryGroup.Expense ->
+            Expense
+
+        CategoryGroup.Internal ->
+            Other "Internal"
 
 
 fromCategoryGroup : CategoryGroup -> Aggregator
 fromCategoryGroup group =
     { title =
         case group of
-            Income ->
+            CategoryGroup.Income ->
                 "Income"
 
-            Expense ->
+            CategoryGroup.Expense ->
                 "Expenses"
 
-            Internal ->
+            CategoryGroup.Internal ->
                 "Internal"
+    , aggregationType = typeFromCategoryGroup group
     , amount =
         \bookEntry ->
             case bookEntry.categorization of
@@ -52,23 +81,24 @@ fromCategoryGroup group =
                         |> List.filter (\e -> e.category.group == group)
                         |> List.map .amount
                         |> List.sum
-    , runningSum = False
+    , runningSum = Nothing
     }
 
 
 fromAggregationGroup : AggregationGroup -> Aggregator
 fromAggregationGroup group =
-    fromCategories group.name group.categories
+    fromCategories group.name Nothing group.categories
 
 
-fromCategories : String -> List Int -> Aggregator
-fromCategories title categories =
+fromCategories : String -> Maybe AggregationType -> List Int -> Aggregator
+fromCategories title aggregationType categories =
     let
         isAggregated : Category -> Bool
         isAggregated cat =
             categories |> List.filter (\i -> cat.id == i) |> List.isEmpty |> not
     in
     { title = title
+    , aggregationType = Maybe.withDefault (Other "Custom") aggregationType
     , amount =
         \bookEntry ->
             case bookEntry.categorization of
@@ -87,18 +117,19 @@ fromCategories title categories =
                         |> List.filter (\e -> isAggregated e.category)
                         |> List.map .amount
                         |> List.sum
-    , runningSum = False
+    , runningSum = Nothing
     }
 
 
 fromCategory : Category -> Aggregator
 fromCategory category =
-    fromCategories category.name [ category.id ]
+    fromCategories category.name (Just <| typeFromCategoryGroup category.group) [ category.id ]
 
 
 uncategorized : Aggregator
 uncategorized =
     { title = "Uncategorized"
+    , aggregationType = Other "Uncategorized"
     , amount =
         \bookEntry ->
             case bookEntry.categorization of
@@ -107,13 +138,14 @@ uncategorized =
 
                 _ ->
                     0
-    , runningSum = False
+    , runningSum = Nothing
     }
 
 
-fromAccount : Bool -> Account -> Aggregator
-fromAccount runningSum account =
+fromAccount : Account -> Aggregator
+fromAccount account =
     { title = account.name
+    , aggregationType = Other "Account"
     , amount =
         \bookEntry ->
             if bookEntry.account == account then
@@ -121,5 +153,5 @@ fromAccount runningSum account =
 
             else
                 0
-    , runningSum = runningSum
+    , runningSum = Just account.start.amount
     }

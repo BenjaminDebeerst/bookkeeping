@@ -1,4 +1,4 @@
-module Components.Filter exposing (Model, Msg, accountFilter, categoryFilter, dateRangeFilter, descriptionFilter, init, toAggregateFilter, toEntryFilter, update)
+module Components.Filter exposing (Model, Msg, accountFilter, categoryFilter, dateRangeFilter, descriptionFilter, init, toAggregateDateFilter, toEntryFilter, update)
 
 import Components.Icons exposing (wand)
 import Components.Input exposing (button, disabledButton)
@@ -161,8 +161,8 @@ toEntryFilter model =
            )
 
 
-toAggregateFilter : Model msg -> Filter.AggregateFilter
-toAggregateFilter model =
+toAggregateDateFilter : Model msg -> Filter.AggregateFilter
+toAggregateDateFilter model =
     filterAggregateMonthRange (RangeSlider.min model.dateRange) (RangeSlider.max model.dateRange)
 
 

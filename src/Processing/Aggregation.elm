@@ -1,9 +1,9 @@
-module Processing.Aggregation exposing (Aggregate, MonthAggregate, aggregate, startDate, startingBalances)
+module Processing.Aggregation exposing (CellValue, MonthAggregate, aggregate, startDate)
 
-import Dict exposing (Dict)
 import List.Extra
+import Maybe.Extra
 import Persistence.Account exposing (Account)
-import Processing.Aggregator exposing (Aggregator)
+import Processing.Aggregator exposing (AggregationType, Aggregator)
 import Processing.BookEntry exposing (BookEntry, Categorization(..), EntrySplit)
 import Util.List exposing (partitionWith)
 import Util.YearMonth as YearMonth exposing (YearMonth)
@@ -11,23 +11,15 @@ import Util.YearMonth as YearMonth exposing (YearMonth)
 
 type alias MonthAggregate =
     { month : YearMonth
-    , columns : Dict String Int -- title -> Amount}
+    , values : List CellValue
     }
 
 
-type alias Aggregate =
-    { aggregators : List String
-    , rows : List MonthAggregate
+type alias CellValue =
+    { label : String
+    , aggregationType : AggregationType
+    , value : Int
     }
-
-
-startingBalances : List Account -> Dict String Int
-startingBalances accounts =
-    Dict.fromList
-        ([]
-            ++ (accounts |> List.map (\a -> ( a.name, a.start.amount )))
-            ++ (accounts |> List.map (.start >> .amount) |> List.sum |> (\s -> [ ( "Balance", s ) ]))
-        )
 
 
 startDate : List Account -> YearMonth
@@ -38,14 +30,8 @@ startDate accounts =
         |> Maybe.withDefault YearMonth.zero
 
 
-aggregate : YearMonth -> Dict String Int -> List Aggregator -> List BookEntry -> Aggregate
-aggregate start initialSums aggregators bookEntries =
-    Aggregate (List.map .title aggregators)
-        (aggregateMonthly start initialSums aggregators bookEntries)
-
-
-aggregateMonthly : YearMonth -> Dict String Int -> List Aggregator -> List BookEntry -> List MonthAggregate
-aggregateMonthly month initialSums aggregators bookEntries =
+aggregate : YearMonth -> List Aggregator -> List BookEntry -> List MonthAggregate
+aggregate month aggregators bookEntries =
     case bookEntries of
         [] ->
             []
@@ -55,45 +41,30 @@ aggregateMonthly month initialSums aggregators bookEntries =
                 ( rest, currentMonth, earlier ) =
                     nonEmpty |> partitionWith (.date >> YearMonth.fromDate >> YearMonth.compare month)
 
+                currentMonthResults : List CellValue
                 currentMonthResults =
-                    aggregateAllWith aggregators currentMonth initialSums
+                    List.map (aggregateOne currentMonth) aggregators
+
+                carryOverAggregators : List Aggregator
+                carryOverAggregators =
+                    List.map2 carryOver currentMonthResults aggregators
             in
             [ MonthAggregate month currentMonthResults ]
-                ++ aggregateMonthly (YearMonth.add 1 month) currentMonthResults aggregators rest
+                ++ aggregate (YearMonth.add 1 month) carryOverAggregators rest
 
 
-aggregateAllWith : List Aggregator -> List BookEntry -> Dict String Int -> Dict String Int
-aggregateAllWith aggregators bookEntries startingSums =
-    let
-        filteredStartingSums =
-            aggregators
-                |> List.filterMap
-                    (\a ->
-                        if a.runningSum then
-                            Dict.get a.title startingSums |> Maybe.map (\sum -> ( a.title, sum ))
-
-                        else
-                            Nothing
-                    )
-                |> Dict.fromList
-    in
-    bookEntries |> List.foldl (addToDict aggregators) filteredStartingSums
+carryOver : CellValue -> Aggregator -> Aggregator
+carryOver result aggregator =
+    { aggregator | runningSum = Maybe.Extra.next aggregator.runningSum (Just result.value) }
 
 
-addToDict : List Aggregator -> BookEntry -> Dict String Int -> Dict String Int
-addToDict aggregators entry amounts =
-    aggregators |> List.foldl (aggregateEntry entry) amounts
-
-
-aggregateEntry : BookEntry -> Aggregator -> Dict String Int -> Dict String Int
-aggregateEntry bookEntry aggregator amounts =
-    amounts
-        |> Dict.update aggregator.title
-            (\a ->
-                case a of
-                    Just n ->
-                        Just (n + aggregator.amount bookEntry)
-
-                    Nothing ->
-                        Just (aggregator.amount bookEntry)
-            )
+aggregateOne : List BookEntry -> Aggregator -> CellValue
+aggregateOne bookEntries aggregator =
+    CellValue
+        aggregator.title
+        aggregator.aggregationType
+        (List.foldl
+            (\entry sum -> sum + aggregator.amount entry)
+            (aggregator.runningSum |> Maybe.withDefault 0)
+            bookEntries
+        )

@@ -2,7 +2,7 @@ module Processing.Filter exposing (..)
 
 import Persistence.Account exposing (Account)
 import Persistence.Category exposing (Category)
-import Processing.Aggregation exposing (Aggregate)
+import Processing.Aggregation exposing (MonthAggregate)
 import Processing.BookEntry exposing (BookEntry)
 import Processing.CsvParser exposing (ParsedRow)
 import Regex
@@ -15,7 +15,7 @@ type alias EntryFilter =
 
 
 type alias AggregateFilter =
-    Aggregate -> Aggregate
+    MonthAggregate -> Bool
 
 
 type alias ParsedRowFilter =
@@ -47,9 +47,9 @@ filterEntryMonthRange min max be =
     inInclusiveMonthRange min max (YearMonth.fromDate be.date)
 
 
-filterAggregateMonthRange : YearMonth -> YearMonth -> Aggregate -> Aggregate
-filterAggregateMonthRange min max ag =
-    { ag | rows = ag.rows |> List.filter (.month >> inInclusiveMonthRange min max) }
+filterAggregateMonthRange : YearMonth -> YearMonth -> AggregateFilter
+filterAggregateMonthRange min max monthAggregate =
+    inInclusiveMonthRange min max monthAggregate.month
 
 
 filterParsedRowDateRange : Date -> Date -> ParsedRowFilter
