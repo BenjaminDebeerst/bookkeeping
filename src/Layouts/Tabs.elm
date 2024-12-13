@@ -79,6 +79,9 @@ pageTitles path =
         Settings ->
             "Settings"
 
+        Export ->
+            "Export"
+
         _ ->
             "Other"
 
@@ -97,6 +100,9 @@ pageIcons path =
         Settings ->
             Just Icons.settings
 
+        Export ->
+            Nothing
+
         _ ->
             Nothing
 
@@ -112,6 +118,7 @@ mainColumn content path toContentMsg =
         , content = content.body
         , rightCorner =
             [ Components.Tabs.Handle (toContentMsg Save) "Save" False (Just Icons.save)
+            , Components.Tabs.Handle (toContentMsg <| ChangeTo Export) "Export" False (Just Icons.triangleRight)
             , Components.Tabs.Handle (toContentMsg Close) "Close" False (Just Icons.x)
             ]
         }
