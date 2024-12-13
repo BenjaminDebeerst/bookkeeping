@@ -79,6 +79,9 @@ pageTitles path =
         Settings ->
             "Settings"
 
+        Export ->
+            "Export"
+
         _ ->
             "Other"
 
@@ -97,6 +100,9 @@ pageIcons path =
         Settings ->
             Just Icons.settings
 
+        Export ->
+            Nothing
+
         _ ->
             Nothing
 
@@ -104,7 +110,7 @@ pageIcons path =
 mainColumn : View contentMsg -> Path -> (Msg -> contentMsg) -> Element contentMsg
 mainColumn content path toContentMsg =
     Components.Tabs.tabbedContent
-        { allTabs = [ Path.AddData, Path.Book, Path.Aggregation, Path.Settings ]
+        { allTabs = [ Path.AddData, Path.Book, Path.Aggregation, Path.Settings, Path.Export ]
         , selectedTab = path
         , tabTitles = pageTitles
         , tabIcons = pageIcons
