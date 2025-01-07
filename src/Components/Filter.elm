@@ -1,4 +1,4 @@
-module Components.Filter exposing (Model, Msg, accountFilter, categoryFilter, dateRangeFilter, descriptionFilter, init, toAggregateDateFilter, toEntryFilter, update)
+module Components.Filter exposing (Model, Msg(..), accountFilter, categoryFilter, dateRangeFilter, descriptionFilter, init, toAggregateDateFilter, toEntryFilter, update)
 
 import Components.Icons exposing (wand)
 import Components.Input exposing (button, disabledButton)
@@ -25,7 +25,7 @@ import Util.Formats exposing (formatYearMonthNumeric)
 import Util.YearMonth as YearMonth exposing (YearMonth)
 
 
-type alias Model msg =
+type alias Model =
     { dateRange : RangeSlider.Model YearMonth
     , descr : String
     , descrIsRegex : Bool
@@ -35,12 +35,11 @@ type alias Model msg =
     , accounts : List Account
     , allCategories : List Category
     , filterCategories : List Category
-    , lift : Msg -> msg
     }
 
 
-init : List Account -> List Category -> List Date -> (Msg -> msg) -> Model msg
-init accounts categories dates lift =
+init : List Account -> List Category -> List Date -> Model
+init accounts categories dates =
     let
         ( dateRangeStart, tail ) =
             dateRange dates accounts |> List.Extra.uncons |> Maybe.withDefault ( YearMonth.zero, [] )
@@ -54,7 +53,6 @@ init accounts categories dates lift =
     , accounts = accounts
     , allCategories = categories
     , filterCategories = categories
-    , lift = lift
     }
 
 
@@ -79,9 +77,11 @@ type Msg
     | AddAccount Account
     | RemoveAccount Account
     | SetAccounts (List Account)
+    | ApplyPattern Category
+    | SavePattern String Category
 
 
-update : Msg -> Model msg -> ( Model msg, Effect msg )
+update : Msg -> Model -> ( Model, Effect Msg )
 update msg model =
     case msg of
         DateRange subMsg ->
@@ -138,8 +138,14 @@ update msg model =
         SetAccounts list ->
             ( { model | accounts = list }, Effect.none )
 
+        ApplyPattern _ ->
+            ( model, Effect.none )
 
-toEntryFilter : Model msg -> List Filter.EntryFilter
+        SavePattern _ _ ->
+            ( model, Effect.none )
+
+
+toEntryFilter : Model -> List Filter.EntryFilter
 toEntryFilter model =
     []
         ++ [ filterEntryMonthRange (RangeSlider.min model.dateRange) (RangeSlider.max model.dateRange) ]
@@ -161,17 +167,17 @@ toEntryFilter model =
            )
 
 
-toAggregateDateFilter : Model msg -> Filter.AggregateFilter
+toAggregateDateFilter : Model -> Filter.AggregateFilter
 toAggregateDateFilter model =
     filterAggregateMonthRange (RangeSlider.min model.dateRange) (RangeSlider.max model.dateRange)
 
 
-dateRangeFilter : Model msg -> Element msg
+dateRangeFilter : Model -> Element Msg
 dateRangeFilter model =
-    RangeSlider.view "Date range" formatYearMonthNumeric model.dateRange |> Element.map (DateRange >> model.lift)
+    RangeSlider.view "Date range" formatYearMonthNumeric model.dateRange |> Element.map DateRange
 
 
-descriptionFilter : (Category -> msg) -> (String -> Category -> msg) -> Model msg -> Element msg
+descriptionFilter : (Category -> Msg) -> (String -> Category -> Msg) -> Model -> Element Msg
 descriptionFilter apply save model =
     column [ width fill, spacing size.s ]
         ([ let
@@ -184,19 +190,19 @@ descriptionFilter apply save model =
            in
            row [ spacing size.m, width fill ]
             [ Input.text ([ spacing size.m ] ++ inputBorder)
-                { onChange = model.lift << Descr
+                { onChange = Descr
                 , text = model.descr
                 , placeholder = Just <| placeholder [] <| text "Description"
                 , label = labelLeft [ padding 0 ] <| text "Description"
                 }
             , Input.checkbox [ width shrink ]
-                { onChange = model.lift << DescrRegex
+                { onChange = DescrRegex
                 , icon = Input.defaultCheckbox
                 , checked = model.descrIsRegex
                 , label = labelRight [] <| text <| "Regex"
                 }
             , if model.descrIsRegex then
-                wand [ tooltip below "Create matching pattern from filter", onClick (model.lift PatternCreateStart) ] size.l
+                wand [ tooltip below "Create matching pattern from filter", onClick PatternCreateStart ] size.l
 
               else
                 wand [ tooltip below "Use Regex to create matching pattern from filter", Font.color color.grey ] size.l
@@ -211,7 +217,7 @@ descriptionFilter apply save model =
                             [ el [ alignRight ] <| text "Categorize as: "
                             , Dropdown.view (patternCategoryDropdownConfig model) model dropdown
                             , button (apply selectedCat) "Apply"
-                            , button (model.lift PatternAbort) "Abort"
+                            , button PatternAbort "Abort"
                             , button (save model.descr selectedCat) "Save Pattern"
                             ]
                         ]
@@ -221,7 +227,7 @@ descriptionFilter apply save model =
                             [ el [ alignRight ] <| text "Categorize as: "
                             , Dropdown.view (patternCategoryDropdownConfig model) model dropdown
                             , disabledButton "Apply"
-                            , button (model.lift PatternAbort) "Abort"
+                            , button PatternAbort "Abort"
                             , disabledButton "Save Pattern"
                             ]
                         ]
@@ -229,7 +235,7 @@ descriptionFilter apply save model =
         )
 
 
-categoryFilter : Model msg -> Element msg
+categoryFilter : Model -> Element Msg
 categoryFilter model =
     row [ spacing size.m ]
         [ text "Category"
@@ -237,7 +243,7 @@ categoryFilter model =
         ]
 
 
-accountFilter : List Account -> Model msg -> Element msg
+accountFilter : List Account -> Model -> Element Msg
 accountFilter accounts model =
     Element.row [ spacing size.m, paddingEach { top = size.xs, bottom = 0, left = 0, right = 0 } ]
         ([ text "Accounts"
@@ -245,10 +251,10 @@ accountFilter accounts model =
             { onChange =
                 \on ->
                     if on then
-                        model.lift (SetAccounts accounts)
+                        SetAccounts accounts
 
                     else
-                        model.lift (SetAccounts [])
+                        SetAccounts []
             , icon = Input.defaultCheckbox
             , checked = List.length model.accounts == List.length accounts
             , label = labelRight [] <| text <| "All"
@@ -262,29 +268,29 @@ accountFilter accounts model =
         )
 
 
-accountCheckbox : Model msg -> Account -> Element msg
+accountCheckbox : Model -> Account -> Element Msg
 accountCheckbox model acc =
     Input.checkbox []
         { onChange =
             \add ->
                 if add then
-                    model.lift <| AddAccount acc
+                    AddAccount acc
 
                 else
-                    model.lift <| RemoveAccount acc
+                    RemoveAccount acc
         , icon = Input.defaultCheckbox
         , checked = List.member acc model.accounts
         , label = labelRight [] <| text <| acc.name
         }
 
 
-patternCategoryDropdownConfig : Model msg -> Dropdown.Config Category msg (Model msg)
+patternCategoryDropdownConfig : Model -> Dropdown.Config Category Msg Model
 patternCategoryDropdownConfig model =
     Dropdown.filterable
         { itemsFromModel = .allCategories
         , selectionFromModel = .creatingPattern >> Maybe.andThen Tuple.first
-        , dropdownMsg = PatternCategoryDropdown >> model.lift
-        , onSelectMsg = PatternCategorySelected >> model.lift
+        , dropdownMsg = PatternCategoryDropdown
+        , onSelectMsg = PatternCategorySelected
         , itemToPrompt = .name >> itemPrompt
         , itemToElement = itemElement
         , itemToText = \c -> c.name ++ "|" ++ c.short
@@ -294,13 +300,13 @@ patternCategoryDropdownConfig model =
         |> withSearchAttributes [ width (shrink |> minimum 120) ]
 
 
-categoryFilterDropdownConfig : Model msg -> Dropdown.Config Category msg (Model msg)
+categoryFilterDropdownConfig : Model -> Dropdown.Config Category Msg Model
 categoryFilterDropdownConfig model =
     Dropdown.filterable
         { itemsFromModel = \m -> allCategories :: uncategorized :: m.filterCategories
         , selectionFromModel = .category >> Just
-        , dropdownMsg = CategoryDropDown >> model.lift
-        , onSelectMsg = Maybe.withDefault allCategories >> CategorySelected >> model.lift
+        , dropdownMsg = CategoryDropDown
+        , onSelectMsg = Maybe.withDefault allCategories >> CategorySelected
         , itemToPrompt = .name >> itemPrompt
         , itemToElement = itemElement
         , itemToText = \c -> c.name ++ "|" ++ c.short

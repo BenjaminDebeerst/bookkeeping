@@ -1,6 +1,6 @@
 module Pages.Book exposing (Model, Msg, page)
 
-import Components.Filter as Filter
+import Components.Filter as Filter exposing (Msg(..))
 import Components.Icons exposing (checkMark, edit, triangleDown, triangleUp, warnTriangle)
 import Components.Input exposing (button)
 import Components.Notification as Notification exposing (Notification, delay)
@@ -52,7 +52,7 @@ type alias Model =
     , editing : Bool
     , categoryEdits : Dict Int CatAttempt
     , commentEdits : Dict Int String
-    , filters : Filter.Model Msg
+    , filters : Filter.Model
     , toBeDeleted : List Int
     }
 
@@ -74,7 +74,7 @@ init accounts categories entries =
     , editing = False
     , categoryEdits = Dict.empty
     , commentEdits = Dict.empty
-    , filters = Filter.init accounts categories (List.map .date entries) Filter
+    , filters = Filter.init accounts categories (List.map .date entries)
     , toBeDeleted = []
     }
 
@@ -85,8 +85,6 @@ init accounts categories entries =
 
 type Msg
     = Filter Filter.Msg
-    | ApplyPattern Category
-    | SavePattern String Category
     | OrderBy (Ordering BookEntry)
     | Edit
     | EditCategory Int Int String
@@ -103,14 +101,7 @@ type Msg
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
 update data msg model =
     case msg of
-        Filter filterMsg ->
-            let
-                ( filters, effect ) =
-                    Filter.update filterMsg model.filters
-            in
-            ( { model | filters = filters }, effect )
-
-        SavePattern regex cat ->
+        Filter (SavePattern regex cat) ->
             let
                 updatedCat =
                     { cat | rules = cat.rules ++ [ regex ] }
@@ -119,7 +110,7 @@ update data msg model =
             , Effect.batch [ editCategory updatedCat data |> Effect.store, delay 5 ClearNotification ]
             )
 
-        ApplyPattern cat ->
+        Filter (ApplyPattern cat) ->
             let
                 ( entries, _ ) =
                     getEntriesAndErrors data (Filter.toEntryFilter model.filters) model.ordering
@@ -140,6 +131,13 @@ update data msg model =
             ( { model | notification = notification }
             , Effect.batch [ updateEntries modified data |> Effect.store, delay 5 ClearNotification ]
             )
+
+        Filter filterMsg ->
+            let
+                ( filters, effect ) =
+                    Filter.update filterMsg model.filters
+            in
+            ( { model | filters = filters }, effect |> Effect.map Filter )
 
         OrderBy ordering ->
             ( { model | ordering = ordering }, Effect.none )
@@ -265,7 +263,7 @@ undo data model message =
         ]
 
 
-showFilters : Filter.Model Msg -> List Account -> Element Msg
+showFilters : Filter.Model -> List Account -> Element Msg
 showFilters model accounts =
     column [ spacing size.m ]
         [ Filter.accountFilter accounts model
@@ -273,6 +271,7 @@ showFilters model accounts =
         , Filter.descriptionFilter ApplyPattern SavePattern model
         , Filter.categoryFilter model
         ]
+        |> Element.map Filter
 
 
 showActions : Model -> List Int -> Element Msg

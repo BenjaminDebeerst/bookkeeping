@@ -60,7 +60,7 @@ type Tab
 
 
 type alias Model =
-    { filters : Filter.Model Msg
+    { filters : Filter.Model
     , ordering : Ordering MonthAggregate
     , tab : Tab
     , edit : Maybe ( YearMonth, String )
@@ -123,7 +123,7 @@ initFromData data =
 
 init : List Account -> List AggregationGroup -> List RawEntry -> Model
 init accounts groups entries =
-    { filters = Filter.init accounts [] (List.map .date entries) Filter
+    { filters = Filter.init accounts [] (List.map .date entries)
     , ordering = desc aggregateMonth
     , tab = Overview
     , edit = Nothing
@@ -159,7 +159,7 @@ update data msg model =
                 ( filters, effect ) =
                     Filter.update filterMsg model.filters
             in
-            ( { model | filters = filters }, effect )
+            ( { model | filters = filters }, effect |> Effect.map Filter )
 
         ( OrderBy ordering, _ ) ->
             ( { model | ordering = ordering }, Effect.none )
@@ -446,6 +446,7 @@ viewFilters model accounts =
         [ Filter.accountFilter accounts model.filters
         , Filter.dateRangeFilter model.filters
         ]
+        |> Element.map Filter
 
 
 showAggResults : Audits -> Maybe ( YearMonth, String ) -> List MonthAggregate -> List (IndexedColumn MonthAggregate Msg) -> Element Msg
