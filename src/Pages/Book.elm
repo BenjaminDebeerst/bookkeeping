@@ -31,6 +31,8 @@ import Result.Extra
 import Route exposing (Route)
 import Set
 import Shared exposing (dataSummary)
+import Shared.Model exposing (AppState)
+import Time.Date exposing (Date)
 import Util.Formats exposing (formatDate, formatEuro, formatEuroStr)
 import Util.Layout exposing (dataInit, dataUpdate, dataView)
 
@@ -38,7 +40,7 @@ import Util.Layout exposing (dataInit, dataUpdate, dataView)
 page : Shared.Model -> Route () -> Page Model Msg
 page shared _ =
     Page.new
-        { init = \_ -> dataInit shared (init [] [] []) initFromData
+        { init = \_ -> dataInit shared (init [] [] [] Nothing) initFromData
         , update = dataUpdate shared update
         , view = dataView shared "Book" view
         , subscriptions = \_ -> Sub.none
@@ -62,19 +64,23 @@ type CatAttempt
     | Known String Categorization
 
 
-initFromData : Data -> Model
-initFromData data =
-    init (Dict.values data.accounts) (Dict.values data.categories) (Dict.values data.rawEntries.entries)
+initFromData : Data -> AppState -> Model
+initFromData data state =
+    let
+        currentDateRange =
+            Maybe.map2 Tuple.pair state.min state.max
+    in
+    init (Dict.values data.accounts) (Dict.values data.categories) (Dict.values data.rawEntries.entries) currentDateRange
 
 
-init : List Account -> List Category -> List RawEntry -> Model
-init accounts categories entries =
+init : List Account -> List Category -> List RawEntry -> Maybe ( Date, Date ) -> Model
+init accounts categories entries currentDateRange =
     { notification = Notification.None
     , ordering = desc bookEntryDate
     , editing = False
     , categoryEdits = Dict.empty
     , commentEdits = Dict.empty
-    , filters = Filter.init accounts categories (List.map .date entries)
+    , filters = Filter.init accounts categories (List.map .date entries) currentDateRange
     , toBeDeleted = []
     }
 
@@ -136,8 +142,11 @@ update data msg model =
             let
                 ( filters, effect ) =
                     Filter.update filterMsg model.filters
+
+                ( minDate, maxDate ) =
+                    Filter.getDateRange filters
             in
-            ( { model | filters = filters }, effect |> Effect.map Filter )
+            ( { model | filters = filters }, Effect.batch [ effect |> Effect.map Filter, Effect.setDateRange (Just minDate) (Just maxDate) ] )
 
         OrderBy ordering ->
             ( { model | ordering = ordering }, Effect.none )

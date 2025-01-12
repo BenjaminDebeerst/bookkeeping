@@ -1,4 +1,4 @@
-module Components.Filter exposing (Model, Msg(..), accountFilter, categoryFilter, dateRangeFilter, descriptionFilter, init, toAggregateDateFilter, toEntryFilter, update)
+module Components.Filter exposing (Model, Msg(..), accountFilter, categoryFilter, dateRangeFilter, descriptionFilter, getDateRange, init, toAggregateDateFilter, toEntryFilter, update)
 
 import Components.Icons exposing (wand)
 import Components.Input exposing (button, disabledButton)
@@ -38,13 +38,17 @@ type alias Model =
     }
 
 
-init : List Account -> List Category -> List Date -> Model
-init accounts categories dates =
+init : List Account -> List Category -> List Date -> Maybe ( Date, Date ) -> Model
+init accounts categories dates initialRange =
     let
         ( dateRangeStart, tail ) =
             dateRange dates accounts |> List.Extra.uncons |> Maybe.withDefault ( YearMonth.zero, [] )
+
+        initialSelection : Selection YearMonth
+        initialSelection =
+            initialRange |> Maybe.map (\( min, max ) -> Range (YearMonth.fromDate min) (YearMonth.fromDate max)) |> Maybe.withDefault (Last 12)
     in
-    { dateRange = RangeSlider.init dateRangeStart tail True (Last 12)
+    { dateRange = RangeSlider.init dateRangeStart tail True initialSelection
     , descr = ""
     , descrIsRegex = False
     , creatingPattern = Nothing
@@ -368,3 +372,8 @@ allCategories =
 
 uncategorized =
     category -2 "-- Uncategorized --" "" Internal []
+
+
+getDateRange : Model -> ( Date, Date )
+getDateRange model =
+    RangeSlider.getRange model.dateRange |> Tuple.mapBoth YearMonth.toDate YearMonth.toDate

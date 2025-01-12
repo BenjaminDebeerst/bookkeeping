@@ -1,4 +1,4 @@
-module Components.RangeSlider exposing (Model, Selection(..), init, max, min, update, view)
+module Components.RangeSlider exposing (Model, Selection(..), getRange, init, max, min, update, view)
 
 {-| A slider input with two thumbs.
 
@@ -104,6 +104,11 @@ rangeIndices msg options =
 
         Range l u ->
             ( indexOfMin l, indexOfMax u )
+
+
+getRange : Model a -> ( a, a )
+getRange (Model m) =
+    ( get m.options m.min, get m.options m.max )
 
 
 range : Cons a -> Int -> Int -> Selection a

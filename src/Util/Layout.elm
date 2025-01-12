@@ -9,7 +9,7 @@ import Element exposing (..)
 import Persistence.Data exposing (Data)
 import Route.Path
 import Shared exposing (Model)
-import Shared.Model exposing (Model(..))
+import Shared.Model exposing (AppState, Model(..))
 import View exposing (View)
 
 
@@ -24,7 +24,7 @@ dataView shared pageTitle content model =
             Problem _ ->
                 Element.text "Error"
 
-            Loaded data ->
+            Loaded data _ ->
                 content data model
     }
 
@@ -36,18 +36,18 @@ type alias UpdateFn msg model =
 dataUpdate : Shared.Model -> (Data -> UpdateFn msg model) -> UpdateFn msg model
 dataUpdate shared update =
     case shared of
-        Loaded data ->
+        Loaded data _ ->
             update data
 
         _ ->
             \_ model -> ( model, Effect.pushRoutePath Route.Path.Home_ )
 
 
-dataInit : Shared.Model -> model -> (Data -> model) -> ( model, Effect msg )
+dataInit : Shared.Model -> model -> (Data -> AppState -> model) -> ( model, Effect msg )
 dataInit shared dummy init =
     case shared of
-        Loaded data ->
-            ( init data, Effect.none )
+        Loaded data query ->
+            ( init data query, Effect.none )
 
         _ ->
             ( dummy, Effect.pushRoutePath Route.Path.Home_ )

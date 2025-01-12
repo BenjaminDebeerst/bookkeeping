@@ -15,6 +15,7 @@ port module Effect exposing
     , saveToLocalStorage
     , sendCmd
     , sendMsg
+    , setDateRange
     , store
     , toCmd
     , truncateDatabase
@@ -29,6 +30,7 @@ import Route.Path
 import Shared.Model
 import Shared.Msg exposing (Msg(..))
 import Task
+import Time.Date exposing (Date)
 import Url exposing (Url)
 
 
@@ -179,6 +181,15 @@ store data =
 saveToLocalStorage : Data -> Effect msg
 saveToLocalStorage data =
     SaveToLocalStorage data
+
+
+
+-- GLOBAL APP STATE
+
+
+setDateRange : Maybe Date -> Maybe Date -> Effect msg
+setDateRange min max =
+    SendSharedMsg <| SetDateRange min max
 
 
 
