@@ -89,7 +89,7 @@ type Msg
     | StoreNewProfile ImportProfile
     | ProfileBuilderMsg ProfileBuilder.Msg
     | ChooseAccount Account
-    | FilterMsg RangeSlider.Selection
+    | FilterMsg (RangeSlider.Selection Date)
     | AbortImport
     | Store (List ParsedRow) (List String) Account ImportProfile
     | Forward

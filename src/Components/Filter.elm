@@ -65,7 +65,7 @@ dateRange dates accounts =
 
 
 type Msg
-    = DateRange RangeSlider.Selection
+    = DateRange (RangeSlider.Selection YearMonth)
     | Descr String
     | DescrRegex Bool
     | PatternCreateStart
