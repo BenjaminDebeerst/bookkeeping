@@ -1,4 +1,4 @@
-module Components.RangeSlider exposing (Model, Selection(..), init, max, min, update, view)
+module Components.RangeSlider exposing (Model, Selection(..), getRange, init, max, min, update, view)
 
 {-| A slider input with two thumbs.
 
@@ -22,10 +22,10 @@ import Element.Font as Font
 import Element.Input as Input exposing (Label, Thumb, labelHidden)
 
 
-type Selection
+type Selection a
     = All
     | Last Int
-    | Range Int Int
+    | Range a a
 
 
 type Side
@@ -59,11 +59,11 @@ max (Model m) =
     get m.options m.max
 
 
-init : a -> List a -> Bool -> Selection -> Model a
+init : a -> List a -> Bool -> Selection a -> Model a
 init head tail showQuickSelect initialSelection =
     let
         ( lower, upper ) =
-            range initialSelection (List.length tail + 1)
+            rangeIndices initialSelection (Cons.cons head tail)
     in
     Model
         { options = Cons.cons head tail
@@ -74,18 +74,28 @@ init head tail showQuickSelect initialSelection =
         }
 
 
-update : Selection -> Model a -> Model a
+update : Selection a -> Model a -> Model a
 update msg (Model m) =
     let
         ( lower, upper ) =
-            range msg (Cons.length m.options)
+            rangeIndices msg m.options
     in
     Model { m | min = lower, max = upper }
 
 
-range : Selection -> Int -> ( Int, Int )
-range selection n =
-    case selection of
+rangeIndices : Selection a -> Cons a -> ( Int, Int )
+rangeIndices msg options =
+    let
+        n =
+            Cons.length options
+
+        indexOfMin =
+            find options >> Maybe.withDefault 0
+
+        indexOfMax =
+            find options >> Maybe.withDefault (n - 1)
+    in
+    case msg of
         All ->
             ( 0, n - 1 )
 
@@ -93,7 +103,25 @@ range selection n =
             ( Basics.max 0 (n - count), n - 1 )
 
         Range l u ->
-            ( l, u )
+            ( indexOfMin l, indexOfMax u )
+
+
+getRange : Model a -> ( a, a )
+getRange (Model m) =
+    ( get m.options m.min, get m.options m.max )
+
+
+range : Cons a -> Int -> Int -> Selection a
+range options i j =
+    Range (get options i) (get options j)
+
+
+find : Cons a -> a -> Maybe Int
+find options a =
+    Cons.indexedMap Tuple.pair options
+        |> Cons.filter (\( _, b ) -> b == a)
+        |> List.map Tuple.first
+        |> List.head
 
 
 get : Cons a -> Int -> a
@@ -101,7 +129,7 @@ get options i =
     options |> Cons.drop i |> List.head |> Maybe.withDefault (Cons.head options)
 
 
-view : String -> (a -> String) -> Model a -> Element Selection
+view : String -> (a -> String) -> Model a -> Element (Selection a)
 view label format model =
     case model of
         Model m ->
@@ -136,13 +164,13 @@ view label format model =
                             ( m.min + 1 - pad, m.min )
 
                 sliderMin =
-                    slider Min lSize 0 lMax m.min (round >> (\i -> Range i m.max))
+                    slider Min lSize 0 lMax m.min (round >> (\i -> range m.options i m.max))
 
                 sliderMax =
-                    slider Max rSize rMin (n - 1) m.max (round >> (\i -> Range m.min i))
+                    slider Max rSize rMin (n - 1) m.max (round >> (\i -> range m.options m.min i))
 
                 btn msg s =
-                    if ( m.min, m.max ) == range msg (Cons.length m.options) then
+                    if ( m.min, m.max ) == rangeIndices msg m.options then
                         disabledButton s
 
                     else
@@ -192,7 +220,7 @@ thumbSize =
     size.m
 
 
-slider : Side -> Int -> Int -> Int -> Int -> (Float -> Selection) -> Element Selection
+slider : Side -> Int -> Int -> Int -> Int -> (Float -> Selection a) -> Element (Selection a)
 slider side n minIdx maxIdx valIdx onChangeMsg =
     let
         ( label, handle ) =

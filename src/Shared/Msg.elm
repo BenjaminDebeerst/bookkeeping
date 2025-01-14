@@ -1,6 +1,7 @@
 module Shared.Msg exposing (Msg(..))
 
 import Persistence.Data exposing (Data)
+import Time.Date exposing (Date)
 
 
 {-| Normally, this value would live in "Shared.elm"
@@ -15,3 +16,4 @@ type Msg
     | LoadDatabase String
     | Update Data
     | CloseDB
+    | SetDateRange (Maybe Date) (Maybe Date)

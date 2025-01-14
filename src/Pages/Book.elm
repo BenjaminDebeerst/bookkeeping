@@ -1,6 +1,6 @@
 module Pages.Book exposing (Model, Msg, page)
 
-import Components.Filter as Filter
+import Components.Filter as Filter exposing (Msg(..))
 import Components.Icons exposing (checkMark, edit, triangleDown, triangleUp, warnTriangle)
 import Components.Input exposing (button)
 import Components.Notification as Notification exposing (Notification, delay)
@@ -31,6 +31,8 @@ import Result.Extra
 import Route exposing (Route)
 import Set
 import Shared exposing (dataSummary)
+import Shared.Model exposing (AppState)
+import Time.Date exposing (Date)
 import Util.Formats exposing (formatDate, formatEuro, formatEuroStr)
 import Util.Layout exposing (dataInit, dataUpdate, dataView)
 
@@ -38,7 +40,7 @@ import Util.Layout exposing (dataInit, dataUpdate, dataView)
 page : Shared.Model -> Route () -> Page Model Msg
 page shared _ =
     Page.new
-        { init = \_ -> dataInit shared (init [] [] []) initFromData
+        { init = \_ -> dataInit shared (init [] [] [] Nothing) initFromData
         , update = dataUpdate shared update
         , view = dataView shared "Book" view
         , subscriptions = \_ -> Sub.none
@@ -52,7 +54,7 @@ type alias Model =
     , editing : Bool
     , categoryEdits : Dict Int CatAttempt
     , commentEdits : Dict Int String
-    , filters : Filter.Model Msg
+    , filters : Filter.Model
     , toBeDeleted : List Int
     }
 
@@ -62,19 +64,23 @@ type CatAttempt
     | Known String Categorization
 
 
-initFromData : Data -> Model
-initFromData data =
-    init (Dict.values data.accounts) (Dict.values data.categories) (Dict.values data.rawEntries.entries)
+initFromData : Data -> AppState -> Model
+initFromData data state =
+    let
+        currentDateRange =
+            Maybe.map2 Tuple.pair state.min state.max
+    in
+    init (Dict.values data.accounts) (Dict.values data.categories) (Dict.values data.rawEntries.entries) currentDateRange
 
 
-init : List Account -> List Category -> List RawEntry -> Model
-init accounts categories entries =
+init : List Account -> List Category -> List RawEntry -> Maybe ( Date, Date ) -> Model
+init accounts categories entries currentDateRange =
     { notification = Notification.None
     , ordering = desc bookEntryDate
     , editing = False
     , categoryEdits = Dict.empty
     , commentEdits = Dict.empty
-    , filters = Filter.init accounts categories (List.map .date entries) Filter
+    , filters = Filter.init accounts categories (List.map .date entries) currentDateRange
     , toBeDeleted = []
     }
 
@@ -85,8 +91,6 @@ init accounts categories entries =
 
 type Msg
     = Filter Filter.Msg
-    | ApplyPattern Category
-    | SavePattern String Category
     | OrderBy (Ordering BookEntry)
     | Edit
     | EditCategory Int Int String
@@ -103,14 +107,7 @@ type Msg
 update : Data -> Msg -> Model -> ( Model, Effect Msg )
 update data msg model =
     case msg of
-        Filter filterMsg ->
-            let
-                ( filters, effect ) =
-                    Filter.update filterMsg model.filters
-            in
-            ( { model | filters = filters }, effect )
-
-        SavePattern regex cat ->
+        Filter (SavePattern regex cat) ->
             let
                 updatedCat =
                     { cat | rules = cat.rules ++ [ regex ] }
@@ -119,7 +116,7 @@ update data msg model =
             , Effect.batch [ editCategory updatedCat data |> Effect.store, delay 5 ClearNotification ]
             )
 
-        ApplyPattern cat ->
+        Filter (ApplyPattern cat) ->
             let
                 ( entries, _ ) =
                     getEntriesAndErrors data (Filter.toEntryFilter model.filters) model.ordering
@@ -140,6 +137,16 @@ update data msg model =
             ( { model | notification = notification }
             , Effect.batch [ updateEntries modified data |> Effect.store, delay 5 ClearNotification ]
             )
+
+        Filter filterMsg ->
+            let
+                ( filters, effect ) =
+                    Filter.update filterMsg model.filters
+
+                ( minDate, maxDate ) =
+                    Filter.getDateRange filters
+            in
+            ( { model | filters = filters }, Effect.batch [ effect |> Effect.map Filter, Effect.setDateRange (Just minDate) (Just maxDate) ] )
 
         OrderBy ordering ->
             ( { model | ordering = ordering }, Effect.none )
@@ -265,7 +272,7 @@ undo data model message =
         ]
 
 
-showFilters : Filter.Model Msg -> List Account -> Element Msg
+showFilters : Filter.Model -> List Account -> Element Msg
 showFilters model accounts =
     column [ spacing size.m ]
         [ Filter.accountFilter accounts model
@@ -273,6 +280,7 @@ showFilters model accounts =
         , Filter.descriptionFilter ApplyPattern SavePattern model
         , Filter.categoryFilter model
         ]
+        |> Element.map Filter
 
 
 showActions : Model -> List Int -> Element Msg

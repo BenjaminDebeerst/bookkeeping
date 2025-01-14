@@ -36,7 +36,7 @@ type alias Model =
 init : Shared.Model -> ( Model, Effect Msg )
 init shared =
     case shared of
-        Loaded _ ->
+        Loaded _ _ ->
             ( {}, Effect.pushRoutePath Path.Book )
 
         _ ->
@@ -53,7 +53,7 @@ type Msg
 update : Shared.Model -> Msg -> Model -> ( Model, Effect Msg )
 update shared msg model =
     case shared of
-        Loaded _ ->
+        Loaded _ _ ->
             ( {}, Effect.pushRoutePath Path.Book )
 
         _ ->
@@ -91,7 +91,7 @@ view sharedModel model =
 
 actionsFor sharedModel =
     case sharedModel of
-        Loaded _ ->
+        Loaded _ _ ->
             [ Element.none ]
 
         None ->

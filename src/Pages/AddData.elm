@@ -39,7 +39,7 @@ import Util.Layout exposing (dataInit, dataUpdate, dataView)
 page : Shared.Model -> Route () -> Page Model Msg
 page shared _ =
     Page.new
-        { init = \_ -> dataInit shared initialModel (\_ -> initialModel)
+        { init = \_ -> dataInit shared initialModel (\_ _ -> initialModel)
         , update = dataUpdate shared update
         , subscriptions = \_ -> Sub.none
         , view = dataView shared "Import Data" view
@@ -89,7 +89,7 @@ type Msg
     | StoreNewProfile ImportProfile
     | ProfileBuilderMsg ProfileBuilder.Msg
     | ChooseAccount Account
-    | FilterMsg RangeSlider.Selection
+    | FilterMsg (RangeSlider.Selection Date)
     | AbortImport
     | Store (List ParsedRow) (List String) Account ImportProfile
     | Forward
@@ -172,12 +172,19 @@ updateLoaded data loaded msg =
 
                 newData =
                     data |> Storage.addEntries newEntries
+
+                min =
+                    newEntries |> List.map .date |> List.Extra.minimumWith Date.compare
+
+                max =
+                    newEntries |> List.map .date |> List.Extra.maximumWith Date.compare
             in
             -- TODO add a (global) notification about the entries added
             -- model | notification = storeConfirmation (List.length newEntries)
             ( initialModel
             , Effect.batch
                 [ Effect.store newData
+                , Effect.setDateRange min max
                 , Process.sleep 10
                     |> Task.perform (\_ -> Forward)
                     |> Effect.sendCmd

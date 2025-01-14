@@ -33,6 +33,8 @@ import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (Ordering, aggregateMonth, asc, bookEntryDate, desc)
 import Route exposing (Route)
 import Shared exposing (dataSummary)
+import Shared.Model exposing (AppState)
+import Time.Date exposing (Date)
 import Util.Formats exposing (formatEuro, formatYearMonth)
 import Util.Layout exposing (dataInit, dataUpdate, dataView)
 import Util.YearMonth exposing (YearMonth)
@@ -41,7 +43,7 @@ import Util.YearMonth exposing (YearMonth)
 page : Shared.Model -> Route () -> Page Model Msg
 page shared _ =
     Page.new
-        { init = \_ -> dataInit shared (init [] [] []) initFromData
+        { init = \_ -> dataInit shared (init [] [] [] Nothing) initFromData
         , update = dataUpdate shared update
         , view = dataView shared "Monthly" view
         , subscriptions = \_ -> Sub.none
@@ -60,7 +62,7 @@ type Tab
 
 
 type alias Model =
-    { filters : Filter.Model Msg
+    { filters : Filter.Model
     , ordering : Ordering MonthAggregate
     , tab : Tab
     , edit : Maybe ( YearMonth, String )
@@ -116,14 +118,18 @@ prompt items =
             ]
 
 
-initFromData : Data -> Model
-initFromData data =
-    init (Dict.values data.accounts) [] (Dict.values data.rawEntries.entries)
+initFromData : Data -> AppState -> Model
+initFromData data state =
+    let
+        currentDateRange =
+            Maybe.map2 Tuple.pair state.min state.max
+    in
+    init (Dict.values data.accounts) [] (Dict.values data.rawEntries.entries) currentDateRange
 
 
-init : List Account -> List AggregationGroup -> List RawEntry -> Model
-init accounts groups entries =
-    { filters = Filter.init accounts [] (List.map .date entries) Filter
+init : List Account -> List AggregationGroup -> List RawEntry -> Maybe ( Date, Date ) -> Model
+init accounts groups entries currentDateRange =
+    { filters = Filter.init accounts [] (List.map .date entries) currentDateRange
     , ordering = desc aggregateMonth
     , tab = Overview
     , edit = Nothing
@@ -158,8 +164,11 @@ update data msg model =
             let
                 ( filters, effect ) =
                     Filter.update filterMsg model.filters
+
+                ( minDate, maxDate ) =
+                    Filter.getDateRange filters
             in
-            ( { model | filters = filters }, effect )
+            ( { model | filters = filters }, Effect.batch [ effect |> Effect.map Filter, Effect.setDateRange (Just minDate) (Just maxDate) ] )
 
         ( OrderBy ordering, _ ) ->
             ( { model | ordering = ordering }, Effect.none )
@@ -446,6 +455,7 @@ viewFilters model accounts =
         [ Filter.accountFilter accounts model.filters
         , Filter.dateRangeFilter model.filters
         ]
+        |> Element.map Filter
 
 
 showAggResults : Audits -> Maybe ( YearMonth, String ) -> List MonthAggregate -> List (IndexedColumn MonthAggregate Msg) -> Element Msg

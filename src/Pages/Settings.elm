@@ -18,7 +18,7 @@ import Util.Layout exposing (dataInit, dataUpdate, dataView)
 page : Shared.Model -> Route () -> Page Model Msg
 page shared route =
     Page.new
-        { init = \_ -> dataInit shared init (\_ -> init)
+        { init = \_ -> dataInit shared init (\_ _ -> init)
         , update = dataUpdate shared update
         , subscriptions = \_ -> Sub.none
         , view = dataView shared "Settings" view
