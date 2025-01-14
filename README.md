@@ -1,5 +1,15 @@
 # Bookkeeping
 
+## Status
+
+Migrating to [Beancount](https://beancount.github.io/docs/), development on this project ends.
+
+Working on this project has made the benefits of double entry accounting, while somewhat intimidating at first, very clear to me. Luckily there are tons of options out there for "real" accounting, and I'm migrating my processes to Beancount.
+
+This project now has the option to export in beancount format, making transition a breeze.
+
+## Description
+
 Simple, privacy-first, personal accounting software.
 
 Import bank statements from one or more bank accounts (via CSVs), categorize statements and get monthly overviews of your income and spending.
