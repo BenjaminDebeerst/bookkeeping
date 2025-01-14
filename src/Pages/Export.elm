@@ -1,4 +1,4 @@
-module Pages.Export exposing (Model, Msg, page)
+module Pages.Export exposing (Model, Msg, beanEntry, codeBlock, page)
 
 import Config exposing (color, size)
 import Dict
@@ -16,6 +16,7 @@ import Processing.Model exposing (getEntries)
 import Processing.Ordering exposing (asc, bookEntryDate)
 import Route exposing (Route)
 import Shared exposing (dataSummary)
+import Time.Date exposing (Date)
 import Util.Formats exposing (formatDate, formatYearMonthNumeric)
 import Util.Layout exposing (dataView)
 
@@ -115,30 +116,33 @@ catAccName cat =
         |> sanitize
 
 
+entries : Data -> List String
 entries data =
     getEntries data [] (asc bookEntryDate)
-        |> List.map
-            (\be ->
-                String.join "\n"
-                    ([ String.join " "
-                        [ formatDate be.date
-                        , "*"
-                        , "\"" ++ (be.description |> String.replace "\n" " ") ++ "\""
-                        ]
-                     , "  " ++ "Assets:" ++ (be.account.name |> sanitize) ++ "  " ++ formatEuroStr be.amount
-                     ]
-                        ++ (case be.categorization of
-                                None ->
-                                    [ "  FIXME:Uncategorized" ]
+        |> List.map (\be -> beanEntry be.date be.description be.account.name be.amount be.categorization)
 
-                                Single cat ->
-                                    [ "  " ++ catAccName cat ]
 
-                                Split pieces ->
-                                    pieces |> List.map (\p -> "  " ++ catAccName p.category ++ "  " ++ formatEuroStr -p.amount)
-                           )
-                    )
-            )
+beanEntry : Date -> String -> String -> Int -> Categorization -> String
+beanEntry date description accountName amount categorization =
+    String.join "\n"
+        ([ String.join " "
+            [ formatDate date
+            , "*"
+            , "\"" ++ (description |> String.replace "\n" " ") ++ "\""
+            ]
+         , "  " ++ "Assets:" ++ (accountName |> sanitize) ++ "  " ++ formatEuroStr amount
+         ]
+            ++ (case categorization of
+                    None ->
+                        [ "  Expenses:Uncategorized" ]
+
+                    Single cat ->
+                        [ "  " ++ catAccName cat ]
+
+                    Split pieces ->
+                        pieces |> List.map (\p -> "  " ++ catAccName p.category ++ "  " ++ formatEuroStr -p.amount)
+               )
+        )
 
 
 codeBlock : List (List String) -> Element msg

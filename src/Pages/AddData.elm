@@ -16,6 +16,7 @@ import Element.Input as Input
 import Layouts
 import List.Extra
 import Page exposing (Page)
+import Pages.Export exposing (beanEntry, codeBlock)
 import Persistence.Account exposing (Account)
 import Persistence.Category as Category exposing (Category, category)
 import Persistence.Data exposing (Data)
@@ -24,6 +25,7 @@ import Persistence.RawEntry exposing (rawEntry)
 import Persistence.Storage as Storage
 import Process
 import Processing.Annotations exposing (AnnotatedRow, AnnotatedRows, Categorization(..), annotate, categoryCell)
+import Processing.BookEntry as BookEntry
 import Processing.CategorizationRules exposing (applyAllCategorizationRules)
 import Processing.CsvParser as CsvParser exposing (ParsedRow, errorToString)
 import Processing.Model exposing (getCategoryForParsedRow)
@@ -64,6 +66,7 @@ type alias LoadedFile =
     , importProfile : Maybe ImportProfile
     , selectedAccount : Maybe Account
     , filter : RangeSlider.Model Date
+    , showAsBeancount : Bool
     }
 
 
@@ -91,6 +94,7 @@ type Msg
     | ChooseAccount Account
     | FilterMsg (RangeSlider.Selection Date)
     | AbortImport
+    | ToggleBeancount
     | Store (List ParsedRow) (List String) Account ImportProfile
     | Forward
 
@@ -128,6 +132,7 @@ updateDropArea data dropArea msg =
                         , importProfile = Nothing
                         , selectedAccount = Nothing
                         , filter = dateFilter []
+                        , showAsBeancount = False
                         }
             in
             ( SetImportOptions loaded, Effect.none )
@@ -153,6 +158,9 @@ updateLoaded data loaded msg =
 
         FilterMsg subMsg ->
             ( SetImportOptions { loaded | filter = RangeSlider.update subMsg loaded.filter }, Effect.none )
+
+        ToggleBeancount ->
+            ( SetImportOptions { loaded | showAsBeancount = not loaded.showAsBeancount }, Effect.none )
 
         Store lines newCats account profile ->
             let
@@ -351,6 +359,7 @@ actions loaded annotated =
     column [ alignRight, alignTop, spacing size.m ]
         [ storeButton
         , button AbortImport "Abort"
+        , button ToggleBeancount "Toggle Beancount View"
         ]
 
 
@@ -361,7 +370,7 @@ dataArea loaded annotated =
             CsvView.view csv
 
         ParsedData (Ok _) ->
-            viewParsedFile annotated
+            viewParsedFile annotated loaded.showAsBeancount loaded.selectedAccount
 
         ParsedData (Err error) ->
             showParseProblem error
@@ -372,10 +381,43 @@ showParseProblem error =
     column [ spacing size.m ] [ text "Could not parse the given file with the selected profile.", text (errorToString error) ]
 
 
-viewParsedFile : AnnotatedRows -> Element Msg
-viewParsedFile annotated =
+toBookEntryCategorization : Categorization -> BookEntry.Categorization
+toBookEntryCategorization c =
+    case c of
+        None ->
+            BookEntry.None
+
+        Known category ->
+            BookEntry.Single category
+
+        RuleMatch category ->
+            BookEntry.Single category
+
+        Unknown string ->
+            BookEntry.None
+
+        ParsingError string ->
+            BookEntry.None
+
+
+viewParsedFile : AnnotatedRows -> Bool -> Maybe Account -> Element Msg
+viewParsedFile annotated asBeancount account =
     if annotated.filteredRows == [] then
         text "The CSV file was empty. There's nothing to do."
+
+    else if asBeancount then
+        let
+            acccountName =
+                account |> Maybe.map .name |> Maybe.withDefault "Assets:SELECTACCOUNT"
+
+            beCat : AnnotatedRow -> BookEntry.Categorization
+            beCat r =
+                r.category |> Maybe.withDefault None |> toBookEntryCategorization
+        in
+        codeBlock
+            [ annotated.filteredRows
+                |> List.map (\r -> beanEntry r.parsedRow.date r.parsedRow.description acccountName r.parsedRow.amount (beCat r))
+            ]
 
     else
         el [ width fill, height fill ] <|
