@@ -1,12 +1,12 @@
 # Bookkeeping
 
-## Status
+## Status: Discontinued
 
-Migrating to [Beancount](https://beancount.github.io/docs/), development on this project ends.
+I have migrated to [Beancount](https://beancount.github.io/docs/), development has ended.
 
-Working on this project has made the benefits of double entry accounting, while somewhat intimidating at first, very clear to me. Luckily there are tons of options out there for "real" accounting, and I'm migrating my processes to Beancount.
+Working on this project has made the benefits of double entry accounting, while somewhat intimidating at first, very clear to me. Luckily there are tons of options out there for "real" accounting, and I have chosen Beancount and migrated to that.
 
-This project now has the option to export in beancount format, making transition a breeze.
+As one of the last changes, this project got the option to export in beancount format, making transition a breeze.
 
 ## Description
 
