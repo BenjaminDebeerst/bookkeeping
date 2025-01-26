@@ -94,7 +94,7 @@ categories =
         >> List.map
             (\cat ->
                 String.join " "
-                    [ "2022-01-01 open"
+                    [ "2019-01-01 open"
                     , catAccName cat
                     ]
             )
